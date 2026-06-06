@@ -45,7 +45,7 @@ describe('client VM packet feed', () => {
         factory.mountFileSync(luaModule, `${VFS_CORE}/${rel}`, fs.readFileSync(full))
       }
     }
-    const feed: Array<{ command: string }> = []
+    const feed: Array<{ command: string; data: unknown }> = []
     const natives = createNatives({
       emfs: FS as never,
       onNotifyUI: (e) => feed.push(e),
@@ -81,7 +81,16 @@ describe('client VM packet feed', () => {
     expect(processed).toBeGreaterThan(100)
     expect(feed.length).toBeGreaterThan(50)
     // The hallmark in-game deltas the table UI will consume.
-    expect(feed.some((e) => e.command === 'MoveCards')).toBe(true)
+    const moveEvents = feed.filter((e) => e.command === 'MoveCards') as Array<{ command: string; data: { merged?: Array<{ ids: number[]; fromArea: number; toArea: number }> } }>
+    expect(moveEvents.length).toBeGreaterThan(0)
+    // Verify the `merged` contract the cardStore reducer relies on (RoomLogic
+    // moveCards shape): each MoveCards carries merged[] with ids/fromArea/toArea.
+    const withMerged = moveEvents.filter((e) => Array.isArray(e.data?.merged) && e.data.merged.length > 0)
+    expect(withMerged.length).toBeGreaterThan(0)
+    const sampleMove = withMerged[0]!.data.merged![0]!
+    expect(Array.isArray(sampleMove.ids)).toBe(true)
+    expect(typeof sampleMove.fromArea).toBe('number')
+    expect(typeof sampleMove.toArea).toBe('number')
     lua.global.close()
   }, 30_000)
 

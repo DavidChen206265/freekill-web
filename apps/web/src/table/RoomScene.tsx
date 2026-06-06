@@ -4,6 +4,7 @@
 
 import { Stage } from './Stage.js'
 import { Photo } from './Photo.js'
+import { CardLayer } from './CardLayer.js'
 import { useGameStore } from '../stores/gameStore.js'
 
 export function RoomScene() {
@@ -22,6 +23,7 @@ export function RoomScene() {
         if (!p) return null
         return <Photo key={id} player={p} playerNum={playerNum} isSelf={id === selfId} />
       })}
+      <CardLayer />
       <div style={styles.center}>
         {!started && <span>等待开局…</span>}
       </div>

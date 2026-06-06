@@ -10,6 +10,7 @@ import type { Envelope, NotifyEnvelope, RequestEnvelope } from '@freekill-web/pr
 import { base64ToBytes } from '@freekill-web/protocol'
 import { ClientVm, type ClientVmStats, type NotifyEvent } from '../vm/clientVm.js'
 import { useGameStore } from './gameStore.js'
+import { useCardStore } from './cardStore.js'
 
 interface VmState {
   vm: ClientVm | null
@@ -45,8 +46,9 @@ export const useVmStore = create<VmState>((set, get) => ({
     set({ booting: true, error: undefined })
     const vm = new ClientVm(
       (e) => {
-        // Drive the render cache, then update the debug feed.
+        // Drive the render caches, then update the debug feed.
         useGameStore.getState().apply(e.command, e.data)
+        if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
         set((s) => ({
           notifyCounts: { ...s.notifyCounts, [e.command]: (s.notifyCounts[e.command] ?? 0) + 1 },
           recent: [e, ...s.recent].slice(0, RECENT_CAP),
@@ -100,6 +102,7 @@ export const useVmStore = create<VmState>((set, get) => ({
   reset: () => {
     get().vm?.close()
     useGameStore.getState().resetGame()
+    useCardStore.getState().reset()
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
 }))
