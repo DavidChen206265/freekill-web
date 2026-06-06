@@ -48,11 +48,17 @@ interface CardState {
   areas: Record<AreaKey, number[]>
   // cid -> known (face up)
   known: Record<number, boolean>
+  // cid -> holding_event_id (for table cards; drives Destroy*ByEvent cleanup)
+  eventIds: Record<number, number>
   // monotonically increasing; bumped each MoveCards so the anim layer can react
   moveSeq: number
   // the cards that moved in the last MoveCards (for the animation layer)
   lastMoved: { cid: number; from: AreaKey; to: AreaKey }[]
   applyMoveCards: (visibleData: unknown) => void
+  // Remove specific cards from the table pile (DestroyTableCard — by cid list).
+  destroyTableCards: (cids: number[]) => void
+  // Remove table cards whose holding_event_id >= threshold (DestroyTableCardByEvent).
+  destroyTableCardsByEvent: (eventThreshold: number) => void
   reset: () => void
 }
 
@@ -72,28 +78,31 @@ function areaKey(area: number, playerId: number): AreaKey | null {
   }
 }
 
-function asMoves(visibleData: unknown): { merged: MoveInfo[]; vis: Record<string, boolean> } {
+function asMoves(visibleData: unknown): { merged: MoveInfo[]; vis: Record<string, boolean>; eventId: number } {
   const vd = visibleData as Record<string, unknown>
   const merged = Array.isArray(vd?.merged) ? (vd.merged as MoveInfo[]) : []
+  const eventId = typeof vd?.event_id === 'number' ? vd.event_id : Number(vd?.event_id ?? 0) || 0
   // The top-level numeric-string keys are per-cid visibility flags.
   const vis: Record<string, boolean> = {}
   for (const [k, v] of Object.entries(vd ?? {})) {
     if (/^\d+$/.test(k)) vis[k] = !!v
   }
-  return { merged, vis }
+  return { merged, vis, eventId }
 }
 
 export const useCardStore = create<CardState>((set, get) => ({
   areas: { drawPile: [], tablePile: [] },
   known: {},
+  eventIds: {},
   moveSeq: 0,
   lastMoved: [],
 
   applyMoveCards: (visibleData) => {
-    const { merged, vis } = asMoves(visibleData)
+    const { merged, vis, eventId } = asMoves(visibleData)
     set((s) => {
       const areas: Record<AreaKey, number[]> = { ...s.areas }
       const known = { ...s.known }
+      const eventIds = { ...s.eventIds }
       const moved: { cid: number; from: AreaKey; to: AreaKey }[] = []
       const ensure = (k: AreaKey) => { if (!areas[k]) areas[k] = [] }
 
@@ -114,12 +123,41 @@ export const useCardStore = create<CardState>((set, get) => ({
           // Void = card leaves play; don't add anywhere.
           if (move.toArea !== CardArea.Void) areas[toKey]!.push(cid)
           if (cid !== -1 && vis[String(cid)] !== undefined) known[cid] = vis[String(cid)]!
+          // Track holding_event_id for table cards (RoomLogic.js:205) so the
+          // Destroy*ByEvent cleanup can find them; clear it when leaving the table.
+          if (toKey === 'tablePile') eventIds[cid] = eventId
+          else delete eventIds[cid]
           moved.push({ cid, from: actualFrom ?? 'drawPile', to: toKey })
         }
       }
-      return { areas, known, moveSeq: s.moveSeq + 1, lastMoved: moved }
+      return { areas, known, eventIds, moveSeq: s.moveSeq + 1, lastMoved: moved }
     })
   },
 
-  reset: () => set({ areas: { drawPile: [], tablePile: [] }, known: {}, moveSeq: 0, lastMoved: [] }),
+  destroyTableCards: (cids) => {
+    // DestroyTableCard: remove the given cids from the table pile (RoomLogic.js:548).
+    set((s) => {
+      const set2 = new Set(cids)
+      const tablePile = (s.areas.tablePile ?? []).filter((c) => !set2.has(c))
+      const eventIds = { ...s.eventIds }
+      for (const c of cids) delete eventIds[c]
+      return { areas: { ...s.areas, tablePile }, eventIds, moveSeq: s.moveSeq + 1 }
+    })
+  },
+
+  destroyTableCardsByEvent: (eventThreshold) => {
+    // DestroyTableCardByEvent: remove table cards whose holding_event_id >=
+    // threshold (RoomLogic.js:558) — clears cards from a finished event.
+    set((s) => {
+      const eventIds = { ...s.eventIds }
+      const tablePile = (s.areas.tablePile ?? []).filter((c) => {
+        const eid = eventIds[c] ?? 0
+        if (eid >= eventThreshold) { delete eventIds[c]; return false }
+        return true
+      })
+      return { areas: { ...s.areas, tablePile }, eventIds, moveSeq: s.moveSeq + 1 }
+    })
+  },
+
+  reset: () => set({ areas: { drawPile: [], tablePile: [] }, known: {}, eventIds: {}, moveSeq: 0, lastMoved: [] }),
 }))

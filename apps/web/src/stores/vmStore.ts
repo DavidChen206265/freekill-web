@@ -56,6 +56,8 @@ export const useVmStore = create<VmState>((set, get) => ({
         // Drive the render caches, then update the debug feed.
         useGameStore.getState().apply(e.command, e.data)
         if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
+        else if (e.command === 'DestroyTableCard') useCardStore.getState().destroyTableCards((e.data as number[]) ?? [])
+        else if (e.command === 'DestroyTableCardByEvent') useCardStore.getState().destroyTableCardsByEvent(Number(e.data) || 0)
         else if (e.command === 'UpdateRequestUI') useInteractionStore.getState().applyChange(e.data)
         else if (e.command === 'AskForSkillInvoke') {
           // ui_emu request (ReqInvoke OK/Cancel via UpdateRequestUI); this notify
