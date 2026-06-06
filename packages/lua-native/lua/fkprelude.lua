@@ -81,8 +81,12 @@ CppClient = {
 function CppClient.new()
   local c = setmetatable({}, { __index = CppClient })
   c._players = {}
-  c._self = makePlayer(1, "Tester", "liubei")
-  c._players[1] = c._self
+  -- Placeholder self: id 0 / empty name. The real identity arrives via the Setup
+  -- packet (ClientBase:setup -> getSelf():setId/setScreenName/setAvatar). Using an
+  -- obviously-uninitialized placeholder (not a fake "Tester") makes a missed Setup
+  -- visibly wrong instead of silently mislabeling the player.
+  c._self = makePlayer(0, "", "")
+  c._players[0] = c._self
   return c
 end
 

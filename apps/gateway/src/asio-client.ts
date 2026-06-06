@@ -27,10 +27,14 @@ export interface HandshakeResult {
   firstLobbyCommand?: string
 }
 
-// Commands that indicate the server accepted us into the lobby/room (success).
+// Commands that indicate the server accepted us (post-login). asio sends `Setup`
+// first on success (auth.cpp updateUserLoginData → createNewPlayer → lobby), then
+// EnterLobby/EnterRoom. See FreeKill server room.cpp/lobby.cpp.
 const LOBBY_OK_COMMANDS = new Set(['Setup', 'EnterLobby', 'EnterRoom', 'UpdateAvatar', 'NetworkDelayTest2'])
-// Commands that indicate a rejected login.
-const LOGIN_FAIL_COMMANDS = new Set(['ErrorDlg', 'ErrorMsg'])
+// Commands that indicate a rejected login. asio sends ErrorDlg/ErrorMsg on
+// version/uuid/password failure, and ErrorMsg + UpdatePackage on MD5 mismatch
+// (auth.cpp checkMd5), then disconnects.
+const LOGIN_FAIL_COMMANDS = new Set(['ErrorDlg', 'ErrorMsg', 'UpdatePackage'])
 
 /**
  * A live connection to asio. Emits:
@@ -49,6 +53,9 @@ export class AsioClient extends EventEmitter {
   private socket: net.Socket | null = null
   private decoder = new PacketStreamDecoder()
   private handshakeDone = false
+  // Packets that arrived pre-handshake but weren't a known OK/fail marker; replayed
+  // in order once login succeeds so nothing is lost.
+  private preHandshakeBuffer: FkPacket[] = []
   private readonly creds: { user: string; password: string; uuid: string }
 
   constructor(private readonly config: GatewayConfig, creds?: Credentials) {
@@ -113,16 +120,19 @@ export class AsioClient extends EventEmitter {
       return
     }
     if (LOBBY_OK_COMMANDS.has(pkt.command)) {
-      // Login accepted. Mark done, then re-emit this packet as the first real one.
+      // Login accepted. Mark done, replay any buffered pre-handshake packets in
+      // order, then re-emit this packet as the first real one.
       this.handshakeDone = true
       finish({ ok: true, reason: 'logged in', firstLobbyCommand: pkt.command })
+      for (const buffered of this.preHandshakeBuffer) this.emit('packet', buffered)
+      this.preHandshakeBuffer = []
       this.emit('packet', pkt)
       return
     }
-    // Any other server packet after Setup also implies acceptance.
-    this.handshakeDone = true
-    finish({ ok: true, reason: 'logged in (implicit)', firstLobbyCommand: pkt.command })
-    this.emit('packet', pkt)
+    // Unknown packet before any success/fail marker: don't assume success (that
+    // could mask a rejection arriving out of expected order). Buffer it to replay
+    // once the handshake resolves; the connect timeout guards against a stall.
+    this.preHandshakeBuffer.push(pkt)
   }
 
   private sendSetup(networkDelayTest: FkPacket): void {
@@ -145,6 +155,14 @@ export class AsioClient extends EventEmitter {
   }
 
   close(): void {
-    this.socket?.end()
+    const sock = this.socket
+    this.socket = null
+    if (!sock) return
+    // end() then destroy() to ensure the FD is released even if the peer never
+    // FIN-acks (avoids accumulating half-open sockets on browser churn — R-CONN).
+    sock.end()
+    sock.destroy()
+    this.preHandshakeBuffer = []
+    this.removeAllListeners()
   }
 }

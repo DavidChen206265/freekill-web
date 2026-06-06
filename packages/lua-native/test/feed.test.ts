@@ -84,4 +84,34 @@ describe('client VM packet feed', () => {
     expect(feed.some((e) => e.command === 'MoveCards')).toBe(true)
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!ready)('Setup overwrites the placeholder self; getDisabledPacks is config-driven', async () => {
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        const rel = path.relative(CORE, full).replace(/\\/g, '/')
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${rel}`, fs.readFileSync(full))
+      }
+    }
+    const natives = createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {}, disabledPacks: ['foo', 'bar'] })
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives, preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+
+    // A1: getDisabledPacks reflects the injected config, not a hardcoded [].
+    const disabled = await lua.doString('return fk.GetDisabledPacks()')
+    expect(JSON.parse(disabled as string)).toEqual(['foo', 'bar'])
+
+    // A4: before Setup, self is an obvious placeholder (empty name), not "Tester".
+    const beforeName = await lua.doString('return ClientInstance.client:getSelf():getScreenName()')
+    expect(beforeName).toBe('')
+
+    // Setup must set the real identity.
+    await lua.doString(`ClientCallback(ClientInstance,"Setup",cbor.encode({7,"webtester","liubei",0}),false)`)
+    const after = await lua.doString('return Self.id .. "|" .. ClientInstance.client:getSelf():getScreenName()')
+    expect(after).toBe('7|webtester')
+    lua.global.close()
+  }, 30_000)
 })

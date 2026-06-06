@@ -27,6 +27,19 @@ describe('seatLayout', () => {
     expect(p0.y).toBe(DEFAULT_STAGE.sceneHeight - 192) // bottom
     expect(p1.y).toBe(16) // roomAreaPadding — top row
   })
+
+  it('>8 players: uses arrangeManyPhotos with scale < 1, distinct slots', () => {
+    const n = 10
+    const self = seatPosition(0, n)
+    expect(self.y).toBe(DEFAULT_STAGE.sceneHeight - 192) // self still bottom
+    expect(self.scale).toBeLessThan(1) // photos shrink to fit
+    const xs = new Set<string>()
+    for (let i = 0; i < n; i++) {
+      const p = seatPosition(i, n)
+      xs.add(`${Math.round(p.x)},${Math.round(p.y)}`)
+    }
+    expect(xs.size).toBe(n) // all distinct
+  })
 })
 
 describe('gameStore reducer', () => {

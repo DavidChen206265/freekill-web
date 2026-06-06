@@ -25,7 +25,7 @@ export function Photo({ player, playerNum, isSelf }: {
   const kingdomBg = (player.kingdom && KINGDOM_COLOR[player.kingdom]) || '#2a2a30'
 
   return (
-    <div style={{ ...styles.photo, left: pos.x, top: pos.y, opacity: player.dead ? 0.4 : 1, outline: isSelf ? '2px solid #f1c40f' : 'none' }}>
+    <div style={{ ...styles.photo, left: pos.x, top: pos.y, transform: `scale(${pos.scale})`, transformOrigin: 'top left', opacity: player.dead ? 0.4 : 1, outline: isSelf ? '2px solid #f1c40f' : 'none' }}>
       <div style={{ ...styles.art, background: kingdomBg }}>
         <span style={styles.general}>{general}</span>
         {player.deputyGeneral && <span style={styles.deputy}>/ {player.deputyGeneral}</span>}

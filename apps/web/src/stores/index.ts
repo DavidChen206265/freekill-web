@@ -98,7 +98,16 @@ let loginSetup: Envelope | null = null
 
 function feedVmOrdered(env: Envelope): void {
   // Serialize VM feeds so packets are applied in arrival order despite async.
-  feedChain = feedChain.then(() => useVmStore.getState().feed(env)).catch(() => {})
+  feedChain = feedChain
+    .then(() => useVmStore.getState().feed(env))
+    .catch((err) => onVmError(`feed ${env.command}`, err))
+}
+
+// Surface VM errors instead of swallowing them (so failures aren't silent hangs).
+function onVmError(where: string, err: unknown): void {
+  const msg = err instanceof Error ? err.message : String(err)
+  console.error(`[vm] ${where} failed:`, err)
+  useVmStore.setState({ error: `${where}: ${msg}` })
 }
 
 function routeEnvelope(env: Envelope): void {
@@ -119,7 +128,7 @@ function routeEnvelope(env: Envelope): void {
       .then(() => useVmStore.getState().bootIfNeeded())
       .then(() => useVmStore.getState().feed(loginSetup ?? env)) // Setup first if present
       .then(() => { if (loginSetup) return useVmStore.getState().feed(env) })
-      .catch(() => {})
+      .catch((err) => onVmError('enter room', err))
     return
   }
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterLobby') {

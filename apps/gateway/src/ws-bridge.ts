@@ -27,6 +27,19 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
   const wss = new WebSocketServer({ port: config.wssPort })
   const log = (...a: unknown[]) => console.log('[ws-bridge]', ...a)
 
+  // Simple per-IP login rate limit (R-LOGIN): max attempts in a sliding window.
+  // Prevents password-guessing / connection floods from one source.
+  const LOGIN_MAX = 10
+  const LOGIN_WINDOW_MS = 60_000
+  const loginAttempts = new Map<string, number[]>()
+  const rateLimited = (ip: string): boolean => {
+    const now = Date.now()
+    const hits = (loginAttempts.get(ip) ?? []).filter((t) => now - t < LOGIN_WINDOW_MS)
+    hits.push(now)
+    loginAttempts.set(ip, hits)
+    return hits.length > LOGIN_MAX
+  }
+
   wss.on('connection', (ws: WebSocket, req) => {
     const peer = req.socket.remoteAddress ?? '?'
     log(`browser connected from ${peer}`)
@@ -37,6 +50,11 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
     const startLogin = (creds?: { user?: string; password?: string; uuid?: string }) => {
       if (loginStarted) return
       loginStarted = true
+      if (rateLimited(peer)) {
+        log(`rate-limited login from ${peer}`)
+        if (alive) ws.close(4029, 'too many login attempts')
+        return
+      }
       // Credentials: browser-supplied (preferred) else config defaults. Never log.
       asio = new AsioClient(config, creds && creds.user && creds.password
         ? { user: creds.user, password: creds.password, uuid: creds.uuid }
@@ -59,13 +77,17 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
         .then((res) => {
           log(`handshake: ok=${res.ok} reason=${res.reason} first=${res.firstLobbyCommand ?? '-'}`)
           if (ws.readyState === ws.OPEN) {
+            // Don't leak asio's internal reason to the browser on failure — send a
+            // generic message (full detail stays in the server log above).
             ws.send(JSON.stringify({
               kind: 'notify',
               command: res.ok ? '__gateway_login_ok' : '__gateway_login_failed',
-              data: { reason: res.reason, firstLobbyCommand: res.firstLobbyCommand ?? null },
+              data: res.ok
+                ? { firstLobbyCommand: res.firstLobbyCommand ?? null }
+                : { reason: '登录失败' },
             }))
           }
-          if (!res.ok && alive) ws.close(4001, `login failed: ${res.reason}`)
+          if (!res.ok && alive) ws.close(4001, 'login failed')
         })
         .catch((err) => {
           log('handshake error', err.message)

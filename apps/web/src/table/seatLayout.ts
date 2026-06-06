@@ -11,7 +11,7 @@
 
 const PHOTO_BASE_WIDTH = 175 * 0.75 // 131.25
 
-export interface SeatPos { x: number; y: number }
+export interface SeatPos { x: number; y: number; scale: number }
 
 export interface StageDims {
   sceneWidth: number
@@ -48,24 +48,64 @@ function regions8(stage: StageDims): SeatPos[] {
   const startX = verticalPadding + horizontalSpacing
   const padding = photoWidth + horizontalSpacing
   return [
-    { x: startX + padding * 6, y: roomScene.height - 192 },
-    { x: startX + padding * 6, y: roomAreaPadding + verticalSpacing * 3 },
-    { x: startX + padding * 5, y: roomAreaPadding + verticalSpacing },
-    { x: startX + padding * 4, y: roomAreaPadding },
-    { x: startX + padding * 3, y: roomAreaPadding },
-    { x: startX + padding * 2, y: roomAreaPadding },
-    { x: startX + padding, y: roomAreaPadding + verticalSpacing },
-    { x: startX, y: roomAreaPadding + verticalSpacing * 3 },
+    { x: startX + padding * 6, y: roomScene.height - 192, scale: 1 },
+    { x: startX + padding * 6, y: roomAreaPadding + verticalSpacing * 3, scale: 1 },
+    { x: startX + padding * 5, y: roomAreaPadding + verticalSpacing, scale: 1 },
+    { x: startX + padding * 4, y: roomAreaPadding, scale: 1 },
+    { x: startX + padding * 3, y: roomAreaPadding, scale: 1 },
+    { x: startX + padding * 2, y: roomAreaPadding, scale: 1 },
+    { x: startX + padding, y: roomAreaPadding + verticalSpacing, scale: 1 },
+    { x: startX, y: roomAreaPadding + verticalSpacing * 3, scale: 1 },
   ]
+}
+
+// >8 players: arrangeManyPhotos (RoomLogic.js:17-79). Photos scale down to fit; no
+// seatIndex mapping — regions[index] directly. regions[0] is self (bottom-right),
+// the rest fan across the top with the corners/near-corners nudged down.
+function regionsMany(playerNum: number, stage: StageDims): SeatPos[] {
+  const roomScene = { width: stage.sceneWidth, height: stage.sceneHeight }
+  const roomArea = { width: stage.sceneWidth, height: stage.sceneHeight - stage.dashboardHeight + 20 }
+  const photoBaseWidth = PHOTO_BASE_WIDTH
+  const photoMaxWidth = PHOTO_BASE_WIDTH
+  const verticalSpacing = roomArea.height * 0.08
+  const roomAreaPadding = 16
+  let horizontalSpacing = 8
+  let photoWidth = (roomArea.width - horizontalSpacing * playerNum) / (playerNum - 1)
+  let photoScale = 1
+  if (photoWidth > photoMaxWidth) {
+    photoWidth = photoMaxWidth
+    horizontalSpacing = (roomArea.width - photoWidth * (playerNum - 1)) / playerNum
+  } else {
+    photoScale = photoWidth / photoBaseWidth
+  }
+  const horizontalPadding = (photoWidth - photoBaseWidth) / 2
+  const startX = horizontalPadding + horizontalSpacing
+  const padding = photoWidth + horizontalSpacing
+  const regions: SeatPos[] = [
+    { x: startX + padding * (playerNum - 2), y: roomScene.height - 192, scale: photoScale },
+  ]
+  for (let i = 0; i < playerNum - 1; i++) {
+    regions.push({ x: startX + padding * (playerNum - 2 - i), y: roomAreaPadding, scale: photoScale })
+  }
+  regions[1]!.y += verticalSpacing * 3
+  regions[regions.length - 1]!.y += verticalSpacing * 3
+  regions[2]!.y += verticalSpacing
+  regions[regions.length - 2]!.y += verticalSpacing
+  return regions
 }
 
 /**
  * Screen position for a photo at display `index` (0 = self, bottom) in a game of
- * `playerNum` players. Direct port of RoomLogic.js:130-138.
+ * `playerNum` players. ≤8: arrangePhotos (regions[seatIndex[index]]). >8:
+ * arrangeManyPhotos (regions[index] with scale). Ports RoomLogic.js verbatim.
  */
 export function seatPosition(index: number, playerNum: number, stage: StageDims = DEFAULT_STAGE): SeatPos {
+  if (playerNum > 8) {
+    const regions = regionsMany(playerNum, stage)
+    return regions[index] ?? regions[0]!
+  }
   const regions = regions8(stage)
-  const seatIndex = regularSeatIndex[Math.min(playerNum, 8) - 1] ?? regularSeatIndex[7]!
+  const seatIndex = regularSeatIndex[playerNum - 1] ?? regularSeatIndex[7]!
   const slot = seatIndex[index] ?? 0
   return regions[slot] ?? regions[0]!
 }

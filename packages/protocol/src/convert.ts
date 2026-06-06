@@ -9,6 +9,7 @@ import { Encoder, Decoder } from 'cbor-x'
 import {
   type FkPacket,
   packetKind,
+  TYPE_REQUEST,
   TYPE_NOTIFICATION,
   TYPE_REPLY,
   SRC_CLIENT,
@@ -188,11 +189,14 @@ export function envelopeToPacket(env: Envelope): FkPacket {
       data,
     }
   }
-  // A browser sending a 'request' is unusual but supported for completeness.
+  // A client-originated request (rare — the client normally only replies/notifies).
+  // Use TYPE_REQUEST so the wire type matches the envelope kind.
   return {
     requestId: env.requestId,
-    type: TYPE_NOTIFICATION | SRC_CLIENT | DEST_SERVER,
+    type: TYPE_REQUEST | SRC_CLIENT | DEST_SERVER,
     command: env.command,
     data,
+    timeout: env.timeout,
+    timestamp: env.timestamp,
   }
 }

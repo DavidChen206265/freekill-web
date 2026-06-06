@@ -77,13 +77,24 @@ export const useVmStore = create<VmState>((set, get) => ({
     const raw = (env as NotifyEnvelope | RequestEnvelope).raw
     if (!raw) return
     const isRequest = env.kind === 'request'
-    await vm.feedPacket(env.command, base64ToBytes(raw), isRequest)
-    set((s) => ({ totalFed: s.totalFed + 1 }))
+    // A single bad packet must not break the feed chain (which would freeze all
+    // subsequent packets). Log it and keep going; still re-sync the roster after.
+    try {
+      await vm.feedPacket(env.command, base64ToBytes(raw), isRequest)
+      set((s) => ({ totalFed: s.totalFed + 1 }))
+    } catch (err) {
+      console.error(`[vm] feedPacket ${env.command} threw:`, err)
+      set({ error: `feedPacket ${env.command}: ${(err as Error).message}` })
+    }
     // Re-read the VM's authoritative player mirror (includes Self, which never
     // arrives via AddPlayer). This keeps the roster correct regardless of which
     // delta just landed.
-    const players = await vm.readPlayers()
-    useGameStore.getState().syncPlayers(players)
+    try {
+      const players = await vm.readPlayers()
+      useGameStore.getState().syncPlayers(players)
+    } catch (err) {
+      console.error('[vm] readPlayers threw:', err)
+    }
   },
 
   reset: () => {

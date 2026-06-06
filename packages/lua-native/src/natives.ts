@@ -28,6 +28,9 @@ export interface NativesOptions {
   onNotifyServer?: (event: { command: string; data: string }) => void
   /** Optional log sink (qInfo/qWarning/qCritical/qDebug + diagnostics). */
   log?: (message: string) => void
+  /** Disabled package names (client-side filtering via mod_manager.lua). Defaults
+   *  to none. Must match the server's enabled set in real deployments. */
+  disabledPacks?: string[]
 }
 
 /** The flat table of leaf functions injected into the VM as `__natives`. */
@@ -75,7 +78,7 @@ function normalizePosix(p: string): string {
 const S_IFMT = 0o170000
 const S_IFDIR = 0o040000
 
-export function createNatives({ emfs, onNotifyUI, onNotifyServer, log }: NativesOptions): Natives {
+export function createNatives({ emfs, onNotifyUI, onNotifyServer, log, disabledPacks }: NativesOptions): Natives {
   const absToCwd = (p: string) => (p.startsWith('/') ? p : emfs.cwd().replace(/\/$/, '') + '/' + p)
   const norm = (p: string) => normalizePosix(absToCwd(p))
 
@@ -101,7 +104,7 @@ export function createNatives({ emfs, onNotifyUI, onNotifyServer, log }: Natives
     qDebug: (m) => log?.('[qDebug] ' + m),
 
     // freekill.i
-    getDisabledPacks: () => '[]',
+    getDisabledPacks: () => JSON.stringify(disabledPacks ?? []),
 
     // client.i — the render sink. `dataJson` is a JSON string built in Lua so we
     // get a faithful, fully-expanded snapshot of what the VM wants drawn.

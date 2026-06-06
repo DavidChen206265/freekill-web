@@ -14,10 +14,15 @@ type ZlibFns = {
 let _zlib: ZlibFns | null = null
 function zlib(): ZlibFns {
   if (_zlib) return _zlib
-  // Indirect require so bundlers don't statically pull node:zlib into a browser
-  // build. Only the Node gateway ever reaches this path.
-  const req = (0, eval)('require') as (m: string) => ZlibFns
-  _zlib = req('node:zlib')
+  // node:zlib loaded lazily via process.getBuiltinModule (Node 22+) — synchronous,
+  // NO import statement (so the browser bundle never pulls node:zlib/node:module),
+  // and `process` is absent in the browser. Only the Node gateway reaches this;
+  // the browser never decompresses asio packets (the gateway does).
+  const proc = (globalThis as { process?: { getBuiltinModule?: (m: string) => unknown } }).process
+  if (!proc?.getBuiltinModule) {
+    throw new Error('qzlib: node:zlib unavailable (COMPRESSED packets are gateway-only, not browser)')
+  }
+  _zlib = proc.getBuiltinModule('node:zlib') as ZlibFns
   return _zlib
 }
 

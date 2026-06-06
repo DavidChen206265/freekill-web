@@ -84,6 +84,31 @@ describe('envelopeToPacket', () => {
     expect(back.requestId).toBe(9)
     expect(decodeInnerData(back.data)).toEqual({ cards: [1], targets: [2] })
   })
+
+  it('request envelope -> packet uses TYPE_REQUEST (0x1xx), not notification', () => {
+    const pkt = envelopeToPacket({
+      kind: 'request', requestId: 5, command: 'Foo', data: { a: 1 }, timeout: 20, timestamp: 99,
+    })
+    // TYPE_REQUEST = 0x100; must have that bit, not TYPE_NOTIFICATION (0x400).
+    expect(pkt.type & TYPE_REQUEST).toBe(TYPE_REQUEST)
+    expect(pkt.type & TYPE_NOTIFICATION).toBe(0)
+    const back = decodePacket(encodePacket(pkt))
+    expect(back.requestId).toBe(5)
+    expect(back.timeout).toBe(20)
+    expect(back.timestamp).toBe(99)
+  })
+
+  it('normalizes BigInt inner data to JSON-safe values', () => {
+    // cbor-x decodes large ints to BigInt; decodeInnerData must make them
+    // JSON-serializable (safe-range -> number, beyond -> decimal string).
+    const safe = enc.encode([7n, 42n])
+    expect(decodeInnerData(Uint8Array.from(safe))).toEqual([7, 42])
+    const huge = enc.encode([12345678901234567890n]) // > 2^53
+    const out = decodeInnerData(Uint8Array.from(huge)) as unknown[]
+    expect(typeof out[0]).toBe('string')
+    // JSON.stringify must not throw on the result.
+    expect(() => JSON.stringify(out)).not.toThrow()
+  })
 })
 
 describe('buildSetupPacket', () => {

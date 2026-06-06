@@ -22,6 +22,7 @@ import {
   TYPE_REQUEST,
   SRC_SERVER,
   DEST_CLIENT,
+  COMPRESSED,
   NOTIFY_REQUEST_ID,
 } from '../src/index.js'
 
@@ -124,6 +125,23 @@ describe('real captured inner payloads', () => {
       decoded++
     }
     expect(decoded).toBeGreaterThan(1000)
+  })
+})
+
+describe('COMPRESSED packets (Qt-zlib round-trip)', () => {
+  it('round-trips a COMPRESSED notify through encode/decode', () => {
+    const big = te.encode('x'.repeat(2000)) // compressible payload
+    const pkt: FkPacket = {
+      requestId: NOTIFY_REQUEST_ID,
+      type: TYPE_NOTIFICATION | SRC_SERVER | DEST_CLIENT | COMPRESSED,
+      command: 'BigNotify',
+      data: big,
+    }
+    const wire = encodePacket(pkt)
+    const back = decodePacket(wire)
+    expect(back.command).toBe('BigNotify')
+    // data must come back decompressed and byte-identical.
+    expect(Array.from(back.data)).toEqual(Array.from(big))
   })
 })
 
