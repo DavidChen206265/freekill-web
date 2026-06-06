@@ -3,27 +3,29 @@
 
 import { useEffect, useState } from 'react'
 import { useConnectionStore, useLobbyStore, useAuthStore } from '../stores/index.js'
+import { useGameStore } from '../stores/gameStore.js'
 import { RoomList } from '../components/RoomList.js'
 import { ChatBox } from '../components/ChatBox.js'
 import { CreateRoomDialog } from '../components/CreateRoomDialog.js'
 import { VmDebugPanel } from '../components/VmDebugPanel.js'
 import { RoomScene } from '../table/RoomScene.js'
+import { WaitingRoom } from '../table/WaitingRoom.js'
 
 export function LobbyPage() {
   const { client, disconnect } = useConnectionStore()
   const { online, total, enteredRoomId } = useLobbyStore()
   const username = useAuthStore((s) => s.username)
+  const started = useGameStore((s) => s.started)
   const [showCreate, setShowCreate] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
 
   useEffect(() => { client?.notify('RefreshRoomList', '') }, [client])
 
-  // In-room: show the fixed-stage table (RoomScene), with a toggleable VM debug
-  // overlay and a leave button.
+  // In-room: waiting room until the game starts, then the fixed-stage table.
   if (enteredRoomId !== undefined) {
     return (
       <div style={styles.roomWrap}>
-        <RoomScene />
+        {started ? <RoomScene /> : <WaitingRoom />}
         <div style={styles.roomBar}>
           <span style={styles.meta}>房间 · {username}</span>
           <button style={styles.btn} onClick={() => setShowDebug((v) => !v)}>{showDebug ? '隐藏' : 'VM 调试'}</button>

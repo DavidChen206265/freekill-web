@@ -24,6 +24,8 @@ export interface GamePlayer {
   role?: string
   kingdom?: string
   dead?: boolean
+  ready?: boolean
+  owner?: boolean
   handcardNum?: number
   marks: Record<string, number>
 }
@@ -32,6 +34,7 @@ interface GameState {
   players: Record<number, GamePlayer>
   seatOrder: number[]
   started: boolean
+  capacity: number
   selfId?: number
   apply: (command: string, data: unknown) => void
   /** Replace player state from the VM's authoritative mirror (includes Self). */
@@ -51,6 +54,8 @@ export interface VmPlayerLike {
   role?: string
   kingdom?: string
   dead?: boolean
+  ready?: boolean
+  owner?: boolean
   isSelf?: boolean
 }
 
@@ -74,6 +79,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   players: {},
   seatOrder: [],
   started: false,
+  capacity: 0,
 
   // The ROSTER (players/seat/general/hp/...) is owned by syncPlayers, which reads
   // the VM's authoritative mirror after every packet. apply() only handles deltas
@@ -84,6 +90,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       case 'Setup': {
         // [id, name, avatar, ...] — identifies self.
         if (arr) set({ selfId: Number(arr[0]) })
+        break
+      }
+      case 'EnterRoom': {
+        // [capacity, timeout, settings] — room capacity for isFull/waiting room.
+        if (arr) set({ capacity: Number(arr[0]) || 0 })
         break
       }
       case 'SetPlayerMark': {
@@ -106,7 +117,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  resetGame: () => set({ players: {}, seatOrder: [], started: false, selfId: get().selfId }),
+  resetGame: () => set({ players: {}, seatOrder: [], started: false, capacity: 0, selfId: get().selfId }),
 
   syncPlayers: (vmPlayers, started) => {
     set((s) => {
@@ -127,6 +138,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           role: vp.role ?? prev.role,
           kingdom: vp.kingdom ?? prev.kingdom,
           dead: vp.dead ?? prev.dead,
+          ready: vp.ready ?? prev.ready,
+          owner: vp.owner ?? prev.owner,
         }
         if (vp.isSelf) selfId = vp.id
       }

@@ -1,0 +1,44 @@
+// waitingRoom.ts — pure derivation of waiting-room button state from the player
+// roster. Mirrors WaitingRoom.qml (checkAllReady / isFull / isOwner). Kept pure
+// so it's unit-testable without React.
+
+import type { GamePlayer } from '../stores/gameStore.js'
+
+export interface WaitingState {
+  playerNum: number
+  isFull: boolean
+  isOwner: boolean
+  isReady: boolean
+  /** all non-owner players ready (owner needn't ready) — WaitingRoom.qml */
+  isAllReady: boolean
+  /** Ready button shown for non-owners; AddRobot for owner&!full; StartGame for owner&full. */
+  showReady: boolean
+  showAddRobot: boolean
+  showStart: boolean
+  startEnabled: boolean
+}
+
+export function deriveWaitingState(
+  players: Record<number, GamePlayer>,
+  selfId: number | undefined,
+  capacity: number,
+): WaitingState {
+  const list = Object.values(players)
+  const playerNum = list.length
+  const isFull = capacity > 0 && playerNum >= capacity
+  const self = selfId !== undefined ? players[selfId] : undefined
+  const isOwner = !!self?.owner
+  const isReady = !!self?.ready
+  const isAllReady = list.filter((p) => !p.owner).every((p) => p.ready)
+  return {
+    playerNum,
+    isFull,
+    isOwner,
+    isReady,
+    isAllReady,
+    showReady: !isOwner,
+    showAddRobot: isOwner && !isFull,
+    showStart: isOwner && isFull,
+    startEnabled: isOwner && isFull && isAllReady,
+  }
+}

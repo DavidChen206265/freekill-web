@@ -146,6 +146,8 @@ export class ClientVm {
             hp = p.hp, maxHp = p.maxHp,
             role = p.role, kingdom = p.kingdom,
             dead = p.dead,
+            ready = p.ready,
+            owner = p.owner,
             isSelf = (Self ~= nil and p.id == Self.id),
           }
         end
@@ -168,6 +170,8 @@ export interface VmPlayer {
   role?: string
   kingdom?: string
   dead?: boolean
+  ready?: boolean
+  owner?: boolean
   isSelf?: boolean
 }
 
