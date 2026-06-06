@@ -9,6 +9,8 @@
 import { useEffect, useRef } from 'react'
 import { useCardStore, type AreaKey } from '../stores/cardStore.js'
 import { useGameStore } from '../stores/gameStore.js'
+import { useInteractionStore } from '../stores/interactionStore.js'
+import { useVmStore } from '../stores/vmStore.js'
 import { resolveAreaBox, CARD_W, CARD_H } from './areas.js'
 
 const GO_BACK_MS = 500
@@ -23,6 +25,8 @@ export function CardLayer() {
   const players = useGameStore((s) => s.players)
   const seatOrder = useGameStore((s) => s.seatOrder)
   const selfId = useGameStore((s) => s.selfId)
+  const cardStates = useInteractionStore((s) => s.cards)
+  const interact = useVmStore((s) => s.interact)
 
   const nodeRefs = useRef(new Map<number, HTMLDivElement>())
   const lastPos = useRef(new Map<number, { x: number; y: number }>())
@@ -43,9 +47,11 @@ export function CardLayer() {
     const span = Math.max(0, box.w - CARD_W)
     const step = n > 1 ? Math.min(CARD_W + 6, span / (n - 1)) : 0
     ids.forEach((cid, i) => {
+      const sel = cardStates[cid]?.selected
       targets.set(cid, {
         x: box.x + step * i,
-        y: box.y,
+        // Selected hand cards rise 20px (ItemArea.updateCardPosition origY-=20).
+        y: box.y - (sel ? 20 : 0),
         faceUp: known[cid] ?? false,
       })
     })
@@ -70,24 +76,43 @@ export function CardLayer() {
       el.style.transform = `translate(${t.x}px, ${t.y}px)`
       lastPos.current.set(cid, { x: t.x, y: t.y })
     }
+    // Re-run when cards move OR when selection changes (selected cards rise).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moveSeq])
+  }, [moveSeq, cardStates])
 
   // Render union of all cards currently in some area.
   const allCards: { cid: number; t: Target }[] = []
   for (const [cid, t] of targets) allCards.push({ cid, t })
 
+  const onCardClick = (cid: number) => {
+    const st = cardStates[cid]
+    if (!st?.enabled && !st?.selected) return // not interactable
+    void interact('CardItem', cid, 'click', { selected: !st?.selected })
+  }
+
   return (
     <div style={styles.layer}>
-      {allCards.map(({ cid, t }) => (
-        <div
-          key={cid}
-          ref={(el) => { if (el) nodeRefs.current.set(cid, el); else nodeRefs.current.delete(cid) }}
-          style={{ ...styles.card, transform: `translate(${t.x}px, ${t.y}px)` }}
-        >
-          {t.faceUp ? <span style={styles.face}>{cid}</span> : <span style={styles.back}>FK</span>}
-        </div>
-      ))}
+      {allCards.map(({ cid, t }) => {
+        const st = cardStates[cid]
+        const interactable = !!st && (st.enabled || st.selected)
+        return (
+          <div
+            key={cid}
+            ref={(el) => { if (el) nodeRefs.current.set(cid, el); else nodeRefs.current.delete(cid) }}
+            onClick={() => onCardClick(cid)}
+            style={{
+              ...styles.card,
+              transform: `translate(${t.x}px, ${t.y}px)`,
+              pointerEvents: interactable ? 'auto' : 'none',
+              cursor: interactable ? 'pointer' : 'default',
+              outline: st?.selected ? '3px solid #f1c40f' : 'none',
+              filter: st && !st.enabled && !st.selected ? 'brightness(0.5)' : 'none',
+            }}
+          >
+            {t.faceUp ? <span style={styles.face}>{cid}</span> : <span style={styles.back}>FK</span>}
+          </div>
+        )
+      })}
     </div>
   )
 }

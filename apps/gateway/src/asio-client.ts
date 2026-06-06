@@ -15,6 +15,7 @@ import {
   encodePacket,
   buildSetupPacket,
   extractPublicKeyPem,
+  packetKind,
   type FkPacket,
 } from '@freekill-web/protocol'
 import { encryptPassword } from './rsa.js'
@@ -56,6 +57,10 @@ export class AsioClient extends EventEmitter {
   // Packets that arrived pre-handshake but weren't a known OK/fail marker; replayed
   // in order once login succeeds so nothing is lost.
   private preHandshakeBuffer: FkPacket[] = []
+  // The requestId of the most recent REQUEST packet from asio. A client reply must
+  // echo it (asio matches replies by requestId — router.cpp expectedReplyIds). The
+  // QML router tracks the same value as `this->requestId`.
+  private lastRequestId = 0
   private readonly creds: { user: string; password: string; uuid: string }
 
   constructor(private readonly config: GatewayConfig, creds?: Credentials) {
@@ -106,6 +111,8 @@ export class AsioClient extends EventEmitter {
 
   private onPacket(pkt: FkPacket, finish: (r: HandshakeResult) => void): void {
     if (this.handshakeDone) {
+      // Track the latest request id so client replies can echo it.
+      if (packetKind(pkt) === 'request') this.lastRequestId = pkt.requestId
       this.emit('packet', pkt)
       return
     }
@@ -152,6 +159,11 @@ export class AsioClient extends EventEmitter {
   send(pkt: FkPacket): void {
     if (!this.socket || this.socket.destroyed) throw new Error('asio socket not connected')
     this.socket.write(Buffer.from(encodePacket(pkt)))
+  }
+
+  /** The requestId a client reply should echo (latest request from asio). */
+  getLastRequestId(): number {
+    return this.lastRequestId
   }
 
   close(): void {

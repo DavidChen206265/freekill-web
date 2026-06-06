@@ -96,6 +96,27 @@ export class ClientVm {
     `)
   }
 
+  /**
+   * Drive a UI interaction into the VM's request handler (ui_emu local loop). The
+   * VM recomputes selectable/enabled state and pushes notifyUI("UpdateRequestUI",
+   * change) — or notifyUI("ReplyToServer", reply) when the request finishes — back
+   * through the same onNotifyUI sink. `data` is a plain JSON value (e.g. {selected}).
+   */
+  async updateRequestUI(elemType: string, id: string | number, action: string, data: unknown): Promise<void> {
+    if (!this.lua) throw new Error('VM not booted')
+    this.lua.global.set('__uiType', elemType)
+    this.lua.global.set('__uiId', id)
+    this.lua.global.set('__uiAction', action)
+    this.lua.global.set('__uiData', JSON.stringify(data ?? {}))
+    await this.lua.doString(`
+      local ok, err = pcall(function()
+        local d = json.decode(__uiData)
+        UpdateRequestUI(__uiType, __uiId, __uiAction, d)
+      end)
+      if not ok then __natives.qWarning("UpdateRequestUI error: " .. tostring(err)) end
+    `)
+  }
+
   close(): void {
     this.lua?.global.close()
     this.lua = null

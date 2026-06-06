@@ -123,4 +123,65 @@ describe('client VM packet feed', () => {
     expect(after).toBe('7|webtester')
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!ready)('play→reply loop: select slash → target → OK emits ReplyToServer', async () => {
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const replies: unknown[] = []
+    const natives = createNatives({
+      emfs: FS as never, log: () => {},
+      onNotifyUI: (e) => { if (e.command === 'ReplyToServer') replies.push(e.data) },
+    })
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives, preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+
+    // Set up a started room with Self holding a Slash in the Play phase, then fire
+    // the PlayCard request — exactly the ui_emu local loop the web client drives.
+    lua.global.set('__setup', JSON.stringify({ gameMode: 'aaa_role_mode', disabledPack: [], disabledGenerals: [] }))
+    const slashId = await lua.doString(`
+      ClientCallback(ClientInstance, "Setup", cbor.encode({1, "me", "caocao", 0}), false)
+      ClientCallback(ClientInstance, "EnterRoom", cbor.encode({2, 15, json.decode(__setup)}), false)
+      ClientCallback(ClientInstance, "AddPlayer", cbor.encode({2, "foe", "zhangfei", true}), false)
+      Self.general="caocao"; Self.maxHp=4; Self.hp=4; Self.kingdom="wei"; Self.role="lord"; Self.dead=false
+      for _, p in ipairs(ClientInstance.players) do
+        p.dead=false; p.general=(p.general and p.general~="") and p.general or "zhangfei"
+        p.maxHp=(p.maxHp and p.maxHp>0) and p.maxHp or 4; p.hp=(p.hp and p.hp>0) and p.hp or 4
+      end
+      local circle={}; for _,p in ipairs(ClientInstance.players) do table.insert(circle,p.id) end
+      ClientCallback(ClientInstance,"ArrangeSeats",cbor.encode(circle),false)
+      ClientCallback(ClientInstance,"StartGame",cbor.encode({}),false)
+      ClientInstance.current=Self; Fk:currentRoom().current=Self
+      local function findCardId(n) for _,c in ipairs(Fk.cards) do if c.name==n and c.suit~=Card.NoSuit then return c.id end end end
+      local sid=findCardId("slash")
+      Self.player_cards[Player.Hand]={}; Self:addCards(Player.Hand,{sid})
+      Self.phase=Player.Play
+      ClientCallback(ClientInstance,"PlayCard",cbor.encode({}),true)
+      return sid
+    `)
+    // Drive the interaction via the global UpdateRequestUI (what the web client calls).
+    lua.global.set('__slash', slashId)
+    await lua.doString(`UpdateRequestUI("CardItem", __slash, "click", { selected = true })`)
+    const targets = JSON.parse(await lua.doString(`
+      local h=ClientInstance.current_request_handler; local out={}
+      for pid,item in pairs(h.scene:getAllItems("Photo")) do if item.enabled then out[#out+1]=pid end end
+      return json.encode(out)
+    `) as string) as number[]
+    expect(targets.length).toBeGreaterThan(0) // VM computed a valid target for Slash
+    lua.global.set('__tgt', targets[0]!)
+    await lua.doString(`UpdateRequestUI("Photo", __tgt, "click", { selected = true })`)
+    await lua.doString(`UpdateRequestUI("Button", "OK", "click", {})`)
+
+    expect(replies.length).toBe(1)
+    const reply = replies[0] as { card: number; targets: number[] }
+    expect(reply.card).toBe(slashId)
+    expect(reply.targets).toEqual([targets[0]])
+    lua.global.close()
+  }, 30_000)
 })

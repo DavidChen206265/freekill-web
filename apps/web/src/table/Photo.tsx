@@ -4,6 +4,8 @@
 
 import type { GamePlayer } from '../stores/gameStore.js'
 import { seatPosition, PHOTO_WIDTH, PHOTO_HEIGHT } from './seatLayout.js'
+import { useInteractionStore } from '../stores/interactionStore.js'
+import { useVmStore } from '../stores/vmStore.js'
 
 const PHOTO_W = PHOTO_WIDTH
 const PHOTO_H = PHOTO_HEIGHT
@@ -23,9 +25,21 @@ export function Photo({ player, playerNum, isSelf }: {
   const pos = seatPosition(player.index, playerNum)
   const general = player.general && player.general !== '' ? player.general : '(未选将)'
   const kingdomBg = (player.kingdom && KINGDOM_COLOR[player.kingdom]) || '#2a2a30'
+  // Target selection state (when this player is a candidate target of a request).
+  const targetState = useInteractionStore((s) => s.photos[player.id])
+  const interact = useVmStore((s) => s.interact)
+  const selectable = !!targetState && (targetState.enabled || targetState.selected)
+  const onClick = () => {
+    if (!selectable) return
+    void interact('Photo', player.id, 'click', { selected: !targetState?.selected })
+  }
+  const targetOutline = targetState?.selected ? '3px solid #e74c3c' : selectable ? '3px solid #2ecc71' : isSelf ? '2px solid #f1c40f' : 'none'
 
   return (
-    <div style={{ ...styles.photo, left: pos.x, top: pos.y, transform: `scale(${pos.scale})`, transformOrigin: 'top left', opacity: player.dead ? 0.4 : 1, outline: isSelf ? '2px solid #f1c40f' : 'none' }}>
+    <div
+      onClick={onClick}
+      style={{ ...styles.photo, left: pos.x, top: pos.y, transform: `scale(${pos.scale})`, transformOrigin: 'top left', opacity: player.dead ? 0.4 : 1, outline: targetOutline, cursor: selectable ? 'pointer' : 'default' }}
+    >
       <div style={{ ...styles.art, background: kingdomBg }}>
         <span style={styles.general}>{general}</span>
         {player.deputyGeneral && <span style={styles.deputy}>/ {player.deputyGeneral}</span>}

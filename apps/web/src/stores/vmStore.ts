@@ -11,6 +11,7 @@ import { base64ToBytes } from '@freekill-web/protocol'
 import { ClientVm, type ClientVmStats, type NotifyEvent } from '../vm/clientVm.js'
 import { useGameStore } from './gameStore.js'
 import { useCardStore } from './cardStore.js'
+import { useInteractionStore } from './interactionStore.js'
 
 interface VmState {
   vm: ClientVm | null
@@ -25,9 +26,14 @@ interface VmState {
   totalFed: number
   /** Routes VM outbound (notifyServer) to the gateway; set by connectionStore. */
   serverSender?: (command: string, data: unknown) => void
+  /** Routes a VM reply (ReplyToServer) to the gateway; set by connectionStore. */
+  serverReply?: (data: unknown) => void
   bootIfNeeded: () => Promise<void>
   feed: (env: Envelope) => Promise<void>
+  /** Drive a UI interaction into the VM (click card/target/button). */
+  interact: (elemType: string, id: string | number, action: string, data: unknown) => Promise<void>
   setServerSender: (fn: (command: string, data: unknown) => void) => void
+  setServerReply: (fn: (data: unknown) => void) => void
   reset: () => void
 }
 
@@ -49,6 +55,14 @@ export const useVmStore = create<VmState>((set, get) => ({
         // Drive the render caches, then update the debug feed.
         useGameStore.getState().apply(e.command, e.data)
         if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
+        else if (e.command === 'UpdateRequestUI') useInteractionStore.getState().applyChange(e.data)
+        else if (e.command === 'ReplyToServer') {
+          // The request finished in the VM; send the reply to asio. The gateway
+          // stamps the correct requestId (see asio-client/ws-bridge).
+          get().serverReply?.(e.data)
+          useInteractionStore.getState().clear()
+        }
+        else if (e.command === 'CancelRequest') useInteractionStore.getState().clear()
         set((s) => ({
           notifyCounts: { ...s.notifyCounts, [e.command]: (s.notifyCounts[e.command] ?? 0) + 1 },
           recent: [e, ...s.recent].slice(0, RECENT_CAP),
@@ -99,10 +113,24 @@ export const useVmStore = create<VmState>((set, get) => ({
     }
   },
 
+  interact: async (elemType, id, action, data) => {
+    const vm = get().vm
+    if (!vm) return
+    try {
+      await vm.updateRequestUI(elemType, id, action, data)
+    } catch (err) {
+      console.error('[vm] updateRequestUI threw:', err)
+      set({ error: `updateRequestUI: ${(err as Error).message}` })
+    }
+  },
+
+  setServerReply: (fn) => set({ serverReply: fn }),
+
   reset: () => {
     get().vm?.close()
     useGameStore.getState().resetGame()
     useCardStore.getState().reset()
+    useInteractionStore.getState().clear()
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
 }))

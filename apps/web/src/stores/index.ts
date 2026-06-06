@@ -32,6 +32,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     useAuthStore.setState({ username: creds.user })
     // VM outbound (Heartbeat etc.) → gateway notify.
     useVmStore.getState().setServerSender((command, data) => client.notify(command, data))
+    // VM reply (ReplyToServer) → gateway reply (gateway stamps the requestId).
+    useVmStore.getState().setServerReply((data) => client.reply(0, data))
     client.connect(creds)
   },
   disconnect: () => {

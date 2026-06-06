@@ -120,7 +120,14 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
       }
       if (!asio) { log('dropping envelope before login'); return }
       try {
-        asio.send(envelopeToPacket(result.data as Envelope))
+        const env = result.data as Envelope
+        // A reply must echo the requestId of asio's pending request (asio matches
+        // by id). The browser's VM-emitted reply doesn't carry it, so the gateway
+        // stamps it — mirroring the QML router's this->requestId.
+        const stamped: Envelope = env.kind === 'reply'
+          ? { ...env, requestId: asio.getLastRequestId() }
+          : env
+        asio.send(envelopeToPacket(stamped))
       } catch (e) {
         log('failed to send to asio', (e as Error).message)
       }
