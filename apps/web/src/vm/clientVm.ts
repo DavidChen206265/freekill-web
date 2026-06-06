@@ -38,6 +38,14 @@ export class ClientVm {
   private lua: Awaited<ReturnType<LuaFactory['createEngine']>> | null = null
   private notifyFeed: (e: NotifyEvent) => void
   private onServer?: (m: ServerMessage) => void
+  // Pre-compiled Lua function handles. CRITICAL: lua.doString compiles a fresh
+  // chunk every call and leaks the WASM Lua heap — it corrupts (_ENV becomes nil /
+  // "memory access out of bounds") after only ~44 calls. Since we feed a packet +
+  // read players on EVERY server packet, that's hit within the first game turn.
+  // Define the hot-path helpers ONCE as globals and invoke them via handles.
+  private fnFeed: ((cmd: string, hex: string, isReq: boolean) => void) | null = null
+  private fnReadPlayers: (() => string) | null = null
+  private fnUpdateUI: ((t: string, id: string | number, action: string, dataJson: string) => void) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -71,6 +79,40 @@ export class ClientVm {
     const res = await bootClient({ lua: lua as never, natives, preludeLua })
     const bootMs = Math.round(performance.now() - tb)
 
+    // Define the hot-path helpers ONCE (see fnFeed comment — doString leaks).
+    await lua.doString(`
+      local function fromHex(h) return (h:gsub("..", function(cc) return string.char(tonumber(cc,16)) end)) end
+      function __fkFeed(cmd, hex, isReq)
+        pcall(ClientCallback, ClientInstance, cmd, fromHex(hex or ""), isReq == true)
+      end
+      function __fkUpdateUI(elemType, id, action, dataJson)
+        local ok, err = pcall(function()
+          UpdateRequestUI(elemType, id, action, json.decode(dataJson))
+        end)
+        if not ok then __natives.qWarning("UpdateRequestUI error: " .. tostring(err)) end
+      end
+      function __fkReadPlayers()
+        local out = {}
+        local ci = ClientInstance
+        if ci and ci.players then
+          for _, p in ipairs(ci.players) do
+            local sp = p.player
+            out[#out+1] = {
+              id = p.id, name = sp and sp:getScreenName() or "", avatar = sp and sp:getAvatar() or "",
+              seat = p.seat, general = p.general, deputyGeneral = p.deputyGeneral,
+              hp = p.hp, maxHp = p.maxHp, role = p.role, kingdom = p.kingdom,
+              dead = p.dead, ready = p.ready, owner = p.owner,
+              isSelf = (Self ~= nil and p.id == Self.id),
+            }
+          end
+        end
+        return json.encode(out)
+      end
+    `)
+    this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
+    this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
+    this.fnUpdateUI = lua.global.get('__fkUpdateUI') as typeof this.fnUpdateUI
+
     return {
       mountFiles: mount.files,
       mountMs: mount.ms,
@@ -84,16 +126,9 @@ export class ClientVm {
    * (from the envelope's base64 `raw`), which ClientCallback decodes itself.
    */
   async feedPacket(command: string, rawData: Uint8Array, isRequest: boolean): Promise<void> {
-    if (!this.lua) throw new Error('VM not booted')
-    // Hand the raw bytes to Lua as a latin1 string (byte-preserving) and call
-    // ClientCallback exactly like the native client does.
-    this.lua.global.set('__pktCmd', command)
-    this.lua.global.set('__pktHex', toHex(rawData))
-    this.lua.global.set('__pktReq', isRequest)
-    await this.lua.doString(`
-      local function fromHex(h) return (h:gsub("..", function(cc) return string.char(tonumber(cc,16)) end)) end
-      pcall(ClientCallback, ClientInstance, __pktCmd, fromHex(__pktHex or ""), __pktReq == true)
-    `)
+    if (!this.fnFeed) throw new Error('VM not booted')
+    // Call the pre-compiled global (NOT doString — that leaks; see fnFeed comment).
+    this.fnFeed(command, toHex(rawData), isRequest)
   }
 
   /**
@@ -103,18 +138,8 @@ export class ClientVm {
    * through the same onNotifyUI sink. `data` is a plain JSON value (e.g. {selected}).
    */
   async updateRequestUI(elemType: string, id: string | number, action: string, data: unknown): Promise<void> {
-    if (!this.lua) throw new Error('VM not booted')
-    this.lua.global.set('__uiType', elemType)
-    this.lua.global.set('__uiId', id)
-    this.lua.global.set('__uiAction', action)
-    this.lua.global.set('__uiData', JSON.stringify(data ?? {}))
-    await this.lua.doString(`
-      local ok, err = pcall(function()
-        local d = json.decode(__uiData)
-        UpdateRequestUI(__uiType, __uiId, __uiAction, d)
-      end)
-      if not ok then __natives.qWarning("UpdateRequestUI error: " .. tostring(err)) end
-    `)
+    if (!this.fnUpdateUI) throw new Error('VM not booted')
+    this.fnUpdateUI(elemType, id, action, JSON.stringify(data ?? {}))
   }
 
   close(): void {
@@ -129,31 +154,8 @@ export class ClientVm {
    * truth — the VM owns state; deltas alone miss Self (see setup() in clientbase).
    */
   async readPlayers(): Promise<VmPlayer[]> {
-    if (!this.lua) return []
-    const json = (await this.lua.doString(`
-      local out = {}
-      local ci = ClientInstance
-      if ci and ci.players then
-        for _, p in ipairs(ci.players) do
-          local sp = p.player
-          out[#out+1] = {
-            id = p.id,
-            name = sp and sp:getScreenName() or "",
-            avatar = sp and sp:getAvatar() or "",
-            seat = p.seat,
-            general = p.general,
-            deputyGeneral = p.deputyGeneral,
-            hp = p.hp, maxHp = p.maxHp,
-            role = p.role, kingdom = p.kingdom,
-            dead = p.dead,
-            ready = p.ready,
-            owner = p.owner,
-            isSelf = (Self ~= nil and p.id == Self.id),
-          }
-        end
-      end
-      return json.encode(out)
-    `)) as string
+    if (!this.fnReadPlayers) return []
+    const json = this.fnReadPlayers()
     try { return JSON.parse(json) as VmPlayer[] } catch { return [] }
   }
 }

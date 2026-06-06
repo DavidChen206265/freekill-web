@@ -184,4 +184,31 @@ describe('client VM packet feed', () => {
     expect(reply.targets).toEqual([targets[0]])
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!ready)('pre-compiled function handle survives many calls (doString leaks ~44 calls)', async () => {
+    // Regression: lua.doString compiles a fresh chunk every call and corrupts the
+    // WASM Lua heap after ~44 calls (_ENV becomes nil / memory access out of
+    // bounds). The browser feeds a packet + reads players on EVERY server packet,
+    // so this crashed within turn 1. The clientVm fix defines hot-path helpers
+    // ONCE as globals and calls them via handles — this must NOT leak.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    await lua.doString(`ClientCallback(ClientInstance,"Setup",cbor.encode({1,"me","caocao",0}),false)`)
+    await lua.doString(`function __readPlayers() local out={} for _,p in ipairs(ClientInstance.players) do out[#out+1]={id=p.id} end return json.encode(out) end`)
+    const read = lua.global.get('__readPlayers') as () => string
+    // 200 calls — far past the ~44 doString crash point.
+    for (let i = 0; i < 200; i++) read()
+    const last = JSON.parse(read()) as { id: number }[]
+    expect(last.length).toBeGreaterThan(0) // still alive, heap intact
+    lua.global.close()
+  }, 30_000)
 })
