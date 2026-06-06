@@ -1,0 +1,4 @@
+# Force LF on shell scripts — they run inside WSL/bash and break with CRLF.
+*.sh text eol=lf
+# Lua files are consumed by the Lua VM; keep LF.
+*.lua text eol=lf

@@ -1,26 +1,29 @@
-// @freekill-web/gateway — WSS ↔ asio TCP protocol adapter.
+// index.ts — gateway entry point.
 //
-// PLACEHOLDER (milestone M0). Responsibilities (plan §3.3):
-//   - accept browser WSS; open one asio TCP connection per browser (MVP 1:1)
-//   - proxy login: NetworkDelayTest -> RSA-encrypt password (PKCS#1 v1.5, with the
-//     32-byte AES-key prefix) -> send Setup notify; version/md5 from manifest
-//   - CBOR packet codec via @freekill-web/protocol (PacketStreamDecoder: bare-frame
-//     incremental decode; command/data as byte strings 0x40; Qt-zlib for COMPRESSED)
-//   - manage requestId / timeout / heartbeat / disconnect; rate-limit
-//   - NEVER do game logic; NEVER log plaintext password or login payloads
-//
-// SECURITY: the login proxy handles credentials — WSS only, no plaintext password
-// persisted, no login-payload logging, login-failure rate limiting, asio on
-// 127.0.0.1 same-host (risk R-LOGIN).
+// Loads config (ASIO_HOST required — WSL NAT IP), starts the WSS bridge. Never
+// logs passwords or login payloads (R-LOGIN).
 
-import { PacketStreamDecoder } from '@freekill-web/protocol'
+import { loadConfig } from './config.js'
+import { startWsBridge } from './ws-bridge.js'
 
-export function createGateway(): { decoder: PacketStreamDecoder } {
-  // Wiring (net.Socket to asio, ws server to browser) lands in M0.
-  return { decoder: new PacketStreamDecoder() }
+function main() {
+  const config = loadConfig()
+  console.log('[gateway] starting', {
+    asio: `${config.asioHost}:${config.asioPort}`,
+    wssPort: config.wssPort,
+    version: config.fkVersion,
+    // md5/user logged; password/uuid intentionally omitted from logs
+    md5: config.fkMd5,
+    user: config.user,
+  })
+  const bridge = startWsBridge(config)
+
+  const shutdown = () => {
+    console.log('[gateway] shutting down')
+    bridge.close().then(() => process.exit(0))
+  }
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
 }
 
-// Entry point is a no-op until M0 implements the asio/WSS bridge.
-if (import.meta.url === `file://${process.argv[1]}`) {
-  console.log('[gateway] placeholder — M0 not yet implemented')
-}
+main()

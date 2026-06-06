@@ -20,7 +20,10 @@ import {
 import { qUncompress, qCompress } from './qzlib.js'
 
 // Pass Uint8Array values so cbor-x emits byte strings (major type 2).
-const encoder = new Encoder({ useRecords: false, mapsAsObjects: false })
+// tagUint8Array:false is CRITICAL — cbor-x defaults to wrapping Uint8Array in CBOR
+// tag 64 (0xd840), but asio's decoder expects PLAIN byte strings; the tag causes
+// "INVALID SETUP STRING" / parse failures on the server.
+const encoder = new Encoder({ useRecords: false, mapsAsObjects: false, tagUint8Array: false })
 // Decoder MUST use mapsAsObjects:false — asio payloads contain CBOR maps whose
 // keys are not always strings (and byte strings can't be JS object keys), so the
 // default object-coercing decoder throws "Invalid property name type object".

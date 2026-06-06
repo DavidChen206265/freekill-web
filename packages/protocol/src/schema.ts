@@ -7,11 +7,16 @@
 
 import { z } from 'zod'
 
+// `data` is command-specific (validated by the VM, not here). z.unknown() makes
+// the field optional in the inferred type; .default(null) keeps it always-present
+// so the output type matches the hand-written Envelope (data: unknown, required).
+const dataField = z.unknown()
+
 export const requestEnvelopeSchema = z.object({
   kind: z.literal('request'),
   requestId: z.number().int(),
   command: z.string(),
-  data: z.unknown(),
+  data: dataField,
   timeout: z.number(),
   timestamp: z.number(),
 })
@@ -20,13 +25,13 @@ export const replyEnvelopeSchema = z.object({
   kind: z.literal('reply'),
   requestId: z.number().int(),
   command: z.string(),
-  data: z.unknown(),
+  data: dataField,
 })
 
 export const notifyEnvelopeSchema = z.object({
   kind: z.literal('notify'),
   command: z.string(),
-  data: z.unknown(),
+  data: dataField,
 })
 
 export const envelopeSchema = z.discriminatedUnion('kind', [

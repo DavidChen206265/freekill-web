@@ -14,9 +14,11 @@
   },
   "dependencies": {
     "@freekill-web/protocol": "workspace:*",
-    "@freekill-web/shared": "workspace:*"
+    "@freekill-web/shared": "workspace:*",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2"
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13"
   }
 }

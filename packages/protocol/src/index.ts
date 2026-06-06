@@ -23,3 +23,11 @@ export {
   type EnvelopeInput,
   type EnvelopeOutput,
 } from './schema.js'
+export {
+  packetToEnvelope,
+  envelopeToPacket,
+  buildSetupPacket,
+  extractPublicKeyPem,
+  decodeInnerData,
+  encodeInnerData,
+} from './convert.js'
