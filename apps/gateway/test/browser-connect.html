@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FreeKill 网关连接测试</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #1e1e1e; color: #ddd; }
+    header { padding: 12px 16px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    h1 { font-size: 15px; margin: 0; font-weight: 600; }
+    input { background: #333; border: 1px solid #444; color: #ddd; padding: 4px 8px; border-radius: 4px; font-size: 13px; }
+    button { background: #0e639c; border: none; color: #fff; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    button:hover { background: #1177bb; }
+    button:disabled { background: #555; cursor: not-allowed; }
+    #status { padding: 4px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; }
+    .s-idle { background: #444; }
+    .s-conn { background: #b8860b; color: #fff; }
+    .s-ok   { background: #2d7d2d; color: #fff; }
+    .s-fail { background: #a33; color: #fff; }
+    #log { padding: 8px 16px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.5; }
+    .row { padding: 2px 0; border-bottom: 1px solid #2a2a2a; white-space: pre-wrap; word-break: break-all; }
+    .cmd { color: #4ec9b0; font-weight: 600; }
+    .meta { color: #888; }
+    .sys { color: #dcdcaa; }
+    .err { color: #f48771; }
+    .data { color: #9cdcfe; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>FreeKill 网关连接测试</h1>
+    <label class="meta">网关 WS:</label>
+    <input id="url" value="ws://localhost:9528" size="22" />
+    <button id="connect">连接</button>
+    <button id="disconnect" disabled>断开</button>
+    <span id="status" class="s-idle">未连接</span>
+    <span class="meta" id="counts"></span>
+  </header>
+  <div id="log"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id)
+    const logEl = $('log'), statusEl = $('status'), countsEl = $('counts')
+    let ws = null, recv = 0
+
+    function setStatus(text, cls) { statusEl.textContent = text; statusEl.className = cls }
+    function add(html) {
+      const div = document.createElement('div')
+      div.className = 'row'
+      div.innerHTML = html
+      logEl.prepend(div)
+    }
+    const esc = (s) => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+
+    function connect() {
+      const url = $('url').value.trim()
+      add(`<span class="sys">→ 连接 ${esc(url)} …</span>`)
+      setStatus('连接中…', 's-conn')
+      try { ws = new WebSocket(url) } catch (e) { add(`<span class="err">构造失败: ${esc(e.message)}</span>`); return }
+
+      ws.onopen = () => {
+        add(`<span class="sys">✓ WS 已连接,等待网关登录 asio…</span>`)
+        $('connect').disabled = true; $('disconnect').disabled = false
+      }
+      ws.onmessage = (ev) => {
+        recv++
+        countsEl.textContent = `收到 ${recv} 条`
+        let env
+        try { env = JSON.parse(ev.data) } catch { add(`<span class="err">非 JSON: ${esc(ev.data)}</span>`); return }
+        const cmd = env.command || '(无)'
+        const dataStr = env.data === null || env.data === undefined ? '' : JSON.stringify(env.data)
+        if (cmd === '__gateway_login_ok') {
+          setStatus('登录成功 ✓', 's-ok')
+          add(`<span class="sys">✓ 网关登录 asio 成功</span> <span class="data">${esc(dataStr)}</span>`)
+        } else if (cmd === '__gateway_login_failed') {
+          setStatus('登录失败 ✗', 's-fail')
+          add(`<span class="err">✗ 登录失败: ${esc(dataStr)}</span>`)
+        } else {
+          add(`<span class="meta">[${env.kind}]</span> <span class="cmd">${esc(cmd)}</span> <span class="data">${esc(dataStr.slice(0, 300))}</span>`)
+        }
+      }
+      ws.onclose = (ev) => {
+        add(`<span class="sys">✗ 连接关闭 (code=${ev.code}${ev.reason ? ', ' + esc(ev.reason) : ''})</span>`)
+        if (statusEl.className === 's-conn' || statusEl.className === 's-ok') setStatus('已断开', 's-idle')
+        $('connect').disabled = false; $('disconnect').disabled = true; ws = null
+      }
+      ws.onerror = () => add(`<span class="err">✗ WS 错误(网关没起?端口不对?)</span>`)
+    }
+
+    $('connect').onclick = connect
+    $('disconnect').onclick = () => { if (ws) ws.close() }
+  </script>
+</body>
+</html>

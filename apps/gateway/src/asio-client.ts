@@ -38,13 +38,26 @@ const LOGIN_FAIL_COMMANDS = new Set(['ErrorDlg', 'ErrorMsg'])
  *   'close'  (reason)    — socket closed
  *   'error'  (Error)
  */
+/** Per-connection login credentials; overrides config defaults. */
+export interface Credentials {
+  user: string
+  password: string
+  uuid?: string
+}
+
 export class AsioClient extends EventEmitter {
   private socket: net.Socket | null = null
   private decoder = new PacketStreamDecoder()
   private handshakeDone = false
+  private readonly creds: { user: string; password: string; uuid: string }
 
-  constructor(private readonly config: GatewayConfig) {
+  constructor(private readonly config: GatewayConfig, creds?: Credentials) {
     super()
+    this.creds = {
+      user: creds?.user ?? config.user,
+      password: creds?.password ?? config.password,
+      uuid: creds?.uuid ?? config.uuid,
+    }
   }
 
   /** Connect and run the login handshake. Resolves once the server accepts (or rejects). */
@@ -114,13 +127,13 @@ export class AsioClient extends EventEmitter {
 
   private sendSetup(networkDelayTest: FkPacket): void {
     const pem = extractPublicKeyPem(networkDelayTest)
-    const encryptedPassword = encryptPassword(pem, this.config.password)
+    const encryptedPassword = encryptPassword(pem, this.creds.password)
     const setup = buildSetupPacket({
-      name: this.config.user,
+      name: this.creds.user,
       encryptedPassword,
       md5: this.config.fkMd5,
       version: this.config.fkVersion,
-      uuid: this.config.uuid,
+      uuid: this.creds.uuid,
     })
     this.send(setup)
   }

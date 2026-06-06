@@ -1,0 +1,141 @@
+// stores — Zustand stores fed by gateway envelopes. They hold normalized state
+// for rendering; no game logic (that's the VM's job, M2+). For the lobby, state
+// is just the decoded envelope data.
+
+import { create } from 'zustand'
+import type { Envelope, NotifyEnvelope } from '@freekill-web/protocol'
+import { GatewayClient, type GatewayStatus, type LoginCredentials } from '../net/gatewayClient.js'
+
+// ---- connection ----
+interface ConnectionState {
+  client: GatewayClient | null
+  status: GatewayStatus
+  detail?: string
+  serverUrl: string
+  connect: (url: string, creds: LoginCredentials) => void
+  disconnect: () => void
+}
+
+export const useConnectionStore = create<ConnectionState>((set, get) => ({
+  client: null,
+  status: 'idle',
+  serverUrl: '',
+  connect: (url, creds) => {
+    get().client?.disconnect()
+    const client = new GatewayClient({
+      url,
+      onStatus: (status, detail) => set({ status, detail }),
+      onEnvelope: (env) => routeEnvelope(env),
+    })
+    set({ client, serverUrl: url, status: 'connecting', detail: undefined })
+    useAuthStore.setState({ username: creds.user })
+    client.connect(creds)
+  },
+  disconnect: () => {
+    get().client?.disconnect()
+    set({ client: null, status: 'idle' })
+  },
+}))
+
+// ---- auth ----
+interface AuthState {
+  username: string
+  userId?: number
+  avatar?: string
+}
+export const useAuthStore = create<AuthState>(() => ({ username: '' }))
+
+// ---- lobby ----
+export interface RoomInfo {
+  id: number
+  name: string
+  gameMode: string
+  playerCount: number
+  capacity: number
+  hasPassword: boolean
+  outdated: boolean
+}
+export interface ChatLine {
+  who: string
+  text: string
+  at: number
+}
+interface LobbyState {
+  online: number
+  total: number
+  rooms: RoomInfo[]
+  chat: ChatLine[]
+  enteredRoomId?: number
+}
+export const useLobbyStore = create<LobbyState>(() => ({
+  online: 0,
+  total: 0,
+  rooms: [],
+  chat: [],
+}))
+
+// Parse a raw UpdateRoomList entry [id, name, gameMode, playerCount, capacity,
+// hasPassword, outdated] into a RoomInfo.
+function parseRoom(entry: unknown): RoomInfo | null {
+  if (!Array.isArray(entry) || entry.length < 7) return null
+  const [id, name, gameMode, playerCount, capacity, hasPassword, outdated] = entry as [
+    number, string, string, number, number, boolean, boolean,
+  ]
+  return { id, name, gameMode, playerCount, capacity, hasPassword, outdated }
+}
+
+// Central envelope router: maps server commands to store updates.
+function routeEnvelope(env: Envelope): void {
+  if (env.kind !== 'notify') return
+  const { command, data } = env as NotifyEnvelope
+  switch (command) {
+    case 'EnterLobby':
+      useLobbyStore.setState({ enteredRoomId: undefined })
+      break
+    case 'UpdatePlayerNum': {
+      // [lobbyPlayers, totalPlayers] (asio updateOnlineInfo)
+      if (Array.isArray(data)) {
+        useLobbyStore.setState({ online: Number(data[0] ?? 0), total: Number(data[1] ?? 0) })
+      }
+      break
+    }
+    case 'UpdateRoomList': {
+      const rooms = Array.isArray(data) ? data.map(parseRoom).filter((r): r is RoomInfo => r !== null) : []
+      useLobbyStore.setState({ rooms })
+      break
+    }
+    case 'Chat': {
+      // chat payload shape varies; store a best-effort line.
+      const line = normalizeChat(data)
+      if (line) useLobbyStore.setState((s) => ({ chat: [...s.chat.slice(-199), line] }))
+      break
+    }
+    case 'EnterRoom': {
+      // We joined/created a room. Capacity/timeout/settings in data; M1 just marks
+      // entry — the waiting-room UI is M2.
+      useLobbyStore.setState({ enteredRoomId: -1 })
+      break
+    }
+    case 'ErrorMsg':
+    case 'ErrorDlg': {
+      useLobbyStore.setState((s) => ({
+        chat: [...s.chat.slice(-199), { who: '系统', text: `错误: ${String(data)}`, at: Date.now() }],
+      }))
+      break
+    }
+    default:
+      // Other lobby notifies (UpdateAvatar, etc.) are ignored in M1.
+      break
+  }
+}
+
+function normalizeChat(data: unknown): ChatLine | null {
+  if (typeof data === 'string') return { who: '', text: data, at: Date.now() }
+  if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>
+    const who = String(o.userName ?? o.sender ?? o.who ?? '')
+    const text = String(o.msg ?? o.text ?? o.s ?? JSON.stringify(o))
+    return { who, text, at: Date.now() }
+  }
+  return null
+}
