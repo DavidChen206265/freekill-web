@@ -36,11 +36,20 @@ export function Photo({ player, playerNum, isSelf }: {
       </div>
       <div style={styles.statRow}>
         <span style={styles.hp}>{'♥'.repeat(Math.max(0, player.hp ?? 0))}<span style={styles.hpDim}>{'♡'.repeat(Math.max(0, (player.maxHp ?? 0) - (player.hp ?? 0)))}</span></span>
-        <span style={styles.seat}>#{player.seat ?? '?'}</span>
+        <span style={styles.seat}>{seatChr(player.seat)}</span>
       </div>
       {player.dead && <div style={styles.dead}>阵亡</div>}
     </div>
   )
+}
+
+// Seat shown as a Chinese numeral, matching Photo.qml (seatChr[seatNumber-1]).
+// QML's model defaults seatNumber to 1, so an unassigned seat (waiting room,
+// VM seat 0/undefined) shows 一.
+const SEAT_CHR = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
+function seatChr(seat?: number): string {
+  const n = seat && seat > 0 ? seat : 1
+  return SEAT_CHR[n - 1] ?? String(n)
 }
 
 function roleZh(role: string): string {
