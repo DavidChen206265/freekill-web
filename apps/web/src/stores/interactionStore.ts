@@ -24,6 +24,8 @@ interface InteractionState {
   skills: Record<string, ItemState>
   specialSkills: string[]
   applyChange: (change: unknown) => void
+  /** Set just the prompt (e.g. AskForSkillInvoke pushes its prompt separately). */
+  setPrompt: (prompt: string) => void
   clear: () => void
 }
 
@@ -86,6 +88,8 @@ export const useInteractionStore = create<InteractionState>((set) => ({
       return { active: true, prompt, cards, photos, buttons, skills, specialSkills }
     })
   },
+
+  setPrompt: (prompt) => set({ active: true, prompt }),
 
   clear: () => set({ active: false, prompt: '', cards: {}, photos: {}, buttons: {}, skills: {}, specialSkills: [] }),
 }))

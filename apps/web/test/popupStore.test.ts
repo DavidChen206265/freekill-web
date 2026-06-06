@@ -33,17 +33,74 @@ describe('popupStore', () => {
     expect(sent).toEqual(['discard'])
   })
 
-  it('AskForSkillInvoke → yes/no; resolve "1"/"__cancel"', () => {
-    const sent: unknown[] = []
-    usePopupStore.getState().setReplySender((d) => sent.push(d))
-    usePopupStore.getState().handle('AskForSkillInvoke', ['jianxiong', '是否发动奸雄?'])
-    expect(usePopupStore.getState().active!.kind).toBe('skillInvoke')
-    usePopupStore.getState().resolve('1')
-    expect(sent).toEqual(['1'])
+  it('AskForSkillInvoke is NOT a popup (handled by ui_emu / InteractionBar)', () => {
+    expect(usePopupStore.getState().handle('AskForSkillInvoke', ['jianxiong', '是否发动奸雄?'])).toBe(false)
+    expect(usePopupStore.getState().active).toBeNull()
   })
 
   it('ignores non-popup commands', () => {
     expect(usePopupStore.getState().handle('MoveCards', { merged: [] })).toBe(false)
     expect(usePopupStore.getState().active).toBeNull()
+  })
+
+  it('AskForChoices → multi-select with min/max', () => {
+    usePopupStore.getState().handle('AskForChoices', [['A', 'B', 'C'], ['a', 'b', 'c'], [1, 2], false, 'sk', '选1-2项', false])
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('choices')
+    expect(a.min).toBe(1); expect(a.max).toBe(2)
+    expect(a.values).toEqual(['a', 'b', 'c'])
+  })
+
+  it('AskForCardChosen → single card pick (groups)', () => {
+    usePopupStore.getState().handle('AskForCardChosen', { _prompt: '选一张', _id: 3, card_data: [['手牌', [11, 12]], ['装备', [20]]] })
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('cards')
+    expect(a.min).toBe(1); expect(a.max).toBe(1)
+    expect(a.groups).toEqual([
+      { name: '手牌', cards: [{ cid: 11 }, { cid: 12 }] },
+      { name: '装备', cards: [{ cid: 20 }] },
+    ])
+  })
+
+  it('AskForCardsChosen → multi card pick with _min/_max', () => {
+    usePopupStore.getState().handle('AskForCardsChosen', { _prompt: '选牌', _min: 1, _max: 2, card_data: [['手牌', [5, 6, 7]]] })
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('cards'); expect(a.min).toBe(1); expect(a.max).toBe(2)
+  })
+
+  it('AG flow: FillAG lays out, AskForAG prompts, TakeAG removes, CloseAG closes', () => {
+    const st = usePopupStore.getState()
+    st.handle('FillAG', [[1, 2, 3]])
+    expect(usePopupStore.getState().active!.agCards).toEqual([1, 2, 3])
+    st.handle('AskForAG', {})
+    expect(usePopupStore.getState().active!.prompt).toContain('选择')
+    st.handle('TakeAG', [2, 2]) // player 2 took card 2
+    expect(usePopupStore.getState().active!.agCards).toEqual([1, 3])
+    st.handle('CloseAG', {})
+    expect(usePopupStore.getState().active).toBeNull()
+  })
+
+  it('AskForGuanxing → arrange areas (top/bottom) with capacities', () => {
+    usePopupStore.getState().handle('AskForGuanxing', {
+      cards: [[1, 2, 3]], max_top_cards: 3, min_top_cards: 0, max_bottom_cards: 3, min_bottom_cards: 0,
+      top_area_name: '牌堆顶', bottom_area_name: '牌堆底', prompt: '观星',
+    })
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('arrange')
+    expect(a.arrangeCards).toEqual([1, 2, 3])
+    expect(a.areas).toHaveLength(2)
+    expect(a.areas![0]!.capacity).toBe(3)
+  })
+
+  it('AskForExchange → one area per non-empty pile', () => {
+    usePopupStore.getState().handle('AskForExchange', { piles: [[1, 2], [], [3]], piles_name: ['手牌', '空', '装备'] })
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('arrange')
+    expect(a.arrangeCards).toEqual([1, 2, 3])
+    expect(a.areas).toHaveLength(2) // empty pile skipped
+  })
+
+  it('EmptyRequest is handled (no popup)', () => {
+    expect(usePopupStore.getState().handle('EmptyRequest', null)).toBe(true)
   })
 })

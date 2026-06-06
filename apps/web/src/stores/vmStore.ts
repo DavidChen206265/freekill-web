@@ -57,6 +57,12 @@ export const useVmStore = create<VmState>((set, get) => ({
         useGameStore.getState().apply(e.command, e.data)
         if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
         else if (e.command === 'UpdateRequestUI') useInteractionStore.getState().applyChange(e.data)
+        else if (e.command === 'AskForSkillInvoke') {
+          // ui_emu request (ReqInvoke OK/Cancel via UpdateRequestUI); this notify
+          // only carries the prompt [skill, prompt]. Inject it into the bar.
+          const d = e.data as unknown[]
+          useInteractionStore.getState().setPrompt(String(d?.[1] || ''))
+        }
         else if (e.command === 'ReplyToServer') {
           // The request finished in the VM; send the reply to asio. The gateway
           // stamps the correct requestId (see asio-client/ws-bridge).
@@ -64,7 +70,13 @@ export const useVmStore = create<VmState>((set, get) => ({
           useInteractionStore.getState().clear()
         }
         else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear() }
-        // Popup-style requests (AskForGeneral/Choice/SkillInvoke) — not ui_emu.
+        else if (e.command === 'GetPlayerHandcards') {
+          // Auto-reply with self's hand card ids (RoomLogic.js:1576) — no UI.
+          const self = useGameStore.getState().selfId
+          const hand = self !== undefined ? (useCardStore.getState().areas[`hand:${self}`] ?? []) : []
+          get().serverReply?.(hand)
+        }
+        // Popup-style requests (AskForGeneral/Choice/cards/AG/arrange) — not ui_emu.
         else if (usePopupStore.getState().handle(e.command, e.data)) { /* handled */ }
         set((s) => ({
           notifyCounts: { ...s.notifyCounts, [e.command]: (s.notifyCounts[e.command] ?? 0) + 1 },
