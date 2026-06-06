@@ -127,19 +127,22 @@ export function packetToEnvelope(pkt: FkPacket): Envelope {
   const data = decodeInnerData(pkt.data)
   const raw = bytesToBase64(pkt.data)
   const kind = packetKind(pkt)
+  // Outer numeric fields may decode as BigInt (e.g. timestamp = ms epoch). JSON
+  // can't serialize BigInt, so coerce to Number here (these fit in a JS number).
+  const num = (v: unknown): number => (typeof v === 'bigint' ? Number(v) : Number(v ?? 0))
   if (kind === 'request') {
     return {
       kind: 'request',
-      requestId: pkt.requestId,
+      requestId: num(pkt.requestId),
       command: pkt.command,
       data,
       raw,
-      timeout: pkt.timeout ?? 0,
-      timestamp: pkt.timestamp ?? 0,
+      timeout: num(pkt.timeout),
+      timestamp: num(pkt.timestamp),
     }
   }
   if (kind === 'reply') {
-    return { kind: 'reply', requestId: pkt.requestId, command: pkt.command, data }
+    return { kind: 'reply', requestId: num(pkt.requestId), command: pkt.command, data }
   }
   return { kind: 'notify', command: pkt.command, data, raw }
 }

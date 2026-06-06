@@ -74,6 +74,26 @@ describe('packetToEnvelope', () => {
     const env = packetToEnvelope(pkt)
     expect(env).toMatchObject({ kind: 'request', requestId: 7, command: 'AskForUseCard', timeout: 15, timestamp: 123 })
   })
+
+  it('coerces BigInt outer fields (timestamp) so the envelope is JSON-safe', () => {
+    // asio's request timestamp is a ms epoch and decodes as BigInt; if not coerced,
+    // JSON.stringify(envelope) throws "Do not know how to serialize a BigInt" and
+    // the gateway silently drops the request (this dropped AskForGeneral).
+    const pkt: FkPacket = {
+      requestId: 9n as unknown as number,
+      type: TYPE_REQUEST | SRC_SERVER | DEST_CLIENT,
+      command: 'AskForGeneral',
+      data: encodeInnerData([['caocao'], 1]),
+      timeout: 15n as unknown as number,
+      timestamp: 1780000000000n as unknown as number,
+    }
+    const env = packetToEnvelope(pkt) as { requestId: number; timeout: number; timestamp: number }
+    expect(typeof env.requestId).toBe('number')
+    expect(typeof env.timestamp).toBe('number')
+    expect(env.timestamp).toBe(1780000000000)
+    // The whole envelope must JSON-serialize without throwing.
+    expect(() => JSON.stringify(env)).not.toThrow()
+  })
 })
 
 describe('envelopeToPacket', () => {

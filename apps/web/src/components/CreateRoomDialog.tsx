@@ -14,10 +14,24 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
 
   const create = (e: React.FormEvent) => {
     e.preventDefault()
+    // settings mirrors the QML CreateRoom: gameMode/roomName/password +
+    // _game (boardgame defaults) + _mode (mode defaults) + disabled*. The _game
+    // block is REQUIRED — generalNum drives general selection; without it the
+    // server can't ask for generals and the game degenerates instantly.
+    // Defaults from freekill-core lunarltk/init.lua (SpinRow `from` = default).
     const settings = {
       gameMode,
       roomName: name,
       password,
+      _game: {
+        generalNum: 3,
+        generalTimeout: 15,
+        luckTime: 0,
+        enableFreeAssign: false,
+        enableDeputy: false,
+        enableObserverViewCard: false,
+      },
+      _mode: {},
       disabledPack: [] as string[],
       disabledGenerals: [] as string[],
     }
