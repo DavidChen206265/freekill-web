@@ -9,6 +9,9 @@ dist/
 .vite/
 apps/web/dist/
 
+# Generated from upstream FreeKill-release (run `pnpm --filter web sync-assets`)
+apps/web/public/fk/
+
 # Test / coverage
 coverage/
 

@@ -1,0 +1,87 @@
+// feed.test.ts — feed real captured server packets into the booted client VM and
+// assert it expands them into notifyUI deltas. This mirrors the browser M2 path
+// (envelope.raw -> ClientCallback) but runs in Node with fs-mounted core.
+//
+// Uses the spike's captured-packets.json (real asio packet stream). Skipped if
+// the upstream core tree isn't present.
+
+import { describe, it, expect } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { LuaFactory } from 'wasmoon'
+import { createNatives, bootClient } from '../src/index.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const REPO = path.resolve(__dirname, '..', '..', '..', '..')
+const CORE = path.join(REPO, 'FreeKill-release', 'packages', 'freekill-core')
+const PRELUDE = path.join(__dirname, '..', 'lua', 'fkprelude.lua')
+const CAPTURED = path.join(REPO, 'freekill-web-spike', 'captured-packets.json')
+
+const VFS_CORE = '/fk/packages/freekill-core'
+const EXTS = new Set(['.lua', '.json', '.txt'])
+const ready = fs.existsSync(CORE) && fs.existsSync(CAPTURED)
+
+function collect(dir: string): string[] {
+  const out: string[] = []
+  const walk = (d: string) => {
+    for (const n of fs.readdirSync(d)) {
+      const f = path.join(d, n)
+      fs.statSync(f).isDirectory() ? walk(f) : EXTS.has(path.extname(n)) && out.push(f)
+    }
+  }
+  if (fs.existsSync(dir)) walk(dir)
+  return out
+}
+
+describe('client VM packet feed', () => {
+  it.skipIf(!ready)('expands a real captured packet stream into notifyUI deltas', async () => {
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        const rel = path.relative(CORE, full).replace(/\\/g, '/')
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${rel}`, fs.readFileSync(full))
+      }
+    }
+    const feed: Array<{ command: string }> = []
+    const natives = createNatives({
+      emfs: FS as never,
+      onNotifyUI: (e) => feed.push(e),
+      log: () => {},
+    })
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives, preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+
+    // Enter a room + add players (so the captured stream has a room to apply to).
+    lua.global.set('__setup', JSON.stringify({ gameMode: 'aaa_role_mode', disabledPack: [], disabledGenerals: [] }))
+    await lua.doString(`
+      ClientCallback(ClientInstance, "EnterRoom", cbor.encode({ 2, 15, json.decode(__setup) }), false)
+      ClientCallback(ClientInstance, "AddPlayer", cbor.encode({ 2, "Bob", "liubei", true }), false)
+    `)
+
+    // Feed player-1's captured packet stream via the raw-CBOR path.
+    const packets: Array<{ to: number; command: string; dataHex: string; kind: string }> =
+      JSON.parse(fs.readFileSync(CAPTURED, 'utf8'))
+    const stream = packets.filter((p) => p.to === 1)
+    lua.global.set('__cmds', stream.map((p) => p.command))
+    lua.global.set('__hex', stream.map((p) => p.dataHex))
+    lua.global.set('__req', stream.map((p) => p.kind === 'request'))
+    const processed = await lua.doString(`
+      local function fromHex(h) return (h:gsub("..", function(cc) return string.char(tonumber(cc,16)) end)) end
+      local ok = 0
+      for i = 1, #__cmds do
+        if pcall(ClientCallback, ClientInstance, __cmds[i], fromHex(__hex[i] or ""), __req[i] == true) then ok = ok + 1 end
+      end
+      return ok
+    `)
+
+    expect(processed).toBeGreaterThan(100)
+    expect(feed.length).toBeGreaterThan(50)
+    // The hallmark in-game deltas the table UI will consume.
+    expect(feed.some((e) => e.command === 'MoveCards')).toBe(true)
+    lua.global.close()
+  }, 30_000)
+})

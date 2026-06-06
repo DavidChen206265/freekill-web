@@ -11,6 +11,9 @@ export type { Natives, NativesOptions, EmscriptenFS } from './natives.js'
 export { bootClient } from './boot.js'
 export type { BootClientOptions, BootClientResult, LuaEngineLike } from './boot.js'
 
+export { mountFromFetch, VFS_PACKAGES } from './mount.js'
+export type { LuaFactoryLike, FileListManifest } from './mount.js'
+
 /** Path (within this package) to the client fk prelude Lua source. */
 export const PRELUDE_LUA_PATH = 'lua/fkprelude.lua'
 /** Path (within this package) to the server-side fk prelude Lua source. */

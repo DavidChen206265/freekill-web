@@ -117,11 +117,14 @@ export function extractPublicKeyPem(pkt: FkPacket): string {
 }
 
 /**
- * asio packet → browser envelope. The inner CBOR `data` is decoded to a JS value;
+ * asio packet → browser envelope. The inner CBOR `data` is decoded to a JS value
+ * for rendering, and the ORIGINAL inner CBOR is attached as base64 `raw` (for
+ * feeding the client VM's ClientCallback, which needs raw CBOR not JSON).
  * request packets carry timeout/timestamp.
  */
 export function packetToEnvelope(pkt: FkPacket): Envelope {
   const data = decodeInnerData(pkt.data)
+  const raw = bytesToBase64(pkt.data)
   const kind = packetKind(pkt)
   if (kind === 'request') {
     return {
@@ -129,6 +132,7 @@ export function packetToEnvelope(pkt: FkPacket): Envelope {
       requestId: pkt.requestId,
       command: pkt.command,
       data,
+      raw,
       timeout: pkt.timeout ?? 0,
       timestamp: pkt.timestamp ?? 0,
     }
@@ -136,7 +140,30 @@ export function packetToEnvelope(pkt: FkPacket): Envelope {
   if (kind === 'reply') {
     return { kind: 'reply', requestId: pkt.requestId, command: pkt.command, data }
   }
-  return { kind: 'notify', command: pkt.command, data }
+  return { kind: 'notify', command: pkt.command, data, raw }
+}
+
+// base64 encode bytes — works in node (Buffer) and browser (btoa). Used for the
+// envelope `raw` field carrying original inner CBOR to the client VM.
+function bytesToBase64(bytes: Uint8Array): string {
+  if (!bytes || bytes.length === 0) return ''
+  if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
+  let bin = ''
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!)
+  return btoa(bin)
+}
+
+/** Decode base64 `raw` back to bytes (browser-side, for feeding the VM). */
+export function base64ToBytes(b64: string): Uint8Array {
+  if (!b64) return new Uint8Array(0)
+  if (typeof Buffer !== 'undefined') {
+    const buf = Buffer.from(b64, 'base64')
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+  }
+  const bin = atob(b64)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
 }
 
 /**

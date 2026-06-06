@@ -6,6 +6,7 @@ import { useConnectionStore, useLobbyStore, useAuthStore } from '../stores/index
 import { RoomList } from '../components/RoomList.js'
 import { ChatBox } from '../components/ChatBox.js'
 import { CreateRoomDialog } from '../components/CreateRoomDialog.js'
+import { VmDebugPanel } from '../components/VmDebugPanel.js'
 
 export function LobbyPage() {
   const { client, disconnect } = useConnectionStore()
@@ -28,11 +29,15 @@ export function LobbyPage() {
       </header>
 
       {enteredRoomId !== undefined && (
-        <div style={styles.banner}>已进入房间(等待房间 UI 在 M2 实现)。</div>
+        <div style={styles.banner}>已进入房间 · 客户端 VM 已接管(牌桌 UI 在后续 M2 切片实现)。</div>
       )}
 
       <div style={styles.body}>
-        <main style={styles.main}><RoomList /></main>
+        {enteredRoomId !== undefined ? (
+          <main style={styles.main}><VmDebugPanel /></main>
+        ) : (
+          <main style={styles.main}><RoomList /></main>
+        )}
         <aside style={styles.aside}><ChatBox /></aside>
       </div>
 

@@ -2,11 +2,24 @@
 //
 // Qt's qCompress prepends a 4-byte big-endian ORIGINAL length to the raw zlib
 // (deflate) stream. asio's COMPRESSED packets use this exact framing (see
-// util.cpp qCompress_std). We mirror it so the gateway can round-trip compressed
-// payloads. Uses Node's zlib in node; in the browser a host-provided inflate can
-// be injected later (most client-bound traffic is uncompressed).
+// util.cpp qCompress_std). This is GATEWAY-SIDE only (Node) — the browser never
+// decompresses asio packets directly. To keep the protocol package bundleable for
+// the browser, node:zlib is loaded LAZILY (only when these functions are actually
+// called, which never happens in the browser bundle).
 
-import { inflateSync, deflateSync } from 'node:zlib'
+type ZlibFns = {
+  inflateSync: (b: Uint8Array) => Uint8Array
+  deflateSync: (b: Uint8Array, o?: { level?: number }) => Uint8Array
+}
+let _zlib: ZlibFns | null = null
+function zlib(): ZlibFns {
+  if (_zlib) return _zlib
+  // Indirect require so bundlers don't statically pull node:zlib into a browser
+  // build. Only the Node gateway ever reaches this path.
+  const req = (0, eval)('require') as (m: string) => ZlibFns
+  _zlib = req('node:zlib')
+  return _zlib
+}
 
 /** Decompress a Qt-style payload: 4-byte BE original length + zlib stream. */
 export function qUncompress(data: Uint8Array): Uint8Array {
@@ -14,14 +27,13 @@ export function qUncompress(data: Uint8Array): Uint8Array {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
   const originalLen = view.getUint32(0, false) // big-endian
   if (originalLen === 0) return new Uint8Array(0)
-  const stream = data.subarray(4)
-  const out = inflateSync(stream)
+  const out = zlib().inflateSync(data.subarray(4))
   return new Uint8Array(out.buffer, out.byteOffset, out.byteLength)
 }
 
 /** Compress to Qt-style framing: 4-byte BE original length + zlib stream. */
 export function qCompress(data: Uint8Array, level = 6): Uint8Array {
-  const body = deflateSync(data, { level })
+  const body = zlib().deflateSync(data, { level })
   const out = new Uint8Array(4 + body.length)
   const view = new DataView(out.buffer)
   view.setUint32(0, data.length, false) // big-endian original length

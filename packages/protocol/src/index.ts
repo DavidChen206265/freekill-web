@@ -30,4 +30,5 @@ export {
   extractPublicKeyPem,
   decodeInnerData,
   encodeInnerData,
+  base64ToBytes,
 } from './convert.js'

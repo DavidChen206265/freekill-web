@@ -17,6 +17,7 @@ export const requestEnvelopeSchema = z.object({
   requestId: z.number().int(),
   command: z.string(),
   data: dataField,
+  raw: z.string().optional(),
   timeout: z.number(),
   timestamp: z.number(),
 })
@@ -32,6 +33,7 @@ export const notifyEnvelopeSchema = z.object({
   kind: z.literal('notify'),
   command: z.string(),
   data: dataField,
+  raw: z.string().optional(),
 })
 
 export const envelopeSchema = z.discriminatedUnion('kind', [

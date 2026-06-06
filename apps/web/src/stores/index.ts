@@ -5,6 +5,7 @@
 import { create } from 'zustand'
 import type { Envelope, NotifyEnvelope } from '@freekill-web/protocol'
 import { GatewayClient, type GatewayStatus, type LoginCredentials } from '../net/gatewayClient.js'
+import { useVmStore } from './vmStore.js'
 
 // ---- connection ----
 interface ConnectionState {
@@ -84,14 +85,42 @@ function parseRoom(entry: unknown): RoomInfo | null {
   return { id, name, gameMode, playerCount, capacity, hasPassword, outdated }
 }
 
-// Central envelope router: maps server commands to store updates.
+// Central envelope router: maps server commands to store updates, and — once in
+// a room — forwards every server packet's raw CBOR to the client VM (in order).
+let inRoom = false
+let feedChain: Promise<void> = Promise.resolve()
+
+function feedVmOrdered(env: Envelope): void {
+  // Serialize VM feeds so packets are applied in arrival order despite async.
+  feedChain = feedChain.then(() => useVmStore.getState().feed(env)).catch(() => {})
+}
+
 function routeEnvelope(env: Envelope): void {
+  // EnterRoom flips us into the room: boot the VM, then feed this and all
+  // subsequent server packets into it.
+  if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterRoom') {
+    inRoom = true
+    useLobbyStore.setState({ enteredRoomId: -1 })
+    void useVmStore.getState().bootIfNeeded().then(() => feedVmOrdered(env))
+    return
+  }
+  if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterLobby') {
+    inRoom = false
+    useVmStore.getState().reset()
+    useLobbyStore.setState({ enteredRoomId: undefined })
+    return
+  }
+
+  if (inRoom) {
+    // In-room: the VM owns game state. Feed every server packet (notify+request).
+    feedVmOrdered(env)
+    return
+  }
+
+  // Lobby-phase notifies (no VM).
   if (env.kind !== 'notify') return
   const { command, data } = env as NotifyEnvelope
   switch (command) {
-    case 'EnterLobby':
-      useLobbyStore.setState({ enteredRoomId: undefined })
-      break
     case 'UpdatePlayerNum': {
       // [lobbyPlayers, totalPlayers] (asio updateOnlineInfo)
       if (Array.isArray(data)) {
@@ -108,12 +137,6 @@ function routeEnvelope(env: Envelope): void {
       // chat payload shape varies; store a best-effort line.
       const line = normalizeChat(data)
       if (line) useLobbyStore.setState((s) => ({ chat: [...s.chat.slice(-199), line] }))
-      break
-    }
-    case 'EnterRoom': {
-      // We joined/created a room. Capacity/timeout/settings in data; M1 just marks
-      // entry — the waiting-room UI is M2.
-      useLobbyStore.setState({ enteredRoomId: -1 })
       break
     }
     case 'ErrorMsg':

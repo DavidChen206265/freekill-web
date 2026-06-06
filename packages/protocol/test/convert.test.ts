@@ -9,6 +9,7 @@ import {
   extractPublicKeyPem,
   decodeInnerData,
   encodeInnerData,
+  base64ToBytes,
   decodePacket,
   encodePacket,
   type FkPacket,
@@ -44,6 +45,21 @@ describe('packetToEnvelope', () => {
     expect(env.kind).toBe('notify')
     expect(env.command).toBe('RefreshRoomList')
     expect(env.data).toEqual([{ id: 1, name: 'room' }])
+  })
+
+  it('attaches raw base64 of original inner CBOR for the VM', () => {
+    const original = Uint8Array.from(enc.encode([1, 2, 3]))
+    const pkt: FkPacket = {
+      requestId: NOTIFY_REQUEST_ID,
+      type: TYPE_NOTIFICATION | SRC_SERVER | DEST_CLIENT,
+      command: 'MoveCards',
+      data: original,
+    }
+    const env = packetToEnvelope(pkt) as { raw?: string }
+    expect(env.raw).toBeTruthy()
+    // base64 decodes back to the EXACT original inner CBOR bytes (byte-identical,
+    // so the VM's ClientCallback gets what asio actually sent).
+    expect(Array.from(base64ToBytes(env.raw!))).toEqual(Array.from(original))
   })
 
   it('maps a request packet with timeout/timestamp', () => {
