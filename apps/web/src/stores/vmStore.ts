@@ -79,6 +79,11 @@ export const useVmStore = create<VmState>((set, get) => ({
     const isRequest = env.kind === 'request'
     await vm.feedPacket(env.command, base64ToBytes(raw), isRequest)
     set((s) => ({ totalFed: s.totalFed + 1 }))
+    // Re-read the VM's authoritative player mirror (includes Self, which never
+    // arrives via AddPlayer). This keeps the roster correct regardless of which
+    // delta just landed.
+    const players = await vm.readPlayers()
+    useGameStore.getState().syncPlayers(players)
   },
 
   reset: () => {

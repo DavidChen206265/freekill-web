@@ -100,6 +100,54 @@ export class ClientVm {
     this.lua?.global.close()
     this.lua = null
   }
+
+  /**
+   * Read the authoritative player list from the VM's state mirror
+   * (ClientInstance.players includes Self, which never arrives via AddPlayer).
+   * Returns id/name/avatar/seat + game props. This is the reliable source of
+   * truth — the VM owns state; deltas alone miss Self (see setup() in clientbase).
+   */
+  async readPlayers(): Promise<VmPlayer[]> {
+    if (!this.lua) return []
+    const json = (await this.lua.doString(`
+      local out = {}
+      local ci = ClientInstance
+      if ci and ci.players then
+        for _, p in ipairs(ci.players) do
+          local sp = p.player
+          out[#out+1] = {
+            id = p.id,
+            name = sp and sp:getScreenName() or "",
+            avatar = sp and sp:getAvatar() or "",
+            seat = p.seat,
+            general = p.general,
+            deputyGeneral = p.deputyGeneral,
+            hp = p.hp, maxHp = p.maxHp,
+            role = p.role, kingdom = p.kingdom,
+            dead = p.dead,
+            isSelf = (Self ~= nil and p.id == Self.id),
+          }
+        end
+      end
+      return json.encode(out)
+    `)) as string
+    try { return JSON.parse(json) as VmPlayer[] } catch { return [] }
+  }
+}
+
+export interface VmPlayer {
+  id: number
+  name: string
+  avatar: string
+  seat?: number
+  general?: string
+  deputyGeneral?: string
+  hp?: number
+  maxHp?: number
+  role?: string
+  kingdom?: string
+  dead?: boolean
+  isSelf?: boolean
 }
 
 interface EmFS { chdir(p: string): void }

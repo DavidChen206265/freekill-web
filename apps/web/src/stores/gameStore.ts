@@ -32,7 +32,24 @@ interface GameState {
   started: boolean
   selfId?: number
   apply: (command: string, data: unknown) => void
+  /** Replace player state from the VM's authoritative mirror (includes Self). */
+  syncPlayers: (players: VmPlayerLike[], started?: boolean) => void
   resetGame: () => void
+}
+
+export interface VmPlayerLike {
+  id: number
+  name: string
+  avatar: string
+  seat?: number
+  general?: string
+  deputyGeneral?: string
+  hp?: number
+  maxHp?: number
+  role?: string
+  kingdom?: string
+  dead?: boolean
+  isSelf?: boolean
 }
 
 function blankPlayer(id: number): GamePlayer {
@@ -117,4 +134,34 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   resetGame: () => set({ players: {}, seatOrder: [], started: false, selfId: get().selfId }),
+
+  syncPlayers: (vmPlayers, started) => {
+    set((s) => {
+      const players: Record<number, GamePlayer> = {}
+      let selfId = s.selfId
+      for (const vp of vmPlayers) {
+        const prev = s.players[vp.id] ?? blankPlayer(vp.id)
+        players[vp.id] = {
+          ...prev,
+          id: vp.id,
+          name: vp.name || prev.name,
+          avatar: vp.avatar || prev.avatar,
+          seat: vp.seat ?? prev.seat,
+          general: vp.general ?? prev.general,
+          deputyGeneral: vp.deputyGeneral ?? prev.deputyGeneral,
+          hp: vp.hp ?? prev.hp,
+          maxHp: vp.maxHp ?? prev.maxHp,
+          role: vp.role ?? prev.role,
+          kingdom: vp.kingdom ?? prev.kingdom,
+          dead: vp.dead ?? prev.dead,
+        }
+        if (vp.isSelf) selfId = vp.id
+      }
+      // Preserve seat order by seat number when present, else insertion.
+      const ordered = Object.values(players)
+        .sort((a, b) => (a.seat ?? 99) - (b.seat ?? 99))
+        .map((p) => p.id)
+      return { players, selfId, seatOrder: ordered, started: started ?? s.started }
+    })
+  },
 }))

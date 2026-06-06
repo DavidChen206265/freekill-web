@@ -70,4 +70,19 @@ describe('gameStore reducer', () => {
     apply('SetPlayerMark', [1, '@test', 3])
     expect(useGameStore.getState().players[1]!.marks['@test']).toBe(3)
   })
+
+  it('syncPlayers seeds Self (who never arrives via AddPlayer) and orders by seat', () => {
+    const { syncPlayers, resetGame } = useGameStore.getState()
+    resetGame()
+    // VM mirror includes Self — the bug was Self being invisible without this.
+    syncPlayers([
+      { id: 2, name: 'webtester', avatar: 'liubei', seat: 2, isSelf: true },
+      { id: 1, name: 'yueying', avatar: 'caocao', seat: 1 },
+    ])
+    const s = useGameStore.getState()
+    expect(s.selfId).toBe(2)
+    expect(Object.keys(s.players)).toHaveLength(2)
+    expect(s.players[2]!.name).toBe('webtester') // self present
+    expect(s.seatOrder).toEqual([1, 2]) // ordered by seat
+  })
 })
