@@ -108,14 +108,18 @@ function routeEnvelope(env: Envelope): void {
   }
 
   // EnterRoom flips us into the room: boot the VM, replay the login Setup (so Self
-  // is correct), then feed this and all subsequent server packets into it.
+  // is correct), then feed this packet. CRITICAL: chain the boot onto feedChain so
+  // any packet arriving DURING boot (e.g. AddPlayer for an existing player) queues
+  // behind it instead of being dropped while vm is still null (that race caused a
+  // late joiner to not see players already in the room).
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterRoom') {
     inRoom = true
     useLobbyStore.setState({ enteredRoomId: -1 })
-    void useVmStore.getState().bootIfNeeded().then(() => {
-      if (loginSetup) feedVmOrdered(loginSetup)
-      feedVmOrdered(env)
-    })
+    feedChain = feedChain
+      .then(() => useVmStore.getState().bootIfNeeded())
+      .then(() => useVmStore.getState().feed(loginSetup ?? env)) // Setup first if present
+      .then(() => { if (loginSetup) return useVmStore.getState().feed(env) })
+      .catch(() => {})
     return
   }
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterLobby') {
