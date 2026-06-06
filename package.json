@@ -1,0 +1,22 @@
+{
+  "name": "freekill-web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "FreeKill 网站化:wasmoon 托管原版客户端 Lua + React DOM fixed stage + Node 网关",
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r exec rimraf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

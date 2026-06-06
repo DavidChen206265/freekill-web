@@ -1,0 +1,22 @@
+{
+  "name": "@freekill-web/gateway",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Node 网关:asio TCP ↔ 浏览器 WSS 协议适配。占位(M0)。",
+  "license": "GPL-3.0-or-later",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@freekill-web/protocol": "workspace:*",
+    "@freekill-web/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2"
+  }
+}

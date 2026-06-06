@@ -1,0 +1,31 @@
+{
+  "name": "@freekill-web/lua-native",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "客户端 fk.* 原生面(fkprelude + JS 叶子函数)+ wasmoon boot 序列。node/browser 同构。",
+  "license": "GPL-3.0-or-later",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./lua/fkprelude.lua": "./lua/fkprelude.lua",
+    "./lua/server_fkprelude.lua": "./lua/server_fkprelude.lua"
+  },
+  "files": ["dist", "lua"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "wasmoon": "^1.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "wasmoon": "^1.16.0"
+  }
+}

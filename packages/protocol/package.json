@@ -1,0 +1,29 @@
+{
+  "name": "@freekill-web/protocol",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "FreeKill packet 编解码(裸帧增量解码、字节串 0x40、Qt-zlib)、packet 类型、zod schema。",
+  "license": "GPL-3.0-or-later",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "cbor-x": "^1.6.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2"
+  }
+}
