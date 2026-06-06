@@ -11,8 +11,11 @@ import { base64ToBytes } from '@freekill-web/protocol'
 import { ClientVm, type ClientVmStats, type NotifyEvent } from '../vm/clientVm.js'
 import { useGameStore } from './gameStore.js'
 import { useCardStore } from './cardStore.js'
+import { useCardFaceStore } from './cardFaceStore.js'
 import { useInteractionStore } from './interactionStore.js'
 import { usePopupStore } from './popupStore.js'
+import { useLogStore } from './logStore.js'
+import { registerTranslations, hasTranslation } from '../i18n/zh.js'
 
 interface VmState {
   vm: ClientVm | null
@@ -78,8 +81,17 @@ export const useVmStore = create<VmState>((set, get) => ({
           const hand = self !== undefined ? (useCardStore.getState().areas[`hand:${self}`] ?? []) : []
           get().serverReply?.(hand)
         }
+        else if (e.command === 'GameLog') useLogStore.getState().push(String(e.data ?? ''))
+        else if (e.command === 'ShowToast') useLogStore.getState().showToast(String(e.data ?? ''))
         // Popup-style requests (AskForGeneral/Choice/cards/AG/arrange) — not ui_emu.
-        else if (usePopupStore.getState().handle(e.command, e.data)) { /* handled */ }
+        else if (usePopupStore.getState().handle(e.command, e.data)) {
+          // Translate any general/option keys the popup will display.
+          const active = usePopupStore.getState().active
+          if (active) {
+            const keys = [...(active.generals ?? []), ...(active.options ?? [])].filter((k) => !hasTranslation(k))
+            if (keys.length > 0) registerTranslations(get().vm!.translate(keys))
+          }
+        }
         set((s) => ({
           notifyCounts: { ...s.notifyCounts, [e.command]: (s.notifyCounts[e.command] ?? 0) + 1 },
           recent: [e, ...s.recent].slice(0, RECENT_CAP),
@@ -125,8 +137,37 @@ export const useVmStore = create<VmState>((set, get) => ({
     try {
       const players = await vm.readPlayers()
       useGameStore.getState().syncPlayers(players)
+      useGameStore.getState().setSelfSkills(vm.readSkills())
     } catch (err) {
       console.error('[vm] readPlayers threw:', err)
+    }
+    // Fetch faces for any cards now present that we haven't cached (faces are
+    // static per cid). Keeps hand/table cards showing real suit/number/name.
+    try {
+      const cached = useCardFaceStore.getState().faces
+      const cids = new Set<number>()
+      for (const ids of Object.values(useCardStore.getState().areas)) {
+        for (const cid of ids) if (cid > 0 && !cached[cid]) cids.add(cid)
+      }
+      if (cids.size > 0) useCardFaceStore.getState().merge(vm.readCards([...cids]))
+    } catch (err) {
+      console.error('[vm] readCards threw:', err)
+    }
+    // Translate any keys we now show but haven't localized yet (card names,
+    // general names, skill names) via the VM's Fk:translate. Cache so we only
+    // fetch each key once.
+    try {
+      const keys = new Set<string>()
+      const faces = useCardFaceStore.getState().faces
+      for (const f of Object.values(faces)) { if (f.name && !hasTranslation(f.name)) keys.add(f.name); if (f.virt_name && !hasTranslation(f.virt_name)) keys.add(f.virt_name) }
+      for (const p of Object.values(useGameStore.getState().players)) {
+        if (p.general && !hasTranslation(p.general)) keys.add(p.general)
+        if (p.deputyGeneral && !hasTranslation(p.deputyGeneral)) keys.add(p.deputyGeneral)
+      }
+      for (const sk of useGameStore.getState().selfSkills) if (!hasTranslation(sk)) keys.add(sk)
+      if (keys.size > 0) registerTranslations(vm.translate([...keys]))
+    } catch (err) {
+      console.error('[vm] translate threw:', err)
     }
   },
 
@@ -147,8 +188,10 @@ export const useVmStore = create<VmState>((set, get) => ({
     get().vm?.close()
     useGameStore.getState().resetGame()
     useCardStore.getState().reset()
+    useCardFaceStore.getState().reset()
     useInteractionStore.getState().clear()
     usePopupStore.getState().clear()
+    useLogStore.getState().reset()
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
 }))

@@ -36,9 +36,14 @@ interface GameState {
   started: boolean
   capacity: number
   selfId?: number
+  /** Self's visible skill names (from VM GetMySkills). */
+  selfSkills: string[]
+  /** GameOver winner roles (+-joined), set when the game ends; '' = draw. */
+  winner?: string
   apply: (command: string, data: unknown) => void
   /** Replace player state from the VM's authoritative mirror (includes Self). */
   syncPlayers: (players: VmPlayerLike[], started?: boolean) => void
+  setSelfSkills: (skills: string[]) => void
   resetGame: () => void
 }
 
@@ -80,6 +85,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   seatOrder: [],
   started: false,
   capacity: 0,
+  selfSkills: [],
 
   // The ROSTER (players/seat/general/hp/...) is owned by syncPlayers, which reads
   // the VM's authoritative mirror after every packet. apply() only handles deltas
@@ -109,7 +115,12 @@ export const useGameStore = create<GameState>((set, get) => ({
         break
       }
       case 'StartGame': {
-        set({ started: true })
+        set({ started: true, winner: undefined })
+        break
+      }
+      case 'GameOver': {
+        // data = winner role string ('+'-joined); '' = draw.
+        set({ winner: typeof data === 'string' ? data : String(data ?? '') })
         break
       }
       default:
@@ -117,7 +128,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  resetGame: () => set({ players: {}, seatOrder: [], started: false, capacity: 0, selfId: get().selfId }),
+  setSelfSkills: (skills) => set({ selfSkills: skills }),
+
+  resetGame: () => set({ players: {}, seatOrder: [], started: false, capacity: 0, selfSkills: [], winner: undefined, selfId: get().selfId }),
 
   syncPlayers: (vmPlayers, started) => {
     set((s) => {

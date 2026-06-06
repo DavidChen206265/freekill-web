@@ -46,6 +46,9 @@ export class ClientVm {
   private fnFeed: ((cmd: string, hex: string, isReq: boolean) => void) | null = null
   private fnReadPlayers: (() => string) | null = null
   private fnUpdateUI: ((t: string, id: string | number, action: string, dataJson: string) => void) | null = null
+  private fnReadCards: ((cidsJson: string) => string) | null = null
+  private fnTranslate: ((keysJson: string) => string) | null = null
+  private fnReadSkills: (() => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -108,10 +111,39 @@ export class ClientVm {
         end
         return json.encode(out)
       end
+      -- Card faces: GetCardData(cid) -> {name,number,suit,color,type,...}.
+      function __fkReadCards(cidsJson)
+        local out = {}
+        local ok, cids = pcall(json.decode, cidsJson)
+        if ok and type(cids) == "table" then
+          for _, cid in ipairs(cids) do
+            local d = GetCardData(cid)
+            out[tostring(cid)] = { name = d.name, number = d.number, suit = d.suit, color = d.color, type = d.type, virt_name = d.virt_name }
+          end
+        end
+        return json.encode(out)
+      end
+      -- Batch translate keys via Fk:translate (slash->杀, spade->♠, skills, ...).
+      function __fkTranslate(keysJson)
+        local out = {}
+        local ok, keys = pcall(json.decode, keysJson)
+        if ok and type(keys) == "table" then
+          for _, k in ipairs(keys) do out[k] = Translate(tostring(k)) end
+        end
+        return json.encode(out)
+      end
+      -- Self's visible skill names.
+      function __fkReadSkills()
+        local ok, sk = pcall(GetMySkills)
+        return json.encode((ok and sk) or {})
+      end
     `)
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
     this.fnUpdateUI = lua.global.get('__fkUpdateUI') as typeof this.fnUpdateUI
+    this.fnReadCards = lua.global.get('__fkReadCards') as typeof this.fnReadCards
+    this.fnTranslate = lua.global.get('__fkTranslate') as typeof this.fnTranslate
+    this.fnReadSkills = lua.global.get('__fkReadSkills') as typeof this.fnReadSkills
 
     return {
       mountFiles: mount.files,
@@ -158,6 +190,33 @@ export class ClientVm {
     const json = this.fnReadPlayers()
     try { return JSON.parse(json) as VmPlayer[] } catch { return [] }
   }
+
+  /** Batch-read card faces (cid -> {name,number,suit,color,type,...}). */
+  readCards(cids: number[]): Record<string, CardFace> {
+    if (!this.fnReadCards || cids.length === 0) return {}
+    try { return JSON.parse(this.fnReadCards(JSON.stringify(cids))) as Record<string, CardFace> } catch { return {} }
+  }
+
+  /** Batch-translate keys via the VM's Fk:translate (key -> localized text). */
+  translate(keys: string[]): Record<string, string> {
+    if (!this.fnTranslate || keys.length === 0) return {}
+    try { return JSON.parse(this.fnTranslate(JSON.stringify(keys))) as Record<string, string> } catch { return {} }
+  }
+
+  /** Self's visible skill names. */
+  readSkills(): string[] {
+    if (!this.fnReadSkills) return []
+    try { return JSON.parse(this.fnReadSkills()) as string[] } catch { return [] }
+  }
+}
+
+export interface CardFace {
+  name: string
+  number: number
+  suit: string // "spade" | "heart" | "club" | "diamond" | "nosuit"
+  color: string // "red" | "black" | "nocolor"
+  type?: number
+  virt_name?: string
 }
 
 export interface VmPlayer {

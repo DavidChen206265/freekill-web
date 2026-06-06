@@ -1,8 +1,7 @@
-// i18n/zh.ts — minimal static dictionary for lobby text (gameMode names etc).
-//
-// The authoritative translation lives in freekill-core's Lua (Fk:translate) and
-// is wired in at M2 when wasmoon loads. For the lobby (no VM) we cover the common
-// keys; anything missing falls back to the raw key.
+// i18n/zh.ts — translation lookup. Lobby text (no VM) uses the small static dict;
+// in-game, the authoritative translations come from the VM (Fk:translate) and are
+// merged into a runtime cache (see registerTranslations). tr() checks the runtime
+// cache first, then the static dict, then falls back to the raw key.
 
 const ZH: Record<string, string> = {
   aaa_role_mode: '身份模式',
@@ -11,6 +10,22 @@ const ZH: Record<string, string> = {
   testmode: '测试模式',
 }
 
+// Runtime cache filled from the VM's Fk:translate (cards/generals/skills/...).
+const runtime: Record<string, string> = {}
+
+/** Merge VM-provided translations (key -> localized text) into the runtime cache. */
+export function registerTranslations(map: Record<string, string>): void {
+  for (const [k, v] of Object.entries(map)) {
+    if (typeof v === 'string' && v.length > 0) runtime[k] = v
+  }
+}
+
+/** True if a key already has a known translation (caller can skip re-fetching). */
+export function hasTranslation(key: string): boolean {
+  return key in runtime || key in ZH
+}
+
 export function tr(key: string): string {
-  return ZH[key] ?? key
+  if (!key) return ''
+  return runtime[key] ?? ZH[key] ?? key
 }

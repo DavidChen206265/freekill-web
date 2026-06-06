@@ -211,4 +211,35 @@ describe('client VM packet feed', () => {
     expect(last.length).toBeGreaterThan(0) // still alive, heap intact
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!ready)('VM read bridge: card faces + translations (slice 5)', async () => {
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    // Mirror clientVm's bridge handles.
+    await lua.doString(`
+      function __fkReadCards(cidsJson) local out={} local ok,cids=pcall(json.decode,cidsJson) if ok then for _,cid in ipairs(cids) do local d=GetCardData(cid) out[tostring(cid)]={name=d.name,number=d.number,suit=d.suit,color=d.color} end end return json.encode(out) end
+      function __fkTranslate(keysJson) local out={} local ok,keys=pcall(json.decode,keysJson) if ok then for _,k in ipairs(keys) do out[k]=Translate(tostring(k)) end end return json.encode(out) end
+    `)
+    const readCards = lua.global.get('__fkReadCards') as (j: string) => string
+    const translate = lua.global.get('__fkTranslate') as (j: string) => string
+    await lua.doString(`ClientCallback(ClientInstance,"Setup",cbor.encode({1,"me","caocao",0}),false)`)
+    const slashId = await lua.doString(`for _,c in ipairs(Fk.cards) do if c.name=="slash" and c.suit~=Card.NoSuit then return c.id end end`) as number
+    const faces = JSON.parse(readCards(JSON.stringify([slashId]))) as Record<string, { name: string; suit: string; number: number }>
+    expect(faces[String(slashId)]!.name).toBe('slash')
+    expect(['spade', 'heart', 'club', 'diamond']).toContain(faces[String(slashId)]!.suit)
+    const tx = JSON.parse(translate(JSON.stringify(['slash', 'jink', 'caocao', 'lord']))) as Record<string, string>
+    expect(tx.slash).toBe('杀')
+    expect(tx.jink).toBe('闪')
+    expect(tx.caocao).toBe('曹操')
+    lua.global.close()
+  }, 30_000)
 })

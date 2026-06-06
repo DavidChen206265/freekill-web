@@ -5,8 +5,10 @@
 import { Stage } from './Stage.js'
 import { Photo } from './Photo.js'
 import { CardLayer } from './CardLayer.js'
-import { InteractionBar } from './InteractionBar.js'
+import { Dashboard } from './Dashboard.js'
 import { RequestPopup } from './RequestPopup.js'
+import { GameLogPanel } from './GameLogPanel.js'
+import { GameOverModal } from './GameOverModal.js'
 import { useGameStore } from '../stores/gameStore.js'
 
 export function RoomScene() {
@@ -26,8 +28,10 @@ export function RoomScene() {
         return <Photo key={id} player={p} playerNum={playerNum} isSelf={id === selfId} />
       })}
       <CardLayer />
-      <InteractionBar />
+      <Dashboard />
+      <GameLogPanel />
       <RequestPopup />
+      <GameOverModal />
       <div style={styles.center}>
         {!started && <span>等待开局…</span>}
       </div>

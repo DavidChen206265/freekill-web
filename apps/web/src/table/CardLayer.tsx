@@ -12,6 +12,7 @@ import { useGameStore } from '../stores/gameStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { resolveAreaBox, CARD_W, CARD_H } from './areas.js'
+import { CardFaceView } from './CardFaceView.js'
 
 const GO_BACK_MS = 500
 const EASE_OUT_QUAD = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -109,7 +110,7 @@ export function CardLayer() {
               filter: st && !st.enabled && !st.selected ? 'brightness(0.5)' : 'none',
             }}
           >
-            {t.faceUp ? <span style={styles.face}>{cid}</span> : <span style={styles.back}>FK</span>}
+            <CardFaceView cid={cid} faceUp={t.faceUp} width={CARD_W} height={CARD_H} />
           </div>
         )
       })}
@@ -121,9 +122,6 @@ const styles: Record<string, React.CSSProperties> = {
   layer: { position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 50 },
   card: {
     position: 'absolute', left: 0, top: 0, width: CARD_W, height: CARD_H,
-    borderRadius: 6, border: '1px solid #222', display: 'grid', placeItems: 'center',
-    fontSize: 13, fontWeight: 700, willChange: 'transform',
+    borderRadius: 6, willChange: 'transform',
   },
-  face: { background: '#f5f0e1', color: '#222', width: '100%', height: '100%', display: 'grid', placeItems: 'center', borderRadius: 6 },
-  back: { background: '#3b5b8c', color: '#dde', width: '100%', height: '100%', display: 'grid', placeItems: 'center', borderRadius: 6 },
 }

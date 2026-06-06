@@ -6,6 +6,7 @@ import type { GamePlayer } from '../stores/gameStore.js'
 import { seatPosition, PHOTO_WIDTH, PHOTO_HEIGHT } from './seatLayout.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
+import { tr } from '../i18n/zh.js'
 
 const PHOTO_W = PHOTO_WIDTH
 const PHOTO_H = PHOTO_HEIGHT
@@ -23,7 +24,7 @@ export function Photo({ player, playerNum, isSelf }: {
   isSelf: boolean
 }) {
   const pos = seatPosition(player.index, playerNum)
-  const general = player.general && player.general !== '' ? player.general : '(未选将)'
+  const general = player.general && player.general !== '' ? tr(player.general) : '(未选将)'
   const kingdomBg = (player.kingdom && KINGDOM_COLOR[player.kingdom]) || '#2a2a30'
   // Target selection state (when this player is a candidate target of a request).
   const targetState = useInteractionStore((s) => s.photos[player.id])
@@ -42,7 +43,7 @@ export function Photo({ player, playerNum, isSelf }: {
     >
       <div style={{ ...styles.art, background: kingdomBg }}>
         <span style={styles.general}>{general}</span>
-        {player.deputyGeneral && <span style={styles.deputy}>/ {player.deputyGeneral}</span>}
+        {player.deputyGeneral && <span style={styles.deputy}>/ {tr(player.deputyGeneral)}</span>}
       </div>
       <div style={styles.bar}>
         <span style={styles.name}>{player.name || `P${player.id}`}</span>
