@@ -7,14 +7,32 @@ import { RoomList } from '../components/RoomList.js'
 import { ChatBox } from '../components/ChatBox.js'
 import { CreateRoomDialog } from '../components/CreateRoomDialog.js'
 import { VmDebugPanel } from '../components/VmDebugPanel.js'
+import { RoomScene } from '../table/RoomScene.js'
 
 export function LobbyPage() {
   const { client, disconnect } = useConnectionStore()
   const { online, total, enteredRoomId } = useLobbyStore()
   const username = useAuthStore((s) => s.username)
   const [showCreate, setShowCreate] = useState(false)
+  const [showDebug, setShowDebug] = useState(false)
 
   useEffect(() => { client?.notify('RefreshRoomList', '') }, [client])
+
+  // In-room: show the fixed-stage table (RoomScene), with a toggleable VM debug
+  // overlay and a leave button.
+  if (enteredRoomId !== undefined) {
+    return (
+      <div style={styles.roomWrap}>
+        <RoomScene />
+        <div style={styles.roomBar}>
+          <span style={styles.meta}>房间 · {username}</span>
+          <button style={styles.btn} onClick={() => setShowDebug((v) => !v)}>{showDebug ? '隐藏' : 'VM 调试'}</button>
+          <button style={styles.ghost} onClick={() => client?.notify('QuitRoom', '')}>离开</button>
+        </div>
+        {showDebug && <div style={styles.debugOverlay}><VmDebugPanel /></div>}
+      </div>
+    )
+  }
 
   return (
     <div style={styles.wrap}>
@@ -28,16 +46,8 @@ export function LobbyPage() {
         <button style={styles.ghost} onClick={disconnect}>退出</button>
       </header>
 
-      {enteredRoomId !== undefined && (
-        <div style={styles.banner}>已进入房间 · 客户端 VM 已接管(牌桌 UI 在后续 M2 切片实现)。</div>
-      )}
-
       <div style={styles.body}>
-        {enteredRoomId !== undefined ? (
-          <main style={styles.main}><VmDebugPanel /></main>
-        ) : (
-          <main style={styles.main}><RoomList /></main>
-        )}
+        <main style={styles.main}><RoomList /></main>
         <aside style={styles.aside}><ChatBox /></aside>
       </div>
 
@@ -56,4 +66,7 @@ const styles: Record<string, React.CSSProperties> = {
   body: { flex: 1, display: 'flex', minHeight: 0 },
   main: { flex: 1, overflowY: 'auto', padding: 12 },
   aside: { width: 300, borderLeft: '1px solid #333', padding: 12, display: 'flex', flexDirection: 'column' },
+  roomWrap: { position: 'fixed', inset: 0, background: '#0d3b1e' },
+  roomBar: { position: 'absolute', top: 8, right: 8, display: 'flex', gap: 8, alignItems: 'center', zIndex: 80, background: 'rgba(0,0,0,.45)', padding: '6px 10px', borderRadius: 8 },
+  debugOverlay: { position: 'absolute', left: 8, top: 8, width: 460, maxHeight: '90vh', overflowY: 'auto', zIndex: 80, boxShadow: '0 4px 24px rgba(0,0,0,.5)' },
 }

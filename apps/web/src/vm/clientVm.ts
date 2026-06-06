@@ -29,12 +29,19 @@ const FILE_LIST_URL = '/fk/file-list.json'
 const PRELUDE_URL = '/fk/fkprelude.lua'
 const VFS_CORE = '/fk/packages/freekill-core'
 
+export interface ServerMessage {
+  command: string
+  data: string
+}
+
 export class ClientVm {
   private lua: Awaited<ReturnType<LuaFactory['createEngine']>> | null = null
   private notifyFeed: (e: NotifyEvent) => void
+  private onServer?: (m: ServerMessage) => void
 
-  constructor(onNotifyUI: (e: NotifyEvent) => void) {
+  constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
+    this.onServer = onNotifyServer
   }
 
   /** Mount resources + boot the client engine. Returns perf stats. */
@@ -44,13 +51,14 @@ export class ClientVm {
     const FS = (luaModule as { module: { FS: EmFS } }).module.FS
 
     // 1) mount resources via fetch (Vite static).
-    const manifest = (await (await fetch(FILE_LIST_URL)).json()) as FileListManifest
+    const manifest = (await fetchJson(FILE_LIST_URL)) as FileListManifest
     const mount = await mountFromFetch(factory, luaModule, FK_BASE_URL, manifest)
 
     // 2) natives + engine.
     const natives = createNatives({
       emfs: FS as unknown as Parameters<typeof createNatives>[0]['emfs'],
       onNotifyUI: (e) => this.notifyFeed(e),
+      onNotifyServer: (m) => this.onServer?.(m),
       log: () => {},
     })
     const lua = await factory.createEngine({ injectObjects: true })
@@ -58,7 +66,7 @@ export class ClientVm {
     FS.chdir(VFS_CORE)
 
     // 3) boot (prelude -> freekill.lua -> client.lua -> CreateLuaClient).
-    const preludeLua = await (await fetch(PRELUDE_URL)).text()
+    const preludeLua = await fetchText(PRELUDE_URL)
     const tb = performance.now()
     const res = await bootClient({ lua: lua as never, natives, preludeLua })
     const bootMs = Math.round(performance.now() - tb)
@@ -95,6 +103,25 @@ export class ClientVm {
 }
 
 interface EmFS { chdir(p: string): void }
+
+// Fetch helpers that FAIL LOUDLY. Without the res.ok check, a Vite 404 returns
+// its HTML fallback page ("<!doctype html>...") with status 200-looking content,
+// which then gets fed to Lua and dies with "unexpected symbol near '<'". Guard it.
+async function fetchText(url: string): Promise<string> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`fetch ${url} -> ${res.status}`)
+  const text = await res.text()
+  if (text.startsWith('<!doctype') || text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+    throw new Error(`fetch ${url} returned HTML (missing asset? run \`pnpm --filter web sync-assets\`)`)
+  }
+  return text
+}
+
+async function fetchJson(url: string): Promise<unknown> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`fetch ${url} -> ${res.status}`)
+  return res.json()
+}
 
 function toHex(bytes: Uint8Array): string {
   let s = ''

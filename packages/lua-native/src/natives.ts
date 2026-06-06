@@ -22,6 +22,10 @@ export interface NativesOptions {
   emfs: EmscriptenFS
   /** Render-data sink: every notifyUI(command, data) the VM emits. */
   onNotifyUI?: (event: { command: string; data: unknown }) => void
+  /** Outbound sink: messages the VM sends TO the server (notifyServer), e.g.
+   *  Heartbeat. The host routes these to the gateway → asio. `dataJson` is the
+   *  JSON the VM passed (often ""). */
+  onNotifyServer?: (event: { command: string; data: string }) => void
   /** Optional log sink (qInfo/qWarning/qCritical/qDebug + diagnostics). */
   log?: (message: string) => void
 }
@@ -71,7 +75,7 @@ function normalizePosix(p: string): string {
 const S_IFMT = 0o170000
 const S_IFDIR = 0o040000
 
-export function createNatives({ emfs, onNotifyUI, log }: NativesOptions): Natives {
+export function createNatives({ emfs, onNotifyUI, onNotifyServer, log }: NativesOptions): Natives {
   const absToCwd = (p: string) => (p.startsWith('/') ? p : emfs.cwd().replace(/\/$/, '') + '/' + p)
   const norm = (p: string) => normalizePosix(absToCwd(p))
 
@@ -107,7 +111,7 @@ export function createNatives({ emfs, onNotifyUI, log }: NativesOptions): Native
       onNotifyUI?.({ command, data })
     },
     notifyServer: (command, dataJson) => {
-      onNotifyUI?.({ command: '__toServer__:' + command, data: dataJson })
+      onNotifyServer?.({ command, data: dataJson })
     },
   }
 }
