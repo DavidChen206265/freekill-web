@@ -6,6 +6,7 @@ import { Stage } from './Stage.js'
 import { Photo } from './Photo.js'
 import { CardLayer } from './CardLayer.js'
 import { InteractionBar } from './InteractionBar.js'
+import { RequestPopup } from './RequestPopup.js'
 import { useGameStore } from '../stores/gameStore.js'
 
 export function RoomScene() {
@@ -26,6 +27,7 @@ export function RoomScene() {
       })}
       <CardLayer />
       <InteractionBar />
+      <RequestPopup />
       <div style={styles.center}>
         {!started && <span>等待开局…</span>}
       </div>

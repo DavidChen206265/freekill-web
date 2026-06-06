@@ -12,6 +12,7 @@ import { ClientVm, type ClientVmStats, type NotifyEvent } from '../vm/clientVm.j
 import { useGameStore } from './gameStore.js'
 import { useCardStore } from './cardStore.js'
 import { useInteractionStore } from './interactionStore.js'
+import { usePopupStore } from './popupStore.js'
 
 interface VmState {
   vm: ClientVm | null
@@ -62,7 +63,9 @@ export const useVmStore = create<VmState>((set, get) => ({
           get().serverReply?.(e.data)
           useInteractionStore.getState().clear()
         }
-        else if (e.command === 'CancelRequest') useInteractionStore.getState().clear()
+        else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear() }
+        // Popup-style requests (AskForGeneral/Choice/SkillInvoke) — not ui_emu.
+        else if (usePopupStore.getState().handle(e.command, e.data)) { /* handled */ }
         set((s) => ({
           notifyCounts: { ...s.notifyCounts, [e.command]: (s.notifyCounts[e.command] ?? 0) + 1 },
           recent: [e, ...s.recent].slice(0, RECENT_CAP),
@@ -131,6 +134,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useGameStore.getState().resetGame()
     useCardStore.getState().reset()
     useInteractionStore.getState().clear()
+    usePopupStore.getState().clear()
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
 }))

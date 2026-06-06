@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import type { Envelope, NotifyEnvelope } from '@freekill-web/protocol'
 import { GatewayClient, type GatewayStatus, type LoginCredentials } from '../net/gatewayClient.js'
 import { useVmStore } from './vmStore.js'
+import { usePopupStore } from './popupStore.js'
 
 // ---- connection ----
 interface ConnectionState {
@@ -34,6 +35,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     useVmStore.getState().setServerSender((command, data) => client.notify(command, data))
     // VM reply (ReplyToServer) → gateway reply (gateway stamps the requestId).
     useVmStore.getState().setServerReply((data) => client.reply(0, data))
+    // Popup requests (AskForGeneral/Choice/...) reply the same way.
+    usePopupStore.getState().setReplySender((data) => client.reply(0, data))
     client.connect(creds)
   },
   disconnect: () => {
