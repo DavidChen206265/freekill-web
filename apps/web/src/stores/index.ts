@@ -91,6 +91,10 @@ function parseRoom(entry: unknown): RoomInfo | null {
 // a room — forwards every server packet's raw CBOR to the client VM (in order).
 let inRoom = false
 let feedChain: Promise<void> = Promise.resolve()
+// The login Setup packet arrives during the lobby phase (before the VM exists).
+// It carries [selfId, name, avatar] — the VM needs it to know who Self is, so we
+// stash it and replay it into the VM right after boot, before EnterRoom.
+let loginSetup: Envelope | null = null
 
 function feedVmOrdered(env: Envelope): void {
   // Serialize VM feeds so packets are applied in arrival order despite async.
@@ -98,12 +102,20 @@ function feedVmOrdered(env: Envelope): void {
 }
 
 function routeEnvelope(env: Envelope): void {
-  // EnterRoom flips us into the room: boot the VM, then feed this and all
-  // subsequent server packets into it.
+  // Capture the login Setup (lobby phase) so we can seed Self into the VM later.
+  if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'Setup') {
+    loginSetup = env
+  }
+
+  // EnterRoom flips us into the room: boot the VM, replay the login Setup (so Self
+  // is correct), then feed this and all subsequent server packets into it.
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterRoom') {
     inRoom = true
     useLobbyStore.setState({ enteredRoomId: -1 })
-    void useVmStore.getState().bootIfNeeded().then(() => feedVmOrdered(env))
+    void useVmStore.getState().bootIfNeeded().then(() => {
+      if (loginSetup) feedVmOrdered(loginSetup)
+      feedVmOrdered(env)
+    })
     return
   }
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterLobby') {
