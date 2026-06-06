@@ -3,10 +3,10 @@
 // from gameStore, positioned by seatLayout. Absolute logical coords.
 
 import type { GamePlayer } from '../stores/gameStore.js'
-import { seatPosition } from './seatLayout.js'
+import { seatPosition, PHOTO_WIDTH, PHOTO_HEIGHT } from './seatLayout.js'
 
-const PHOTO_W = 175 * 0.75
-const PHOTO_H = 233 * 0.75
+const PHOTO_W = PHOTO_WIDTH
+const PHOTO_H = PHOTO_HEIGHT
 
 const ROLE_COLOR: Record<string, string> = {
   lord: '#d4af37', loyalist: '#c0392b', rebel: '#27ae60', renegade: '#8e44ad',
@@ -15,13 +15,12 @@ const KINGDOM_COLOR: Record<string, string> = {
   wei: '#3b5b8c', shu: '#9c3b3b', wu: '#3b7d5b', qun: '#7a6a3b', god: '#7a3b7a',
 }
 
-export function Photo({ player, relativeSeat, playerNum, isSelf }: {
+export function Photo({ player, playerNum, isSelf }: {
   player: GamePlayer
-  relativeSeat: number
   playerNum: number
   isSelf: boolean
 }) {
-  const pos = seatPosition(relativeSeat, playerNum)
+  const pos = seatPosition(player.index, playerNum)
   const general = player.general && player.general !== '' ? player.general : '(未选将)'
   const kingdomBg = (player.kingdom && KINGDOM_COLOR[player.kingdom]) || '#2a2a30'
 

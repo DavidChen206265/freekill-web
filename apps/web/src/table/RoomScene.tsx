@@ -5,27 +5,25 @@
 import { Stage } from './Stage.js'
 import { Photo } from './Photo.js'
 import { useGameStore } from '../stores/gameStore.js'
-import { toRelativeSeat } from './seatLayout.js'
 
 export function RoomScene() {
   const players = useGameStore((s) => s.players)
   const seatOrder = useGameStore((s) => s.seatOrder)
   const selfId = useGameStore((s) => s.selfId)
+  const started = useGameStore((s) => s.started)
 
   const ids = seatOrder.length > 0 ? seatOrder : Object.keys(players).map(Number)
   const playerNum = ids.length || 1
-  const selfSeat = (selfId !== undefined && players[selfId]?.seat) || 1
 
   return (
     <Stage>
       {ids.map((id) => {
         const p = players[id]
         if (!p) return null
-        const rel = p.seat !== undefined ? toRelativeSeat(p.seat, selfSeat, playerNum) : 0
-        return <Photo key={id} player={p} relativeSeat={rel} playerNum={playerNum} isSelf={id === selfId} />
+        return <Photo key={id} player={p} playerNum={playerNum} isSelf={id === selfId} />
       })}
       <div style={styles.center}>
-        {!useGameStore.getState().started && <span>等待开局…</span>}
+        {!started && <span>等待开局…</span>}
       </div>
     </Stage>
   )

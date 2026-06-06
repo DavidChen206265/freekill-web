@@ -14,6 +14,8 @@ export interface GamePlayer {
   id: number
   name: string
   avatar: string
+  /** Display slot (0 = self at bottom). Append order until ArrangeSeats rotates it. */
+  index: number
   seat?: number
   general?: string
   deputyGeneral?: string
@@ -53,7 +55,19 @@ export interface VmPlayerLike {
 }
 
 function blankPlayer(id: number): GamePlayer {
-  return { id, name: '', avatar: '', marks: {} }
+  return { id, name: '', avatar: '', index: 0, marks: {} }
+}
+
+// Recompute display `index` for all players (RoomLogic.js arrangeSeats:733-750):
+// rotate the seat order so Self is first (index 0 = bottom), others follow. Used
+// after ArrangeSeats. `order` is the seat-ordered id list; selfId goes to slot 0.
+function rotateToSelf(order: number[], selfId: number | undefined): Map<number, number> {
+  const idx = new Map<number, number>()
+  if (order.length === 0) return idx
+  const selfPos = selfId !== undefined ? order.indexOf(selfId) : -1
+  const rotated = selfPos >= 0 ? [...order.slice(selfPos), ...order.slice(0, selfPos)] : order
+  rotated.forEach((id, i) => idx.set(id, i))
+  return idx
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -61,56 +75,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   seatOrder: [],
   started: false,
 
+  // The ROSTER (players/seat/general/hp/...) is owned by syncPlayers, which reads
+  // the VM's authoritative mirror after every packet. apply() only handles deltas
+  // that aren't part of the player mirror read: selfId, marks, started.
   apply: (command, data) => {
     const arr = Array.isArray(data) ? data : null
     switch (command) {
       case 'Setup': {
         // [id, name, avatar, ...] — identifies self.
         if (arr) set({ selfId: Number(arr[0]) })
-        break
-      }
-      case 'AddPlayer': {
-        if (!arr) break
-        const id = Number(arr[0])
-        set((s) => ({
-          players: {
-            ...s.players,
-            [id]: { ...blankPlayer(id), ...s.players[id], id, name: String(arr[1] ?? ''), avatar: String(arr[2] ?? '') },
-          },
-        }))
-        break
-      }
-      case 'RemovePlayer': {
-        if (!arr) break
-        const id = Number(arr[0])
-        set((s) => {
-          const players = { ...s.players }
-          delete players[id]
-          return { players, seatOrder: s.seatOrder.filter((x) => x !== id) }
-        })
-        break
-      }
-      case 'ArrangeSeats': {
-        if (!arr) break
-        const order = arr.map(Number)
-        set((s) => {
-          const players = { ...s.players }
-          order.forEach((id, i) => {
-            players[id] = { ...blankPlayer(id), ...players[id], id, seat: i + 1 }
-          })
-          return { players, seatOrder: order }
-        })
-        break
-      }
-      case 'PropertyUpdate': {
-        if (!arr) break
-        const id = Number(arr[0])
-        const prop = String(arr[1])
-        const value = arr[2]
-        set((s) => {
-          const prev = s.players[id] ?? blankPlayer(id)
-          return { players: { ...s.players, [id]: { ...prev, [prop]: value } } }
-        })
         break
       }
       case 'SetPlayerMark': {
@@ -157,11 +130,29 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
         if (vp.isSelf) selfId = vp.id
       }
-      // Preserve seat order by seat number when present, else insertion.
-      const ordered = Object.values(players)
-        .sort((a, b) => (a.seat ?? 99) - (b.seat ?? 99))
-        .map((p) => p.id)
-      return { players, selfId, seatOrder: ordered, started: started ?? s.started }
+
+      // Display index (RoomLogic.js): if seats are assigned (ArrangeSeats fired),
+      // order by seat then rotate Self to slot 0. Otherwise (waiting room) use the
+      // VM's player order (which lists Self first — see ClientBase:setup), so Self
+      // is already index 0.
+      const haveSeats = vmPlayers.some((p) => p.seat && p.seat > 0)
+      let idxMap: Map<number, number>
+      if (haveSeats) {
+        const order = [...vmPlayers].sort((a, b) => (a.seat ?? 99) - (b.seat ?? 99)).map((p) => p.id)
+        idxMap = rotateToSelf(order, selfId)
+      } else {
+        // Pin self to 0, others follow in VM order.
+        const ids = vmPlayers.map((p) => p.id)
+        const sp = selfId !== undefined ? ids.indexOf(selfId) : -1
+        const ordered = sp >= 0 ? [selfId!, ...ids.filter((x) => x !== selfId)] : ids
+        idxMap = new Map(ordered.map((id, i) => [id, i]))
+      }
+      for (const id of Object.keys(players).map(Number)) {
+        players[id]!.index = idxMap.get(id) ?? 0
+      }
+
+      const seatOrder = [...Object.values(players)].sort((a, b) => a.index - b.index).map((p) => p.id)
+      return { players, selfId, seatOrder, started: started ?? s.started }
     })
   },
 }))
