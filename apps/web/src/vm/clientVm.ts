@@ -53,6 +53,7 @@ export class ClientVm {
   private fnReadGenerals: ((namesJson: string) => string) | null = null
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
   private fnPlayerSkills: ((id: number) => string) | null = null
+  private fnGameSummary: (() => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -208,6 +209,28 @@ export class ClientVm {
         local ok, sk = pcall(GetPlayerSkills, id)
         return json.encode((ok and sk) or {})
       end
+      -- GameOver summary (GameOverBox.qml): the server's GameSummary banner joined
+      -- with each player's general/deputy/role from the VM mirror. Per seat:
+      -- {turn,recover,damage,damaged,kill,scname} + general/deputy/role/id.
+      function __fkGameSummary()
+        local out = {}
+        local ci = ClientInstance
+        local data = ci and ci.getBanner and ci:getBanner("GameSummary")
+        if type(data) ~= "table" then return json.encode(out) end
+        local bySeat = {}
+        if ci.players then for _, p in ipairs(ci.players) do if p.seat then bySeat[p.seat] = p end end end
+        for seat, s in ipairs(data) do
+          local p = bySeat[seat]
+          out[#out+1] = {
+            seat = seat, scname = s.scname,
+            turn = s.turn or 0, recover = s.recover or 0,
+            damage = s.damage or 0, damaged = s.damaged or 0, kill = s.kill or 0,
+            general = p and p.general or "", deputy = p and p.deputyGeneral or "",
+            role = p and p.role or "", id = p and p.id or 0,
+          }
+        end
+        return json.encode(out)
+      end
     `)
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
@@ -219,6 +242,7 @@ export class ClientVm {
     this.fnReadGenerals = lua.global.get('__fkReadGenerals') as typeof this.fnReadGenerals
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
+    this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
 
     return {
       mountFiles: mount.files,
@@ -319,6 +343,27 @@ export class ClientVm {
     if (!this.fnPlayerSkills) return []
     try { return JSON.parse(this.fnPlayerSkills(id)) as { name: string; description: string }[] } catch { return [] }
   }
+
+  /** GameOver per-player summary rows (GameOverBox.qml getSummary): turn/recover/
+   *  damage/damaged/kill joined with each seat's general/deputy/role. [] if absent. */
+  gameSummary(): GameSummaryRow[] {
+    if (!this.fnGameSummary) return []
+    try { return JSON.parse(this.fnGameSummary()) as GameSummaryRow[] } catch { return [] }
+  }
+}
+
+export interface GameSummaryRow {
+  seat: number
+  scname: string
+  turn: number
+  recover: number
+  damage: number
+  damaged: number
+  kill: number
+  general: string
+  deputy: string
+  role: string
+  id: number
 }
 
 export interface GeneralInfo {

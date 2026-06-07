@@ -277,6 +277,13 @@ describe('client VM packet feed', () => {
         return json.encode({ r = res })
       end
       function __fkPlayerSkills(id) local ok, sk = pcall(GetPlayerSkills, id) return json.encode((ok and sk) or {}) end
+      function __fkGameSummary()
+        local out = {}
+        local ci = ClientInstance
+        local data = ci and ci.getBanner and ci:getBanner("GameSummary")
+        if type(data) ~= "table" then return json.encode(out) end
+        return json.encode(out)
+      end
     `)
     const readPlayers = lua.global.get('__fkReadPlayers') as () => string
     const readGenerals = lua.global.get('__fkReadGenerals') as (j: string) => string
@@ -323,6 +330,10 @@ describe('client VM packet feed', () => {
     const skills = JSON.parse(ps(selfId)) as { name: string; description: string }[]
     expect(Array.isArray(skills)).toBe(true)
     expect(skills.every((s) => typeof s.name === 'string' && typeof s.description === 'string')).toBe(true)
+    // F1: getBanner("GameSummary") resolves without error (absent in this minimal
+    // harness → empty array). Proves the __fkGameSummary bridge target is sound.
+    const gs = lua.global.get('__fkGameSummary') as () => string
+    expect(Array.isArray(JSON.parse(gs()))).toBe(true)
     lua.global.close()
   }, 30_000)
 })
