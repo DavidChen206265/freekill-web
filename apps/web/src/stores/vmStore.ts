@@ -15,7 +15,7 @@ import { useCardFaceStore } from './cardFaceStore.js'
 import { useInteractionStore } from './interactionStore.js'
 import { usePopupStore } from './popupStore.js'
 import { useLogStore } from './logStore.js'
-import { TIMEOUT_SEC } from './timerStore.js'
+import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
 import { registerTranslations, hasTranslation } from '../i18n/zh.js'
 
@@ -45,6 +45,18 @@ interface VmState {
 
 const RECENT_CAP = 50
 
+// The exact set of request callbacks that call roomScene.activate() in
+// RoomLogic.js — i.e. every request that shows operation UI and thus (re)starts
+// the operation countdown. Mirrors the activate() call sites verbatim. EmptyRequest
+// is deliberately excluded (no activate); CancelRequest/reply deactivate.
+const ACTIVATE_COMMANDS = new Set<string>([
+  'PlayCard', 'AskForUseCard', 'AskForResponseCard', 'AskForUseActiveSkill',
+  'AskForSkillInvoke', 'AskForGeneral', 'AskForChoice', 'AskForChoices',
+  'AskForCardChosen', 'AskForCardsChosen', 'AskForCardsAndChoice', 'AskForPoxi',
+  'AskForGuanxing', 'AskForExchange', 'AskForMoveCardInBoard', 'AskForAG',
+  'CustomDialog', 'MiniGame',
+])
+
 export const useVmStore = create<VmState>((set, get) => ({
   vm: null,
   booting: false,
@@ -60,12 +72,17 @@ export const useVmStore = create<VmState>((set, get) => ({
       (e) => {
         // Drive the render caches, then update the debug feed.
         useGameStore.getState().apply(e.command, e.data)
+        // Operation countdown — 1:1 with QML: every request callback that needs UI
+        // calls roomScene.activate() (RoomLogic.js), which restarts the bar. The
+        // ui_emu click loop (UpdateRequestUI) and non-request notifies do NOT.
+        if (ACTIVATE_COMMANDS.has(e.command)) useTimerStore.getState().activate()
         if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
         else if (e.command === 'DestroyTableCard') useCardStore.getState().destroyTableCards((e.data as number[]) ?? [])
         else if (e.command === 'DestroyTableCardByEvent') useCardStore.getState().destroyTableCardsByEvent(Number(e.data) || 0)
         else if (e.command === 'UpdateRequestUI') {
-          // ui_emu request UI activated/updated. CountdownBar starts the 30s timer
-          // off the active edge (interactionStore.active), so no explicit call here.
+          // ui_emu request UI update (each click re-emits this). In QML this goes
+          // through updateRequestUI, NOT a request callback, so it does NOT
+          // activate() — the countdown is started by the request command below.
           useInteractionStore.getState().applyChange(e.data)
         }
         else if (e.command === 'AskForSkillInvoke') {
@@ -76,11 +93,17 @@ export const useVmStore = create<VmState>((set, get) => ({
         }
         else if (e.command === 'ReplyToServer') {
           // The request finished in the VM; send the reply to asio. The gateway
-          // stamps the correct requestId (see asio-client/ws-bridge).
+          // stamps the correct requestId (see asio-client/ws-bridge). Leaving the
+          // request → notactive (Room.qml finishRequestUI/reply path).
           get().serverReply?.(e.data)
-          useInteractionStore.getState().clear() // active→false → CountdownBar stops
+          useInteractionStore.getState().clear()
+          useTimerStore.getState().deactivate()
         }
-        else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear(); useFocusStore.getState().clear() }
+        else if (e.command === 'CancelRequest') {
+          // RoomLogic.js: state="notactive" (Room.qml:1221).
+          useInteractionStore.getState().clear(); usePopupStore.getState().clear(); useFocusStore.getState().clear()
+          useTimerStore.getState().deactivate()
+        }
         else if (e.command === 'GetPlayerHandcards') {
           // Auto-reply with self's hand card ids (RoomLogic.js:1576) — no UI.
           const self = useGameStore.getState().selfId

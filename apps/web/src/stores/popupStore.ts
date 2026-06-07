@@ -235,7 +235,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   resolve: (value) => {
     get().replySender?.(value)
     set({ active: null })
-    useTimerStore.getState().stop()
+    useTimerStore.getState().deactivate() // popup answered → state="notactive"
   },
 
   clear: () => set({ active: null }),

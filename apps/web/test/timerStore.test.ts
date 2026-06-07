@@ -1,4 +1,5 @@
-// timerStore tests — fixed-30s operation countdown + fractionLeft math.
+// timerStore tests — 1:1 with the Room.qml state machine: activate() (re)starts a
+// fixed-30s countdown, deactivate() stops it.
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useTimerStore, fractionLeft, TIMEOUT_SEC } from '../src/stores/timerStore.js'
@@ -6,9 +7,9 @@ import { useTimerStore, fractionLeft, TIMEOUT_SEC } from '../src/stores/timerSto
 beforeEach(() => useTimerStore.setState({ running: false, totalMs: 0, deadline: 0 }))
 
 describe('timerStore', () => {
-  it('start: runs a fixed 30s client-anchored countdown', () => {
+  it('activate: runs a fixed 30s client-anchored countdown (roomScene.activate)', () => {
     const before = Date.now()
-    useTimerStore.getState().start()
+    useTimerStore.getState().activate()
     const s = useTimerStore.getState()
     expect(s.running).toBe(true)
     expect(TIMEOUT_SEC).toBe(30)
@@ -17,22 +18,21 @@ describe('timerStore', () => {
     expect(s.deadline).toBeLessThanOrEqual(Date.now() + 30000)
   })
 
-  it('stop: clears running; a later start runs again', () => {
-    useTimerStore.getState().start()
-    useTimerStore.getState().stop()
-    expect(useTimerStore.getState().running).toBe(false)
-    useTimerStore.getState().start()
+  it('activate: ALWAYS restarts fresh (QML: if active →notactive; →active)', async () => {
+    useTimerStore.getState().activate()
+    const d0 = useTimerStore.getState().deadline
+    await new Promise((r) => setTimeout(r, 5))
+    useTimerStore.getState().activate()
+    expect(useTimerStore.getState().deadline).toBeGreaterThan(d0)
     expect(useTimerStore.getState().running).toBe(true)
   })
 
-  it('start: re-arms a fresh deadline each call (edge-driven by CountdownBar)', () => {
-    useTimerStore.getState().start()
-    const d0 = useTimerStore.getState().deadline
-    // simulate time passing then a new request edge
-    const later = Date.now() + 5
-    while (Date.now() < later) { /* spin briefly */ }
-    useTimerStore.getState().start()
-    expect(useTimerStore.getState().deadline).toBeGreaterThanOrEqual(d0)
+  it('deactivate: stops (state="notactive"); activate runs again', () => {
+    useTimerStore.getState().activate()
+    useTimerStore.getState().deactivate()
+    expect(useTimerStore.getState().running).toBe(false)
+    useTimerStore.getState().activate()
+    expect(useTimerStore.getState().running).toBe(true)
   })
 
   it('fractionLeft: clamps to [0,1] across the window', () => {

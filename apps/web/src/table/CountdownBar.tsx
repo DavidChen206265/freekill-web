@@ -1,43 +1,29 @@
 // CountdownBar.tsx — the operation countdown above the OK/Cancel row, a 1:1 port
 // of Room.qml `progress` ProgressBar (lines 382-428): 60% width, 12px tall, black
 // rounded track with an orange→red→red→orange gradient fill that shrinks from full
-// to 0 over a fixed 30s window, plus the remaining-seconds readout (requested).
+// to 0 over the window, plus the remaining-seconds readout (requested).
 //
-// Driven by the active-request EDGE: when any request UI becomes active (ui_emu
-// interaction OR a popup), start a fresh 30s; when it ends, stop. This is robust
-// across request boundaries (the scattered per-command start/stop was flaky). On
-// expiry it calls FinishRequestUI (UI cleanup only — server owns the real timeout).
+// Driven purely by timerStore.running (= roomScene.state "active"/"notactive"),
+// which vmStore sets via activate()/deactivate() exactly where RoomLogic.js calls
+// roomScene.activate() / state="notactive". On expiry it runs the →notactive
+// cleanup (FinishRequestUI) — UI only; the server owns the real timeout.
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useTimerStore, fractionLeft } from '../stores/timerStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { usePopupStore } from '../stores/popupStore.js'
 
 export function CountdownBar() {
-  const interactionActive = useInteractionStore((s) => s.active)
-  const popupActive = usePopupStore((s) => s.active != null)
-  const requestActive = interactionActive || popupActive
-
   const running = useTimerStore((s) => s.running)
   const totalMs = useTimerStore((s) => s.totalMs)
   const deadline = useTimerStore((s) => s.deadline)
-  const start = useTimerStore((s) => s.start)
-  const stop = useTimerStore((s) => s.stop)
+  const deactivate = useTimerStore((s) => s.deactivate)
   const vm = useVmStore((s) => s.vm)
   const [frac, setFrac] = useState(1)
-  const wasActive = useRef(false)
-
-  // Edge-driven: start a fresh countdown when a request becomes active, stop when
-  // it ends. (No-op while still active — the ui_emu click loop keeps it active.)
-  useEffect(() => {
-    if (requestActive && !wasActive.current) start()
-    else if (!requestActive && wasActive.current) stop()
-    wasActive.current = requestActive
-  }, [requestActive, start, stop])
 
   // Animate the fill while running; on expiry leave the active state (Room.qml
-  // progressAnim.onFinished → notactive → FinishRequestUI). No client reply.
+  // progressAnim.onFinished → state="notactive" → FinishRequestUI). No client reply.
   useEffect(() => {
     if (!running) return
     let raf = 0
@@ -45,7 +31,7 @@ export function CountdownBar() {
       const f = fractionLeft(totalMs, deadline, Date.now())
       setFrac(f)
       if (f <= 0) {
-        stop()
+        deactivate()
         useInteractionStore.getState().clear()
         usePopupStore.getState().clear()
         vm?.finishRequestUI()
@@ -56,7 +42,7 @@ export function CountdownBar() {
     setFrac(fractionLeft(totalMs, deadline, Date.now()))
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [running, totalMs, deadline, stop, vm])
+  }, [running, totalMs, deadline, deactivate, vm])
 
   if (!running) return null
   const secsLeft = Math.ceil((totalMs * frac) / 1000)
