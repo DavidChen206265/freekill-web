@@ -2,10 +2,18 @@
 // live notifyUI command feed. No table rendering yet — this proves the VM runs in
 // the browser and consumes real server packets.
 
+import { useState } from 'react'
 import { useVmStore } from '../stores/vmStore.js'
+import { sampleMemory, type MemSample } from '../diag/memStats.js'
 
 export function VmDebugPanel() {
   const { booting, booted, error, stats, notifyCounts, recent, totalFed } = useVmStore()
+  const [mem, setMem] = useState<MemSample | null>(null)
+  const [sampling, setSampling] = useState(false)
+  const readMem = async () => {
+    setSampling(true)
+    try { setMem(await sampleMemory()) } finally { setSampling(false) }
+  }
 
   return (
     <div style={styles.wrap}>
@@ -19,6 +27,17 @@ export function VmDebugPanel() {
             武将 {stats.engine.generals} · 牌 {stats.engine.cards} · 技能 {stats.engine.skills} · 包 {stats.engine.packages}
           </div>
           <div style={styles.dim}>已喂入 {totalFed} 个服务器包</div>
+        </div>
+      )}
+
+      <h4 style={styles.h4}>内存诊断(R-PERF/R-VM)</h4>
+      <button style={styles.btn} onClick={readMem} disabled={sampling}>{sampling ? '测量中…' : '测量内存'}</button>
+      {mem && (
+        <div style={styles.stats}>
+          {mem.method === 'measureUserAgent' && <div>总内存 <b>{mem.totalMB} MB</b> <span style={styles.dim}>({mem.detail})</span></div>}
+          {mem.method === 'performance.memory' && <div>JS 堆 <b>{mem.jsHeapMB} MB</b> <span style={styles.dim}>({mem.detail})</span></div>}
+          {mem.method === 'unavailable' && <div style={styles.dim}>{mem.detail}</div>}
+          <div style={styles.dim}>已加载图片 {mem.imageCount} 张 / {mem.imageMB} MB</div>
         </div>
       )}
 
@@ -60,4 +79,5 @@ const styles: Record<string, React.CSSProperties> = {
   feed: { maxHeight: 240, overflowY: 'auto', fontFamily: 'ui-monospace, monospace', fontSize: 11 },
   line: { padding: '2px 0', borderBottom: '1px solid #262630', wordBreak: 'break-all' },
   cmd: { color: '#4ec9b0', fontWeight: 600 },
+  btn: { padding: '4px 12px', borderRadius: 5, border: '1px solid #555', background: '#0e639c', color: '#fff', fontSize: 12, cursor: 'pointer', marginBottom: 6 },
 }
