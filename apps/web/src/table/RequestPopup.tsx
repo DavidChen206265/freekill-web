@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePopupStore, type PopupRequest } from '../stores/popupStore.js'
+import { CardFaceView } from './CardFaceView.js'
 import { tr } from '../i18n/zh.js'
 
 export function RequestPopup() {
@@ -87,10 +88,10 @@ export function RequestPopup() {
           <div style={styles.groupName}>{tr(grp.name)}</div>
           <div style={styles.cards}>
             {grp.cards.map((c) => (
-              <button key={c.cid} style={{ ...styles.cardBtn, ...(pickedNum.includes(c.cid) ? styles.picked : {}) }} onClick={() => {
+              <button key={c.cid} style={{ ...styles.agCard, ...(pickedNum.includes(c.cid) ? styles.picked : {}) }} onClick={() => {
                 if (max === 1) { resolve(c.cid); return } // single → reply immediately
                 toggleNum(c.cid)
-              }}>{c.name ? tr(c.name) : c.cid}</button>
+              }}><CardFaceView cid={c.cid} faceUp width={56} height={80} /></button>
             ))}
           </div>
         </div>
@@ -108,7 +109,9 @@ function AgBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown
     <Modal prompt={active.prompt}>
       <div style={styles.cards}>
         {(active.agCards ?? []).map((cid) => (
-          <button key={cid} style={styles.cardBtn} onClick={() => resolve(cid)}>{cid}</button>
+          <button key={cid} style={styles.agCard} onClick={() => resolve(cid)}>
+            <CardFaceView cid={cid} faceUp width={56} height={80} />
+          </button>
         ))}
       </div>
     </Modal>
@@ -189,6 +192,7 @@ const styles: Record<string, React.CSSProperties> = {
   areaHeader: { fontSize: 13, color: '#eee', marginBottom: 4, padding: '4px 12px', borderRadius: 4, border: '1px dashed #4ec9b0', background: 'transparent', cursor: 'pointer' },
   cards: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   cardBtn: { width: 56, height: 80, borderRadius: 6, border: '2px solid #444', background: '#f5f0e1', color: '#222', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  agCard: { padding: 0, borderRadius: 6, border: '2px solid transparent', background: 'transparent', cursor: 'pointer' },
   row: { display: 'flex', gap: 10 },
   ok: { padding: '10px 28px', border: 'none', borderRadius: 6, background: '#0e639c', color: '#fff', fontSize: 16, cursor: 'pointer' },
   ghost: { padding: '10px 24px', border: '1px solid #555', borderRadius: 6, background: 'transparent', color: '#ccc', fontSize: 15, cursor: 'pointer' },

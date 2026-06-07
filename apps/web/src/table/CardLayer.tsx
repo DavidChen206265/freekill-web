@@ -41,6 +41,10 @@ export function CardLayer() {
 
   const targets = new Map<number, Target>()
   for (const [key, ids] of Object.entries(areas) as [AreaKey, number[]][]) {
+    // Equip/judge/special cards belong INSIDE the Photo (small icon strips), not
+    // as full floating cards on the stage — they're rendered there in slice 6.
+    // CardLayer only floats the moving/table/hand/draw cards.
+    if (key.startsWith('equip:') || key.startsWith('judge:') || key.startsWith('special:')) continue
     const box = resolveAreaBox(key, playerIndex, playerNum)
     if (!box) continue
     const n = ids.length

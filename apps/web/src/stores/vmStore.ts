@@ -85,11 +85,21 @@ export const useVmStore = create<VmState>((set, get) => ({
         else if (e.command === 'ShowToast') useLogStore.getState().showToast(String(e.data ?? ''))
         // Popup-style requests (AskForGeneral/Choice/cards/AG/arrange) — not ui_emu.
         else if (usePopupStore.getState().handle(e.command, e.data)) {
-          // Translate any general/option keys the popup will display.
           const active = usePopupStore.getState().active
           if (active) {
+            // Translate any general/option keys the popup will display.
             const keys = [...(active.generals ?? []), ...(active.options ?? [])].filter((k) => !hasTranslation(k))
             if (keys.length > 0) registerTranslations(get().vm!.translate(keys))
+            // Fetch faces for popup cards (AG / card-pick / arrange) — these cids
+            // aren't in cardStore areas, so feed()'s face fetch won't cover them.
+            const cardCids = [
+              ...(active.agCards ?? []),
+              ...(active.arrangeCards ?? []),
+              ...((active.groups ?? []).flatMap((g) => g.cards.map((c) => c.cid))),
+            ]
+            const cached = useCardFaceStore.getState().faces
+            const need = cardCids.filter((c) => c > 0 && !cached[c])
+            if (need.length > 0) useCardFaceStore.getState().merge(get().vm!.readCards(need))
           }
         }
         set((s) => ({
