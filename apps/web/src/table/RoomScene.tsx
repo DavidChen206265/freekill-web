@@ -9,6 +9,7 @@ import { Dashboard } from './Dashboard.js'
 import { RequestPopup } from './RequestPopup.js'
 import { GameLogPanel } from './GameLogPanel.js'
 import { GameOverModal } from './GameOverModal.js'
+import { GeneralDetailModal } from './GeneralDetailModal.js'
 import { useGameStore } from '../stores/gameStore.js'
 
 export function RoomScene() {
@@ -32,6 +33,7 @@ export function RoomScene() {
       <GameLogPanel />
       <RequestPopup />
       <GameOverModal />
+      <GeneralDetailModal />
       <div style={styles.center}>
         {!started && <span>等待开局…</span>}
       </div>

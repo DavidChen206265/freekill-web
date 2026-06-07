@@ -52,6 +52,7 @@ export class ClientVm {
   private fnReadSkills: (() => string) | null = null
   private fnReadGenerals: ((namesJson: string) => string) | null = null
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
+  private fnPlayerSkills: ((id: number) => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -199,6 +200,13 @@ export class ClientVm {
         end
         return json.encode({ r = res })
       end
+      -- Player detail (PlayerDetail.qml right-click): visible skills [{name,description}]
+      -- via GetPlayerSkills(id) (client_util.lua:399). Self sees all visible skills;
+      -- others hide equip/& skills. Returns [] when the player is unknown.
+      function __fkPlayerSkills(id)
+        local ok, sk = pcall(GetPlayerSkills, id)
+        return json.encode((ok and sk) or {})
+      end
     `)
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
@@ -209,6 +217,7 @@ export class ClientVm {
     this.fnReadSkills = lua.global.get('__fkReadSkills') as typeof this.fnReadSkills
     this.fnReadGenerals = lua.global.get('__fkReadGenerals') as typeof this.fnReadGenerals
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
+    this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
 
     return {
       mountFiles: mount.files,
@@ -301,6 +310,13 @@ export class ClientVm {
   private callChooseGeneral(kind: string, args: unknown): unknown {
     if (!this.fnChooseGeneral) return undefined
     try { return (JSON.parse(this.fnChooseGeneral(kind, JSON.stringify(args))) as { r: unknown }).r } catch { return undefined }
+  }
+
+  /** Visible skills [{name, description}] of a player, for the right-click detail
+   *  panel (PlayerDetail.qml → GetPlayerSkills, client_util.lua:399). */
+  playerSkills(id: number): { name: string; description: string }[] {
+    if (!this.fnPlayerSkills) return []
+    try { return JSON.parse(this.fnPlayerSkills(id)) as { name: string; description: string }[] } catch { return [] }
   }
 }
 

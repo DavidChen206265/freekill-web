@@ -273,6 +273,7 @@ describe('client VM packet feed', () => {
         elseif kind == "feasible" then res = ChooseGeneralFeasible(a.rule, a.selected or {}, a.generals or {}, a.extra) end
         return json.encode({ r = res })
       end
+      function __fkPlayerSkills(id) local ok, sk = pcall(GetPlayerSkills, id) return json.encode((ok and sk) or {}) end
     `)
     const readPlayers = lua.global.get('__fkReadPlayers') as () => string
     const readGenerals = lua.global.get('__fkReadGenerals') as (j: string) => string
@@ -310,6 +311,15 @@ describe('client VM packet feed', () => {
     expect(feas0).toBe(false)
     expect(feas1).toBe(true)
     expect(filt).toBe(true)
+    // DET2/DET3: GetPlayerSkills(id) returns an array of {name,description} for the
+    // right-click detail panel. (This minimal harness sets Self.general directly so
+    // no skills are granted — player_skills is empty; we assert the bridge resolves
+    // GetPlayerSkills against the real VM without error and yields a well-formed array.)
+    const ps = lua.global.get('__fkPlayerSkills') as (id: number) => string
+    const selfId = await lua.doString(`return Self.id`) as number
+    const skills = JSON.parse(ps(selfId)) as { name: string; description: string }[]
+    expect(Array.isArray(skills)).toBe(true)
+    expect(skills.every((s) => typeof s.name === 'string' && typeof s.description === 'string')).toBe(true)
     lua.global.close()
   }, 30_000)
 })

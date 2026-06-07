@@ -10,6 +10,7 @@ import { seatPosition, PHOTO_WIDTH, PHOTO_HEIGHT } from './seatLayout.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
+import { useDetailStore } from '../stores/detailStore.js'
 import { generalPic, photoBack, rolePic, deathPic, chainPic } from './skin.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
@@ -40,6 +41,12 @@ export function Photo({ player, playerNum, isSelf }: {
     if (!selectable) return
     void interact('Photo', player.id, 'click', { selected: !targetState?.selected })
   }
+  // Right-click opens the player/general detail panel (Photo.qml showDetail,
+  // skipping playerid 0/-1). Suppress the browser context menu.
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (player.id > 0) useDetailStore.getState().open(player.id)
+  }
   const targetOutline = targetState?.selected ? '3px solid #e74c3c'
     : selectable ? '3px solid #2ecc71' : isSelf ? '2px solid #f1c40f' : 'none'
 
@@ -50,6 +57,7 @@ export function Photo({ player, playerNum, isSelf }: {
   return (
     <div
       onClick={onClick}
+      onContextMenu={onContextMenu}
       style={{ ...styles.wrap, left: pos.x, top: pos.y, transform: `scale(${pos.scale})`, transformOrigin: 'top left', cursor: selectable ? 'pointer' : 'default' }}
     >
     <div style={{ ...styles.photo, outline: targetOutline }}>
