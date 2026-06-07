@@ -77,9 +77,10 @@ export function Photo({ player, playerNum, isSelf }: {
       {/* HP magatama (bottom-left) */}
       <div style={styles.hp}><HpBar hp={player.hp ?? 0} maxHp={player.maxHp ?? 0} shield={player.shield ?? 0} /></div>
 
-      {/* role pic (top-right) */}
+      {/* role pic (top-right). RoleComboBox.qml value logic:
+          hidden -> hidden; role_shown -> role; else roleVisible(pid) ? role : "unknown". */}
       {player.role && player.role !== 'hidden' && (
-        <img src={rolePic(player.role_shown === false && !isSelf ? 'unknown' : player.role)} alt="" style={styles.role} draggable={false} onError={hideImg} />
+        <img src={rolePic(shownRole(player))} alt="" style={styles.role} draggable={false} onError={hideImg} />
       )}
 
       {/* equip strip (lower area) */}
@@ -127,6 +128,16 @@ function Portrait({ src, bg }: { src: string; bg: string }) {
 function trName(player: GamePlayer): string {
   const m = tr(player.general!)
   return player.deputyGeneral ? `${m}/${tr(player.deputyGeneral)}` : m
+}
+
+// RoleComboBox.qml value: role==='hidden' → 'hidden'; role_shown → role;
+// else roleVisible ? role : 'unknown'. roleVisible comes from the VM
+// (Self:roleVisible(p)); Self always sees itself (player.lua:1711).
+function shownRole(player: GamePlayer): string {
+  const role = player.role ?? 'unknown'
+  if (role === 'hidden') return 'hidden'
+  if (player.role_shown) return role
+  return player.roleVisible ? role : 'unknown'
 }
 
 function hideImg(e: React.SyntheticEvent<HTMLImageElement>) {

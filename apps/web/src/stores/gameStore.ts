@@ -30,6 +30,7 @@ export interface GamePlayer {
   chained?: boolean
   dying?: boolean
   role_shown?: boolean
+  roleVisible?: boolean
   faceup?: boolean
   sealedSlots?: string[]
   /** Card ids in this player's equip / judge areas (rendered inside the Photo). */
@@ -76,6 +77,7 @@ export interface VmPlayerLike {
   chained?: boolean
   dying?: boolean
   role_shown?: boolean
+  roleVisible?: boolean
   faceup?: boolean
   sealedSlots?: string[]
   equipCids?: number[]
@@ -178,6 +180,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           chained: vp.chained ?? prev.chained,
           dying: vp.dying ?? prev.dying,
           role_shown: vp.role_shown ?? prev.role_shown,
+          roleVisible: vp.roleVisible ?? prev.roleVisible,
           faceup: vp.faceup ?? prev.faceup,
           sealedSlots: vp.sealedSlots ?? prev.sealedSlots,
           equipCids: vp.equipCids ?? prev.equipCids,

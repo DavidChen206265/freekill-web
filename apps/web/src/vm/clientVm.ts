@@ -118,6 +118,10 @@ export class ClientVm {
               hp = p.hp, maxHp = p.maxHp, shield = p.shield, role = p.role, kingdom = p.kingdom,
               dead = p.dead, ready = p.ready, owner = p.owner,
               chained = p.chained, dying = p.dying, role_shown = p.role_shown, faceup = p.faceup,
+              -- roleVisible mirrors RoleVisibility(p.id) = Self:roleVisible(p) (player.lua:1699):
+              -- whether THIS client may see p's role. Photo.qml computes the shown role as
+              --   hidden -> hidden; role_shown -> role; else roleVisible ? role : "unknown".
+              roleVisible = (Self ~= nil and Self.roleVisible and Self:roleVisible(p)) or false,
               sealedSlots = p.sealedSlots or {},
               equipCids = p.getCardIds and p:getCardIds("e") or {},
               judgeCids = p.getCardIds and p:getCardIds("j") or {},
@@ -284,6 +288,8 @@ export interface VmPlayer {
   chained?: boolean
   dying?: boolean
   role_shown?: boolean
+  /** Whether this client may see the player's role — Self:roleVisible(p). */
+  roleVisible?: boolean
   faceup?: boolean
   sealedSlots?: string[]
   equipCids?: number[]

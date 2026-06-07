@@ -263,6 +263,7 @@ describe('client VM packet feed', () => {
         end return json.encode(out)
       end
       function __fkReadGenerals(j) local out={} local ok,ns=pcall(json.decode,j) if ok then for _,n in ipairs(ns) do local d=GetGeneralData(n) out[n]={extension=d.extension,kingdom=d.kingdom} end end return json.encode(out) end
+      function __fkRoleVisible() return (Self ~= nil and Self.roleVisible and Self:roleVisible(Self)) or false end
     `)
     const readPlayers = lua.global.get('__fkReadPlayers') as () => string
     const readGenerals = lua.global.get('__fkReadGenerals') as (j: string) => string
@@ -282,6 +283,9 @@ describe('client VM packet feed', () => {
     const gens = JSON.parse(readGenerals(JSON.stringify(['caocao', 'zhugeliang']))) as Record<string, { extension: string; kingdom: string }>
     expect(gens.caocao).toEqual({ extension: 'standard', kingdom: 'wei' })
     expect(gens.zhugeliang.kingdom).toBe('shu')
+    // G3: Self:roleVisible(Self) is always true (player.lua:1711) — proves the
+    // roleVisible bridge expression resolves against the real VM (Photo shownRole).
+    expect(await lua.doString(`return __fkRoleVisible()`)).toBe(true)
     lua.global.close()
   }, 30_000)
 })
