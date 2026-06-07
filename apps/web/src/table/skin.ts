@@ -28,6 +28,20 @@ export function generalAvatar(name: string, ext?: string): string {
   return name ? pkgPath(ext, 'generals/avatar', name, '.jpg') : ''
 }
 
+// ---- general-card chrome (built-in, /fk/image/card/general) ----------------
+// GeneralCardItem.qml: a faction-framed portrait card used in the general-choose
+// box. border = SkinBank.generalCardDir+'border'; the kingdom icon (top-left) =
+// getGeneralCardDir(kingdom)+kingdom; back = generalCardDir+'card-back'.
+const GENERAL_CARD = `${FK}/image/card/general`
+/** Faction frame overlay for a general card. */
+export function generalCardBorder(): string {
+  return `${GENERAL_CARD}/border.png`
+}
+/** Kingdom icon (wei/shu/wu/qun/god) for the general-card top-left corner. */
+export function kingdomIcon(kingdom?: string): string {
+  return kingdom && KINGDOMS.has(kingdom) ? `${GENERAL_CARD}/${kingdom}.png` : ''
+}
+
 /** Full card art: packages/<ext>/image/card/<name>.png */
 export function cardPic(name: string, ext?: string): string {
   return name ? pkgPath(ext, 'card', name, '.png') : ''

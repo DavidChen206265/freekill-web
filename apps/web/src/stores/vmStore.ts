@@ -90,6 +90,12 @@ export const useVmStore = create<VmState>((set, get) => ({
             // Translate any general/option keys the popup will display.
             const keys = [...(active.generals ?? []), ...(active.options ?? [])].filter((k) => !hasTranslation(k))
             if (keys.length > 0) registerTranslations(get().vm!.translate(keys))
+            // Fetch general info (extension + kingdom) for AskForGeneral candidates
+            // — they aren't players yet, so feed()'s readGenerals won't cover them.
+            // GeneralCardItem.qml needs kingdom for the faction frame/icon (GEN1/2).
+            const cachedGen = useCardFaceStore.getState().generals
+            const needGen = (active.generals ?? []).filter((n) => !cachedGen[n])
+            if (needGen.length > 0) useCardFaceStore.getState().mergeGenerals(get().vm!.readGenerals(needGen))
             // Fetch faces for popup cards (AG / card-pick / arrange) — these cids
             // aren't in cardStore areas, so feed()'s face fetch won't cover them.
             const cardCids = [

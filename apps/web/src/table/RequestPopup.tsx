@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { usePopupStore, shuffleInvisibleOutput, type PopupRequest } from '../stores/popupStore.js'
 import { CardFaceView } from './CardFaceView.js'
+import { GeneralCard } from './GeneralCard.js'
 import { tr } from '../i18n/zh.js'
 
 export function RequestPopup() {
@@ -40,7 +41,7 @@ export function RequestPopup() {
       <Modal prompt={`${active.prompt}(选 ${active.count ?? 1} 个)`}>
         <div style={styles.generals}>
           {(active.generals ?? []).map((g) => (
-            <button key={g} style={{ ...styles.general, ...(pickedStr.includes(g) ? styles.picked : {}) }} onClick={() => toggleStr(g)}>{tr(g)}</button>
+            <GeneralCard key={g} name={g} selected={pickedStr.includes(g)} onClick={() => toggleStr(g)} />
           ))}
         </div>
         <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(pickedStr)}>确定</button>
@@ -214,7 +215,6 @@ const styles: Record<string, React.CSSProperties> = {
   modal: { background: '#26262b', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', color: '#eee' },
   prompt: { fontSize: 16, textAlign: 'center' },
   generals: { display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', maxWidth: 640 },
-  general: { width: 90, height: 120, borderRadius: 6, border: '2px solid #444', background: '#3b5b8c', color: '#fff', fontSize: 14, cursor: 'pointer', padding: 4 },
   picked: { border: '2px solid #f1c40f', outline: '2px solid #f1c40f' },
   choices: { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
   choice: { padding: '10px 24px', borderRadius: 6, border: '2px solid transparent', background: '#0e639c', color: '#fff', fontSize: 15, cursor: 'pointer' },

@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   generalPic, generalAvatar, cardPic, cardPicCandidates, equipIcon, delayedTrickPic,
-  photoBack, rolePic, magatama, shieldPic, deathPic,
+  photoBack, rolePic, magatama, shieldPic, deathPic, generalCardBorder, kingdomIcon,
 } from '../src/table/skin.js'
 
 describe('skin path resolution', () => {
@@ -45,6 +45,14 @@ describe('skin path resolution', () => {
     expect(shieldPic()).toBe('/fk/image/photo/magatama/shield.png')
     expect(deathPic('rebel')).toBe('/fk/image/photo/death/rebel.png')
     expect(deathPic('weird')).toBe('/fk/image/photo/death/hidden.png')
+  })
+
+  it('general-card chrome (border + kingdom icon) under /fk/image/card/general', () => {
+    expect(generalCardBorder()).toBe('/fk/image/card/general/border.png')
+    expect(kingdomIcon('wei')).toBe('/fk/image/card/general/wei.png')
+    expect(kingdomIcon('shu')).toBe('/fk/image/card/general/shu.png')
+    expect(kingdomIcon('nonsense')).toBe('') // unknown kingdom → no icon
+    expect(kingdomIcon(undefined)).toBe('')
   })
 
   it('magatama clamps state 0..3 + heg variant', () => {
