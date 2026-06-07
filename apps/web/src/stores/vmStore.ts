@@ -220,7 +220,8 @@ export const useVmStore = create<VmState>((set, get) => ({
         if (p.general && !hasTranslation(p.general)) keys.add(p.general)
         if (p.deputyGeneral && !hasTranslation(p.deputyGeneral)) keys.add(p.deputyGeneral)
       }
-      for (const sk of useGameStore.getState().selfSkills) if (!hasTranslation(sk)) keys.add(sk)
+      // selfSkills carry their localized display name already (GetSkillData.skill =
+      // Fk:getSkillName), so no extra translation pass is needed for them.
       if (keys.size > 0) registerTranslations(vm.translate([...keys]))
     } catch (err) {
       console.error('[vm] translate threw:', err)

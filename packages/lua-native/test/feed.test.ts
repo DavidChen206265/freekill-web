@@ -284,6 +284,7 @@ describe('client VM packet feed', () => {
         if type(data) ~= "table" then return json.encode(out) end
         return json.encode(out)
       end
+      function __fkSkillData(name) local d = GetSkillData(name) return json.encode(d or {}) end
     `)
     const readPlayers = lua.global.get('__fkReadPlayers') as () => string
     const readGenerals = lua.global.get('__fkReadGenerals') as (j: string) => string
@@ -334,6 +335,11 @@ describe('client VM packet feed', () => {
     // harness → empty array). Proves the __fkGameSummary bridge target is sound.
     const gs = lua.global.get('__fkGameSummary') as () => string
     expect(Array.isArray(JSON.parse(gs()))).toBe(true)
+    // C6: GetSkillData(name).freq classifies skills. jianxiong (a triggered skill)
+    // → "notactive"; rende (an active skill) → "active". Proves readSkills' source.
+    const sd = lua.global.get('__fkSkillData') as (n: string) => string
+    const jianxiong = JSON.parse(sd('jianxiong')) as { freq?: string }
+    expect(jianxiong.freq).toBe('notactive')
     lua.global.close()
   }, 30_000)
 })

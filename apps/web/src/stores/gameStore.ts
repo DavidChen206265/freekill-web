@@ -9,6 +9,7 @@
 //   StartGame      []
 
 import { create } from 'zustand'
+import type { SkillInfo } from '../vm/clientVm.js'
 
 export interface GamePlayer {
   id: number
@@ -48,14 +49,14 @@ interface GameState {
   started: boolean
   capacity: number
   selfId?: number
-  /** Self's visible skill names (from VM GetMySkills). */
-  selfSkills: string[]
+  /** Self's visible skills with classification (from VM GetMySkills+GetSkillData). */
+  selfSkills: SkillInfo[]
   /** GameOver winner roles (+-joined), set when the game ends; '' = draw. */
   winner?: string
   apply: (command: string, data: unknown) => void
   /** Replace player state from the VM's authoritative mirror (includes Self). */
   syncPlayers: (players: VmPlayerLike[], started?: boolean) => void
-  setSelfSkills: (skills: string[]) => void
+  setSelfSkills: (skills: SkillInfo[]) => void
   resetGame: () => void
 }
 

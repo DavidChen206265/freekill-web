@@ -166,10 +166,23 @@ export class ClientVm {
         end
         return json.encode(out)
       end
-      -- Self's visible skill names.
+      -- Self's visible skills, each with classification for SkillArea grouping:
+      -- {orig, name, freq("active"/"notactive"), frequency("limit"/"wake"/"quest"|nil)}
+      -- (GetMySkills names + GetSkillData per name; SkillArea.qml addSkill uses freq).
       function __fkReadSkills()
+        local out = {}
         local ok, sk = pcall(GetMySkills)
-        return json.encode((ok and sk) or {})
+        if ok and type(sk) == "table" then
+          for _, name in ipairs(sk) do
+            local d = GetSkillData(name)
+            if d then
+              out[#out+1] = { orig = d.orig_skill, name = d.skill, freq = d.freq, frequency = d.frequency }
+            else
+              out[#out+1] = { orig = name, name = name, freq = "notactive" }
+            end
+          end
+        end
+        return json.encode(out)
       end
       -- General -> {extension, kingdom} for resolving portrait paths.
       function __fkReadGenerals(namesJson)
@@ -309,9 +322,9 @@ export class ClientVm {
   }
 
   /** Self's visible skill names. */
-  readSkills(): string[] {
+  readSkills(): SkillInfo[] {
     if (!this.fnReadSkills) return []
-    try { return JSON.parse(this.fnReadSkills()) as string[] } catch { return [] }
+    try { return JSON.parse(this.fnReadSkills()) as SkillInfo[] } catch { return [] }
   }
 
   /** General name -> {extension, kingdom} for resolving portrait paths. */
@@ -350,6 +363,17 @@ export class ClientVm {
     if (!this.fnGameSummary) return []
     try { return JSON.parse(this.fnGameSummary()) as GameSummaryRow[] } catch { return [] }
   }
+}
+
+export interface SkillInfo {
+  /** Internal skill name (orig_skill) — used as the UpdateRequestUI element id. */
+  orig: string
+  /** Localized display name. */
+  name: string
+  /** "active" (ActiveSkill/ViewAsSkill → a clickable button) or "notactive". */
+  freq: string
+  /** "limit" | "wake" | "quest" — limited/awaken/quest skills (else undefined). */
+  frequency?: string
 }
 
 export interface GameSummaryRow {

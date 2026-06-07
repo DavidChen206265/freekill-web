@@ -9,7 +9,6 @@ import { useGameStore } from '../stores/gameStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { CountdownBar } from './CountdownBar.js'
-import { tr } from '../i18n/zh.js'
 
 export function Dashboard() {
   const started = useGameStore((s) => s.started)
@@ -47,26 +46,40 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* skill buttons (bottom-right; hand cards are bottom-left via CardLayer) */}
+      {/* skill buttons (bottom-right; hand cards are bottom-left via CardLayer).
+          SkillArea.qml groups by classification: active (ActiveSkill/ViewAsSkill →
+          clickable) vs notactive (locked-style, passive). limit/wake/quest skills
+          carry a frequency tag. The interaction state is keyed by orig skill name. */}
       <div style={styles.skills}>
-        {selfSkills.map((name) => {
-          const st = skillStates[name]
-          const usable = !!st && (st.enabled || st.selected)
+        {selfSkills.map((sk) => {
+          const st = skillStates[sk.orig]
+          const isActive = sk.freq === 'active'
+          const usable = isActive && !!st && (st.enabled || st.selected)
           return (
             <button
-              key={name}
-              onClick={clickSkill(name)}
+              key={sk.orig}
+              onClick={isActive ? clickSkill(sk.orig) : undefined}
+              title={sk.frequency ? freqLabel(sk.frequency) : undefined}
               style={{
                 ...styles.skill,
                 ...(st?.selected ? styles.skillSelected : {}),
                 ...(usable ? {} : styles.skillIdle),
+                ...(isActive ? {} : styles.skillLocked),
               }}
-            >{tr(name)}</button>
+            >
+              {sk.frequency && <span style={styles.freqTag}>{freqLabel(sk.frequency)}</span>}
+              {sk.name}
+            </button>
           )
         })}
       </div>
     </div>
   )
+}
+
+// limit/wake/quest → a short tag (限/觉/任) shown on the skill button.
+function freqLabel(f: string): string {
+  return f === 'limit' ? '限' : f === 'wake' ? '觉' : f === 'quest' ? '任' : ''
 }
 
 function okBtn(id: string, label: string, st: { enabled: boolean } | undefined, onClick: () => void) {
@@ -88,6 +101,10 @@ const styles: Record<string, React.CSSProperties> = {
   skill: { padding: '6px 12px', borderRadius: 6, border: '1px solid #7a6a3b', background: '#3a3320', color: '#e8d8a8', fontSize: 13, cursor: 'pointer' },
   skillSelected: { background: '#d4af37', color: '#222', borderColor: '#f1c40f' },
   skillIdle: { opacity: 0.5, cursor: 'default' },
+  // notactive (passive/locked) skills: greyed locked look (SkillButton locked).
+  skillLocked: { background: '#2a2723', borderColor: '#5a5040', color: '#b8ac88', cursor: 'default' },
+  // limit/wake/quest tag chip on the skill button.
+  freqTag: { display: 'inline-block', marginRight: 4, padding: '0 3px', borderRadius: 3, background: '#7a3b3b', color: '#fff', fontSize: 10, fontWeight: 700 },
   btn: { padding: '8px 22px', border: 'none', borderRadius: 6, background: '#0e639c', color: '#fff', fontSize: 15, cursor: 'pointer' },
   btnDisabled: { background: '#555', color: '#999', cursor: 'not-allowed' },
 }
