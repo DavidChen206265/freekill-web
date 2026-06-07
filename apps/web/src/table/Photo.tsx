@@ -131,6 +131,18 @@ export function Photo({ player, playerNum, isSelf }: {
         <img src={deathPic(player.role)} alt="阵亡" style={styles.death} draggable={false} onError={hideImg} />
       )}
 
+      {/* detail button (top-left) — opens the player/general detail panel. QML uses
+          right-click / long-press (BasicItem.qml); a button is the reliable web
+          equivalent. stopPropagation so it doesn't trigger target selection. */}
+      {player.id > 0 && (
+        <button
+          style={styles.detailBtn}
+          title="查看武将详情"
+          onClick={(e) => { e.stopPropagation(); useDetailStore.getState().open(player.id) }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >ⓘ</button>
+      )}
+
       {/* per-player thinking countdown (Photo.qml progressBar, MoveFocus-driven) */}
       <PhotoFocusBar playerId={player.id} />
     </div>
@@ -209,4 +221,7 @@ const styles: Record<string, React.CSSProperties> = {
   seat: { fontSize: 11, color: '#d4af37', fontWeight: 700 },
   handcard: { position: 'absolute', right: 2, bottom: 22, minWidth: 16, height: 18, padding: '0 3px', background: 'rgba(0,0,0,.7)', borderRadius: 3, color: '#fff', fontSize: 12, fontWeight: 700, display: 'grid', placeItems: 'center', zIndex: 6 },
   death: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%)', width: 56, height: 56, zIndex: 7 },
+  // detail (ⓘ) button, top-left corner — reliable web replacement for QML
+  // right-click/long-press. Small, semi-transparent so it doesn't fight the art.
+  detailBtn: { position: 'absolute', left: 1, top: 1, width: 18, height: 18, padding: 0, zIndex: 8, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 12, lineHeight: '18px', cursor: 'pointer', display: 'grid', placeItems: 'center', pointerEvents: 'auto' },
 }

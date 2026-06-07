@@ -55,13 +55,14 @@ export function CountdownBar() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  // Self-positioned (Dashboard's bar is an absolute container with absolute
-  // children). QML anchors progress above okCancel, horizontalCenter, width 60%.
-  wrap: { position: 'absolute', left: '50%', bottom: 92, transform: 'translateX(-50%)', width: '60%', display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none' },
+  // Self-positioned just above the okCancel row (Room.qml: progress anchored to
+  // okCancel.top + 4). 60% width, centered. The prompt text overlays it (QML
+  // prompt anchors to progress.bottom, z:1) — handled in Dashboard.
+  wrap: { position: 'absolute', left: '50%', bottom: 82, transform: 'translateX(-50%)', width: '60%', display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none' },
   // black rounded track, 12px (Room.qml background Rectangle).
   track: { flex: 1, height: 12, background: '#000', borderRadius: 6, overflow: 'hidden' },
   // gradient orange→red→red→orange (Room.qml contentItem gradient).
-  fill: { height: '100%', borderRadius: 6, background: 'linear-gradient(90deg, orange 0%, red 30%, red 70%, orange 100%)', transition: 'width 100ms linear' },
+  fill: { height: '100%', borderRadius: 6, background: 'linear-gradient(90deg, orange 0%, red 30%, red 70%, orange 100%)', transition: 'width 200ms linear' },
   // remaining seconds (added per request; not in the QML bar).
-  secs: { color: '#fff', fontSize: 13, fontWeight: 700, minWidth: 28, textAlign: 'left', textShadow: '0 0 2px #000, 0 0 2px #000' },
+  secs: { color: '#fff', fontSize: 13, fontWeight: 700, minWidth: 30, textAlign: 'left', textShadow: '0 0 2px #000, 0 0 2px #000' },
 }
