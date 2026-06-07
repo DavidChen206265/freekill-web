@@ -16,6 +16,7 @@ import { useInteractionStore } from './interactionStore.js'
 import { usePopupStore } from './popupStore.js'
 import { useLogStore } from './logStore.js'
 import { useTimerStore } from './timerStore.js'
+import { useFocusStore } from './focusStore.js'
 import { registerTranslations, hasTranslation } from '../i18n/zh.js'
 
 interface VmState {
@@ -76,7 +77,7 @@ export const useVmStore = create<VmState>((set, get) => ({
           useInteractionStore.getState().clear()
           useTimerStore.getState().stop()
         }
-        else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear(); useTimerStore.getState().stop() }
+        else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear(); useTimerStore.getState().stop(); useFocusStore.getState().clear() }
         else if (e.command === 'GetPlayerHandcards') {
           // Auto-reply with self's hand card ids (RoomLogic.js:1576) — no UI.
           const self = useGameStore.getState().selfId
@@ -85,6 +86,20 @@ export const useVmStore = create<VmState>((set, get) => ({
         }
         else if (e.command === 'GameLog') useLogStore.getState().push(String(e.data ?? ''))
         else if (e.command === 'ShowToast') useLogStore.getState().showToast(String(e.data ?? ''))
+        else if (e.command === 'MoveFocus') {
+          // [focuses[], command, timeout?]. Replaces the focus set (cancelAllFocus
+          // then set). Photo shows a per-player thinking bar + "<command> thinking..".
+          // Default window = the active request window (timerStore) when timeout
+          // is absent (QML uses Config.roomTimeout*1000, which we don't carry).
+          const d = e.data as unknown[]
+          const ids = Array.isArray(d?.[0]) ? (d[0] as number[]).map(Number) : []
+          const command = String(d?.[1] ?? '')
+          const timeout = Number(d?.[2]) || useTimerStore.getState().totalMs || 0
+          // Translate the command + the " thinking..." suffix (Photo.qml tip) once.
+          const tkeys = [command, ' thinking...'].filter((k) => k && !hasTranslation(k))
+          if (tkeys.length > 0) registerTranslations(get().vm!.translate(tkeys))
+          useFocusStore.getState().setFocus(ids, command, timeout)
+        }
         // Popup-style requests (AskForGeneral/Choice/cards/AG/arrange) — not ui_emu.
         else if (usePopupStore.getState().handle(e.command, e.data)) {
           const active = usePopupStore.getState().active

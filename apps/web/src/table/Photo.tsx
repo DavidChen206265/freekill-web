@@ -14,6 +14,7 @@ import { generalPic, photoBack, rolePic, deathPic, chainPic } from './skin.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
 import { JudgeArea } from './JudgeArea.js'
+import { PhotoFocusBar } from './PhotoFocusBar.js'
 import { tr } from '../i18n/zh.js'
 
 const PHOTO_W = PHOTO_WIDTH
@@ -104,6 +105,9 @@ export function Photo({ player, playerNum, isSelf }: {
       {player.dead && (
         <img src={deathPic(player.role)} alt="阵亡" style={styles.death} draggable={false} onError={hideImg} />
       )}
+
+      {/* per-player thinking countdown (Photo.qml progressBar, MoveFocus-driven) */}
+      <PhotoFocusBar playerId={player.id} />
     </div>
       {/* judge (delayed-trick) icons — rendered OUTSIDE the clipped photo box so they
           can sit below the portrait without being cut off by overflow:hidden. */}
