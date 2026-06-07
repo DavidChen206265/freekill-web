@@ -4,10 +4,16 @@
 
 import { useState } from 'react'
 import { useVmStore } from '../stores/vmStore.js'
+import { useTimerStore } from '../stores/timerStore.js'
+import { useFocusStore } from '../stores/focusStore.js'
+import { useDetailStore } from '../stores/detailStore.js'
 import { sampleMemory, type MemSample } from '../diag/memStats.js'
 
 export function VmDebugPanel() {
   const { booting, booted, error, stats, notifyCounts, recent, totalFed } = useVmStore()
+  const timer = useTimerStore()
+  const focus = useFocusStore()
+  const detailPid = useDetailStore((s) => s.pid)
   const [mem, setMem] = useState<MemSample | null>(null)
   const [sampling, setSampling] = useState(false)
   const readMem = async () => {
@@ -18,6 +24,14 @@ export function VmDebugPanel() {
   return (
     <div style={styles.wrap}>
       <h3 style={styles.h3}>客户端 VM(wasmoon)</h3>
+
+      {/* 计时/焦点/详情 实时状态(诊断进度条与长按) */}
+      <div style={styles.stats}>
+        <div>计时 running=<b>{String(timer.running)}</b> total={timer.totalMs}ms left={Math.max(0, Math.round((timer.deadline - Date.now()) / 1000))}s</div>
+        <div>焦点 ids=[{focus.ids.join(',')}] cmd={focus.command || '—'} dur={focus.durationMs}ms</div>
+        <div>详情 pid={detailPid ?? '—'}</div>
+      </div>
+
       {booting && <p style={styles.dim}>启动中(挂载资源 + 引导引擎)…</p>}
       {error && <p style={styles.err}>VM 错误: {error}</p>}
       {booted && stats && (
