@@ -8,8 +8,12 @@ import { seatPosition, PHOTO_WIDTH, PHOTO_HEIGHT } from './seatLayout.js'
 
 export interface Box { x: number; y: number; w: number; h: number }
 
-// drawPile: Room.qml x=w/2, y=h/2 (a point — cards stack at center).
-export const DRAW_PILE: Box = { x: STAGE_W / 2 - 35, y: STAGE_H / 2 - 50, w: 70, h: 100 }
+export const CARD_W = 70
+export const CARD_H = 100
+
+// drawPile: Room.qml x=w/2, y=h/2 (cards stack at scene center). CARD_W/H box
+// centered on that point.
+export const DRAW_PILE: Box = { x: STAGE_W / 2 - CARD_W / 2, y: STAGE_H / 2 - CARD_H / 2, w: CARD_W, h: CARD_H }
 // tablePile: Room.qml x=0.15w, y=0.6h+10, w=0.7w, h=150 (the play/discard strip).
 export const TABLE_PILE: Box = { x: STAGE_W * 0.15, y: STAGE_H * 0.6 + 10, w: STAGE_W * 0.7, h: 150 }
 
@@ -54,5 +58,3 @@ export function resolveAreaBox(
   return null
 }
 
-export const CARD_W = 70
-export const CARD_H = 100

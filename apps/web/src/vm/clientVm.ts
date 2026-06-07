@@ -129,14 +129,15 @@ export class ClientVm {
         end
         return json.encode(out)
       end
-      -- Card faces: GetCardData(cid) -> {name,number,suit,color,type,...}.
+      -- Card faces: GetCardData(cid) -> {name,number,suit,color,type,subtype,extension,...}.
       function __fkReadCards(cidsJson)
         local out = {}
         local ok, cids = pcall(json.decode, cidsJson)
         if ok and type(cids) == "table" then
           for _, cid in ipairs(cids) do
             local d = GetCardData(cid)
-            out[tostring(cid)] = { name = d.name, number = d.number, suit = d.suit, color = d.color, type = d.type, virt_name = d.virt_name }
+            out[tostring(cid)] = { name = d.name, number = d.number, suit = d.suit,
+              color = d.color, type = d.type, subtype = d.subtype, extension = d.extension, virt_name = d.virt_name }
           end
         end
         return json.encode(out)
@@ -260,6 +261,8 @@ export interface CardFace {
   suit: string // "spade" | "heart" | "club" | "diamond" | "nosuit"
   color: string // "red" | "black" | "nocolor"
   type?: number
+  subtype?: string // equip subtype: "weapon"/"armor"/"treasure"/"defensive_ride"/"offensive_ride"
+  extension?: string // package name — needed to resolve card/equip/trick icon paths
   virt_name?: string
 }
 

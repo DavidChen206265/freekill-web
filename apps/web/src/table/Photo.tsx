@@ -81,9 +81,9 @@ export function Photo({ player, playerNum, isSelf }: {
         <img src={rolePic(player.role_shown === false && !isSelf ? 'unknown' : player.role)} alt="" style={styles.role} draggable={false} onError={hideImg} />
       )}
 
-      {/* equip strip (lower area) + judge icons (top-left) */}
-      <div style={styles.equip}><EquipArea cids={player.equipCids ?? []} ext={ext} /></div>
-      <div style={styles.judge}><JudgeArea cids={player.judgeCids ?? []} ext={ext} /></div>
+      {/* equip strip (lower area) + judge icons (bottom strip) */}
+      <div style={styles.equip}><EquipArea cids={player.equipCids ?? []} /></div>
+      <div style={styles.judge}><JudgeArea cids={player.judgeCids ?? []} /></div>
 
       {/* chain overlay */}
       {player.chained && <img src={chainPic()} alt="" style={styles.chain} draggable={false} onError={hideImg} />}
@@ -141,12 +141,12 @@ const styles: Record<string, React.CSSProperties> = {
   portraitClip: { position: 'absolute', left: 4, top: 3, right: 4, bottom: 22, borderRadius: 6, overflow: 'hidden', display: 'flex' },
   portrait: { position: 'relative', height: '100%', flex: 1, overflow: 'hidden' },
   portraitImg: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
-  generalName: { position: 'absolute', left: 4, top: 16, width: 15, zIndex: 5, fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '13px', textShadow: '0 1px 2px #000, 0 0 3px #000', writingMode: 'vertical-rl', letterSpacing: 0 },
+  generalName: { position: 'absolute', left: 4, top: 15, width: 15, zIndex: 5, fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '13px', textShadow: '0 1px 2px #000, 0 0 3px #000', writingMode: 'vertical-rl', letterSpacing: 0 },
   placeholder: { width: '100%', height: '100%' },
-  hp: { position: 'absolute', left: 2, bottom: 24, zIndex: 3 },
+  hp: { position: 'absolute', left: 2, bottom: 22, zIndex: 4 },
   role: { position: 'absolute', top: -2, right: -2, width: 30, height: 33, zIndex: 4 },
-  equip: { position: 'absolute', left: 20, right: 4, bottom: 22, zIndex: 3 },
-  judge: { position: 'absolute', left: 2, top: 2, zIndex: 3 },
+  equip: { position: 'absolute', left: 22, right: 3, bottom: 40, zIndex: 3 },
+  judge: { position: 'absolute', left: 22, bottom: 20, zIndex: 3 },
   chain: { position: 'absolute', left: '50%', top: '46%', transform: 'translate(-50%,-50%)', width: '92%', zIndex: 2, opacity: 0.9 },
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', background: 'rgba(0,0,0,.6)', zIndex: 5 },
   name: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },

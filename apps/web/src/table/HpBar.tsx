@@ -15,7 +15,10 @@ function beadState(index: number, hp: number, maxHp: number): number {
 const HP_TEXT_COLOR = ['#F4180E', '#F4180E', '#E3B006', '#25EC27'] // [_, 1, 2, 3+]
 
 export function HpBar({ hp, maxHp, shield }: { hp: number; maxHp: number; shield: number }) {
-  const useText = maxHp > 4
+  // HpBar.qml:40 — switch to text when too many beads to draw cleanly.
+  const useText = maxHp > 4 || hp > maxHp || (shield > 0 && maxHp > 3)
+  // text color (HpBar.qml): green if full-ish, else by current hp level.
+  const colorIdx = hp >= 3 || hp >= maxHp ? 3 : Math.max(0, Math.min(3, hp))
   return (
     <div style={styles.col}>
       {shield > 0 && (
@@ -27,7 +30,7 @@ export function HpBar({ hp, maxHp, shield }: { hp: number; maxHp: number; shield
       {useText ? (
         <div style={styles.textWrap}>
           <img src={magatama(hp >= 3 || hp >= maxHp ? 3 : Math.max(0, hp))} alt="" style={styles.bead} draggable={false} />
-          <span style={{ ...styles.hpText, color: HP_TEXT_COLOR[Math.min(3, Math.max(1, hp))] }}>{hp}</span>
+          <span style={{ ...styles.hpText, color: HP_TEXT_COLOR[colorIdx] }}>{hp}</span>
           <span style={styles.slash}>/</span>
           <span style={styles.hpText}>{maxHp}</span>
         </div>
