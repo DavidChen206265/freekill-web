@@ -5,7 +5,7 @@
 //身份局 needs (inspect an opponent's general + skills); presents/stats/audio/skins
 // are out of this batch. Skills fetched once when opened.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDetailStore } from '../stores/detailStore.js'
 import { useGameStore } from '../stores/gameStore.js'
 import { useVmStore } from '../stores/vmStore.js'
@@ -17,18 +17,25 @@ export function GeneralDetailModal() {
   const players = useGameStore((s) => s.players)
   const vm = useVmStore((s) => s.vm)
   const [skills, setSkills] = useState<{ name: string; description: string }[]>([])
+  // The long-press / right-click that opens this modal is followed by a synthetic
+  // click (on pointer-up) that would otherwise hit the backdrop and close it at
+  // once. Ignore backdrop clicks for a brief grace window after opening.
+  const openedAt = useRef(0)
 
   const player = pid != null ? players[pid] : undefined
 
   useEffect(() => {
     if (pid == null || !vm) { setSkills([]); return }
+    openedAt.current = Date.now()
     setSkills(vm.playerSkills(pid))
   }, [pid, vm])
 
   if (pid == null || !player) return null
 
+  const onBackdrop = () => { if (Date.now() - openedAt.current > 350) close() }
+
   return (
-    <div style={styles.backdrop} onClick={close}>
+    <div style={styles.backdrop} onClick={onBackdrop}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
           <span style={styles.name}>{player.name || `P${player.id}`}</span>
