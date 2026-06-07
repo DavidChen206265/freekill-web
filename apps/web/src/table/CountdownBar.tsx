@@ -60,7 +60,7 @@ const styles: Record<string, React.CSSProperties> = {
   // Sits just above the OK/Cancel row (Room.qml: progress anchored okCancel.top+4).
   // Narrower than the QML 60% because our fixed stage scales up on wide windows,
   // where 60% spans most of the screen and crowds the buttons/cards.
-  wrap: { position: 'absolute', left: '50%', bottom: 84, transform: 'translateX(-50%)', width: 420, display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none' },
+  wrap: { position: 'absolute', left: '50%', bottom: 100, transform: 'translateX(-50%)', width: 420, display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none' },
   track: { flex: 1, height: 10, background: '#000', borderRadius: 5, overflow: 'hidden' },
   // NO CSS transition: the rAF loop sets width every frame, so a transition just
   // lags behind and makes the shrink look frozen. Frame-by-frame is already smooth.

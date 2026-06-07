@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import type { Envelope, NotifyEnvelope, RequestEnvelope } from '@freekill-web/protocol'
 import { base64ToBytes } from '@freekill-web/protocol'
 import { ClientVm, type ClientVmStats, type NotifyEvent } from '../vm/clientVm.js'
+import { processPrompt } from '../table/processPrompt.js'
 import { useGameStore } from './gameStore.js'
 import { useCardStore } from './cardStore.js'
 import { useCardFaceStore } from './cardFaceStore.js'
@@ -57,6 +58,19 @@ const ACTIVATE_COMMANDS = new Set<string>([
   'CustomDialog', 'MiniGame',
 ])
 
+// Translate + interpolate a prompt (RoomLogic.js processPrompt). The prompt is a
+// ":"-joined "<key>:<src>:<dest>:<arg...>"; the key + arg parts are translation
+// keys (numeric src/dest are player ids, not keys). Register any missing keys with
+// the VM translation cache, then run processPrompt for %src/%dest/%arg substitution.
+function localizePrompt(vm: ClientVm | null, prompt: string): string {
+  if (!prompt) return ''
+  const parts = prompt.split(':')
+  // key = parts[0]; parts[1]/[2] are src/dest ids (skip); parts[3+] are arg keys.
+  const keys = [parts[0]!, ...parts.slice(3)].filter((k) => k && isNaN(Number(k)) && !hasTranslation(k))
+  if (vm && keys.length > 0) registerTranslations(vm.translate(keys))
+  return processPrompt(prompt)
+}
+
 export const useVmStore = create<VmState>((set, get) => ({
   vm: null,
   booting: false,
@@ -83,13 +97,19 @@ export const useVmStore = create<VmState>((set, get) => ({
           // ui_emu request UI update (each click re-emits this). In QML this goes
           // through updateRequestUI, NOT a request callback, so it does NOT
           // activate() — the countdown is started by the request command below.
+          // Translate + interpolate the prompt (RoomLogic.js processPrompt) so the
+          // bar shows real text, not a "#slash_skill" key.
+          const data = e.data as { _prompt?: unknown }
+          if (data && typeof data._prompt === 'string' && data._prompt) {
+            data._prompt = localizePrompt(get().vm, data._prompt)
+          }
           useInteractionStore.getState().applyChange(e.data)
         }
         else if (e.command === 'AskForSkillInvoke') {
           // ui_emu request (ReqInvoke OK/Cancel via UpdateRequestUI); this notify
           // only carries the prompt [skill, prompt]. Inject it into the bar.
           const d = e.data as unknown[]
-          useInteractionStore.getState().setPrompt(String(d?.[1] || ''))
+          useInteractionStore.getState().setPrompt(localizePrompt(get().vm, String(d?.[1] || '')))
         }
         else if (e.command === 'ReplyToServer') {
           // The request finished in the VM; send the reply to asio. The gateway
