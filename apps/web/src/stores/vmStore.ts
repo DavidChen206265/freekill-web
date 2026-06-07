@@ -63,12 +63,18 @@ export const useVmStore = create<VmState>((set, get) => ({
         if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
         else if (e.command === 'DestroyTableCard') useCardStore.getState().destroyTableCards((e.data as number[]) ?? [])
         else if (e.command === 'DestroyTableCardByEvent') useCardStore.getState().destroyTableCardsByEvent(Number(e.data) || 0)
-        else if (e.command === 'UpdateRequestUI') useInteractionStore.getState().applyChange(e.data)
+        else if (e.command === 'UpdateRequestUI') {
+          // ui_emu request UI activated (RoomLogic.js roomScene.activate()). Show
+          // the operation countdown using the latched request timeout.
+          useInteractionStore.getState().applyChange(e.data)
+          useTimerStore.getState().start()
+        }
         else if (e.command === 'AskForSkillInvoke') {
           // ui_emu request (ReqInvoke OK/Cancel via UpdateRequestUI); this notify
           // only carries the prompt [skill, prompt]. Inject it into the bar.
           const d = e.data as unknown[]
           useInteractionStore.getState().setPrompt(String(d?.[1] || ''))
+          useTimerStore.getState().start()
         }
         else if (e.command === 'ReplyToServer') {
           // The request finished in the VM; send the reply to asio. The gateway
@@ -105,6 +111,10 @@ export const useVmStore = create<VmState>((set, get) => ({
         else if (usePopupStore.getState().handle(e.command, e.data)) {
           const active = usePopupStore.getState().active
           if (active) {
+            // A popup request activates the operation countdown (these QML handlers
+            // call roomScene.activate()). FillAG lays out the pile without prompting
+            // (interactive AskForAG follows) — so only start once it's our turn.
+            if (e.command !== 'FillAG') useTimerStore.getState().start()
             // Translate any general/option keys the popup will display.
             const keys = [...(active.generals ?? []), ...(active.options ?? [])].filter((k) => !hasTranslation(k))
             if (keys.length > 0) registerTranslations(get().vm!.translate(keys))
@@ -156,11 +166,14 @@ export const useVmStore = create<VmState>((set, get) => ({
     const raw = (env as NotifyEnvelope | RequestEnvelope).raw
     if (!raw) return
     const isRequest = env.kind === 'request'
-    // A server request starts the operation countdown (Room.qml notactive→active).
-    // We anchor to the client clock (timerStore) — the server timestamp can't be
-    // trusted across the WSL/Windows clock boundary. timeout is in seconds.
+    // Latch the request's timeout (QML Backend.getRequestData().timeout). The
+    // VISIBLE countdown does NOT start here — the VM first emits CancelRequest to
+    // leave the previous request, THEN the new request's UI activates. Starting
+    // the bar now would be immediately stopped by that CancelRequest. We start it
+    // on the activate-equivalent commands below (UpdateRequestUI / popups). timeout
+    // is in seconds.
     if (isRequest) {
-      useTimerStore.getState().start((env as RequestEnvelope).timeout)
+      useTimerStore.getState().setPending((env as RequestEnvelope).timeout)
     }
     // A single bad packet must not break the feed chain (which would freeze all
     // subsequent packets). Log it and keep going; still re-sync the roster after.

@@ -6,34 +6,53 @@
 
 import { useRef } from 'react'
 
-const HOLD_MS = 500   // touch long-press threshold
-const MOVE_SLOP = 10  // px of movement that cancels the press (treat as drag/scroll)
+const HOLD_MS = 450   // touch long-press threshold
+const MOVE_SLOP = 12  // px of movement that cancels the press (treat as drag/scroll)
 
-export function useLongPress(onLongPress: () => void) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const start = useRef<{ x: number; y: number } | null>(null)
-  // True briefly after a long-press fires, so the trailing click can be ignored.
-  const fired = useRef(false)
+export interface LongPressHandlers {
+  consumeFired: () => boolean
+  onPointerDown: (e: React.PointerEvent) => void
+  onPointerMove: (e: React.PointerEvent) => void
+  onPointerUp: () => void
+  onPointerCancel: () => void
+}
 
+// Plain factory holding the gesture state in refs supplied by the caller — so it
+// is identical whether driven by useRef (runtime) or plain objects (tests).
+export function makeLongPress(
+  onLongPress: () => void,
+  refs: {
+    timer: { current: ReturnType<typeof setTimeout> | null }
+    start: { current: { x: number; y: number } | null }
+    fired: { current: boolean }
+  },
+): LongPressHandlers {
+  const { timer, start, fired } = refs
   const clear = () => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null }
     start.current = null
   }
-
   return {
     /** Whether the most recent gesture was a long-press (consume to skip the click). */
     consumeFired: () => { const f = fired.current; fired.current = false; return f },
-    onPointerDown: (e: React.PointerEvent) => {
-      clear() // reset any prior pending timer
+    onPointerDown: (e) => {
+      clear()
       fired.current = false
       start.current = { x: e.clientX, y: e.clientY }
       timer.current = setTimeout(() => { timer.current = null; fired.current = true; onLongPress() }, HOLD_MS)
     },
-    onPointerMove: (e: React.PointerEvent) => {
+    onPointerMove: (e) => {
       if (!start.current) return
       if (Math.abs(e.clientX - start.current.x) > MOVE_SLOP || Math.abs(e.clientY - start.current.y) > MOVE_SLOP) clear()
     },
     onPointerUp: clear,
     onPointerCancel: clear,
   }
+}
+
+export function useLongPress(onLongPress: () => void): LongPressHandlers {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const start = useRef<{ x: number; y: number } | null>(null)
+  const fired = useRef(false)
+  return makeLongPress(onLongPress, { timer, start, fired })
 }

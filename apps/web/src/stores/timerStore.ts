@@ -19,22 +19,36 @@ interface TimerState {
   totalMs: number
   /** Absolute end time in ms epoch (client receive time + totalMs). */
   deadline: number
-  /** Start a countdown from a request's timeout (seconds). Falls back to the
-   *  30s default when timeout is missing/invalid. Anchored to the client clock. */
-  start: (timeoutSec: number) => void
+  /** Latched timeout (seconds) from the most recent request packet — QML's
+   *  Backend.getRequestData().timeout. The visible countdown starts later, when
+   *  the request UI actually activates (roomScene.activate()). */
+  pendingSec: number
+  /** Latch the timeout from a request packet (does NOT show the bar yet). */
+  setPending: (timeoutSec: number) => void
+  /** Start the visible countdown — called when the request UI activates. Uses the
+   *  latched pending timeout (or an explicit override), falling back to 30s.
+   *  No-op if already running, so the local ui_emu click loop (which re-emits
+   *  UpdateRequestUI on every click) doesn't keep resetting the bar. */
+  start: (timeoutSec?: number) => void
   /** Stop the countdown (reply sent, request cancelled, or expired). */
   stop: () => void
 }
 
-export const useTimerStore = create<TimerState>((set) => ({
+export const useTimerStore = create<TimerState>((set, get) => ({
   running: false,
   totalMs: 0,
   deadline: 0,
+  pendingSec: 0,
+
+  setPending: (timeoutSec) => set({ pendingSec: timeoutSec && timeoutSec > 0 ? timeoutSec : 0 }),
 
   start: (timeoutSec) => {
-    const secs = timeoutSec && timeoutSec > 0 ? timeoutSec : DEFAULT_TIMEOUT_SEC
+    if (get().running) return // already counting — don't reset on each ui_emu click
+    const secs = timeoutSec && timeoutSec > 0 ? timeoutSec
+      : get().pendingSec > 0 ? get().pendingSec
+      : DEFAULT_TIMEOUT_SEC
     const totalMs = secs * 1000
-    // Anchor to the client's own clock at receive time — avoids WSL/Windows skew.
+    // Anchor to the client's own clock at activate time — avoids WSL/Windows skew.
     set({ running: true, totalMs, deadline: Date.now() + totalMs })
   },
 
