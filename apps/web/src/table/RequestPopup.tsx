@@ -49,26 +49,36 @@ export function RequestPopup() {
   }
 
   if (active.kind === 'choice') {
+    // ChoiceBox.qml: render ALL options (all_choices), enable only those in
+    // `choices`; reply the chosen value. Layout = GridLayout flow:TopToBottom,
+    // rows:8 (fill a column top-down up to 8, then wrap to the next column).
+    const all = active.values ?? active.options ?? []
+    const enabledSet = active.values ? (active.options ?? []) : all
     return (
       <Modal prompt={active.prompt}>
-        <div style={styles.choices}>
-          {(active.options ?? []).map((opt, i) => (
-            <button key={i} style={styles.choice} onClick={() => resolve((active.values ?? active.options)![i])}>{tr(opt)}</button>
-          ))}
+        <div style={vchoicesGrid(all.length)}>
+          {all.map((opt, i) => {
+            const on = enabledSet.includes(opt)
+            return <button key={i} style={{ ...styles.choice, ...(on ? {} : styles.disabled) }} disabled={!on} onClick={() => resolve(opt)}>{tr(opt)}</button>
+          })}
         </div>
       </Modal>
     )
   }
 
   if (active.kind === 'choices') {
-    // multi-select options → reply with chosen values
+    // CheckBox.qml: multi-select. Render all_choices, enable those in `choices`
+    // AND (selected count < max OR already picked). OK enabled when >= min.
+    const all = active.values ?? active.options ?? []
+    const enabledSet = active.values ? (active.options ?? []) : all
     const ok = pickedStr.length >= min && pickedStr.length <= max
     return (
       <Modal prompt={`${active.prompt}(${min}~${max})`}>
-        <div style={styles.choices}>
-          {(active.options ?? []).map((opt, i) => {
-            const val = (active.values ?? active.options)![i]!
-            return <button key={i} style={{ ...styles.choice, ...(pickedStr.includes(val) ? styles.picked : {}) }} onClick={() => toggleStr(val)}>{tr(opt)}</button>
+        <div style={vchoicesGrid(all.length)}>
+          {all.map((opt, i) => {
+            const picked = pickedStr.includes(opt)
+            const on = enabledSet.includes(opt) && (pickedStr.length < max || picked)
+            return <button key={i} style={{ ...styles.choice, ...(picked ? styles.picked : {}), ...(on ? {} : styles.disabled) }} disabled={!on} onClick={() => toggleStr(opt)}>{tr(opt)}</button>
           })}
         </div>
         <div style={styles.row}>
@@ -171,8 +181,22 @@ function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
   )
 }
 
-function Modal({ prompt, children }: { prompt: string; children: React.ReactNode }) {
-  return (
+// ChoiceBox/CheckBox.qml use GridLayout{ flow:TopToBottom; rows:8 } — options fill
+// a column top-down (max 8), then wrap to a new column. Emulate with a CSS grid
+// that has ceil(n/8) columns, each filled column-first via grid-auto-flow:column.
+function vchoicesGrid(n: number): React.CSSProperties {
+  const rows = Math.min(8, Math.max(1, n))
+  return {
+    display: 'grid',
+    gridAutoFlow: 'column',
+    gridTemplateRows: `repeat(${rows}, auto)`,
+    gap: 8,
+    columnGap: 10,
+    justifyContent: 'center',
+  }
+}
+
+function Modal({ prompt, children }: { prompt: string; children: React.ReactNode }) {  return (
     <div style={styles.backdrop}>
       <div style={styles.modal}>
         <div style={styles.prompt}>{prompt}</div>
