@@ -88,6 +88,23 @@ export function equipBgPic(): string {
   return `${PHOTO}/equipbg.png`
 }
 
+// ---- card chrome (built-in, under /fk/image/card) --------------------------
+/** Suit image (♠♥♣♦) for a card front overlay (PokerCard suitItem). */
+export function suitPic(suit?: string): string {
+  if (!suit || suit === 'nosuit') return ''
+  return `${FK}/image/card/suit/${suit}.png`
+}
+/** Number image for the card front overlay (number/<red|black>/<n>.png). */
+export function numberPic(n: number, color: string): string {
+  if (!n || n < 1 || n > 13) return ''
+  const c = color === 'red' ? 'red' : 'black'
+  return `${FK}/image/card/number/${c}/${n}.png`
+}
+/** Card back. */
+export function cardBackPic(): string {
+  return `${FK}/image/card/card-back.png`
+}
+
 /** Net-state icon (online/offline/...). */
 export function statePic(state: string): string {
   return `${PHOTO}/state/${state}.png`

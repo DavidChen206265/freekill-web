@@ -89,6 +89,9 @@ let imgFiles = 0, imgBytes = 0
 const acc = (r) => { imgFiles += r.n; imgBytes += r.b }
 // ① built-in photo chrome (magatama / role / back / death / chain / state / ...)
 acc(copyImages(path.join(SOURCECODE, 'image', 'photo'), path.join(FK_ROOT, 'image', 'photo')))
+// ① built-in card chrome (suit / number / card-back / unknown — overlays drawn on
+// top of per-package card art; see PokerCard.qml).
+acc(copyImages(path.join(SOURCECODE, 'image', 'card'), path.join(FK_ROOT, 'image', 'card')))
 // ② per-package generals + card art (skip anim sprites for now — slice 7)
 for (const pkg of ['standard', 'standard_cards', 'maneuvering']) {
   acc(copyImages(path.join(PACKAGES, pkg, 'image', 'generals'), path.join(FK_ROOT, 'packages', pkg, 'image', 'generals')))
