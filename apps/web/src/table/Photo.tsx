@@ -47,7 +47,7 @@ export function Photo({ player, playerNum, isSelf }: {
   // BasicItem.qml fires this on BOTH right-click and long-press (onLongPressed →
   // rightClicked) — so long-press is FreeKill's own touch/browser equivalent that
   // never conflicts with left-click target selection. We support both here.
-  const openDetail = () => { if (player.id > 0) useDetailStore.getState().open(player.id) }
+  const openDetail = () => { if (player.id !== 0 && player.id !== -1) useDetailStore.getState().open(player.id) }
   const onContextMenu = (e: React.MouseEvent) => { e.preventDefault(); openDetail() }
   // Long-press (500ms with no significant move) = detail, mirroring onLongPressed.
   const lp = useLongPress(openDetail)
@@ -133,8 +133,10 @@ export function Photo({ player, playerNum, isSelf }: {
 
       {/* detail button (top-left) — opens the player/general detail panel. QML uses
           right-click / long-press (BasicItem.qml); a button is the reliable web
-          equivalent. stopPropagation so it doesn't trigger target selection. */}
-      {player.id > 0 && (
+          equivalent. stopPropagation so it doesn't trigger target selection.
+          showDetail() skips only pid 0/-1 (Photo.qml:521-524) — bots (other
+          negative ids) DO get a detail panel. */}
+      {player.id !== 0 && player.id !== -1 && (
         <button
           style={styles.detailBtn}
           title="查看武将详情"

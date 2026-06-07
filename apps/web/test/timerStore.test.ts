@@ -1,45 +1,38 @@
-// timerStore tests — operation countdown start/stop + fractionLeft math.
+// timerStore tests — fixed-30s operation countdown + fractionLeft math.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useTimerStore, fractionLeft, DEFAULT_TIMEOUT_SEC } from '../src/stores/timerStore.js'
+import { useTimerStore, fractionLeft, TIMEOUT_SEC } from '../src/stores/timerStore.js'
 
-beforeEach(() => useTimerStore.setState({ running: false, totalMs: 0, deadline: 0, pendingSec: 0 }))
+beforeEach(() => useTimerStore.setState({ running: false, totalMs: 0, deadline: 0 }))
 
 describe('timerStore', () => {
-  it('setPending latches the timeout without showing the bar; start uses it', () => {
-    useTimerStore.getState().setPending(15)
-    expect(useTimerStore.getState().running).toBe(false) // latched only
+  it('start: runs a fixed 30s client-anchored countdown', () => {
     const before = Date.now()
     useTimerStore.getState().start()
     const s = useTimerStore.getState()
     expect(s.running).toBe(true)
-    expect(s.totalMs).toBe(15000) // used the latched pending timeout
-    expect(s.deadline).toBeGreaterThanOrEqual(before + 15000)
-    expect(s.deadline).toBeLessThanOrEqual(Date.now() + 15000)
+    expect(TIMEOUT_SEC).toBe(30)
+    expect(s.totalMs).toBe(30000)
+    expect(s.deadline).toBeGreaterThanOrEqual(before + 30000)
+    expect(s.deadline).toBeLessThanOrEqual(Date.now() + 30000)
   })
 
-  it('start: no pending + no arg falls back to the 30s default', () => {
+  it('stop: clears running; a later start runs again', () => {
     useTimerStore.getState().start()
-    expect(useTimerStore.getState().running).toBe(true)
-    expect(useTimerStore.getState().totalMs).toBe(DEFAULT_TIMEOUT_SEC * 1000)
-    expect(DEFAULT_TIMEOUT_SEC).toBe(30)
-  })
-
-  it('start: is a no-op while already running (ui_emu re-emits UpdateRequestUI)', () => {
-    useTimerStore.getState().start(30)
-    const d0 = useTimerStore.getState().deadline
-    useTimerStore.getState().start(5) // a click mid-request must not reset the bar
-    expect(useTimerStore.getState().deadline).toBe(d0)
-    expect(useTimerStore.getState().totalMs).toBe(30000)
-  })
-
-  it('stop: clears running (and lets a later start run again)', () => {
-    useTimerStore.getState().start(15)
     useTimerStore.getState().stop()
     expect(useTimerStore.getState().running).toBe(false)
-    useTimerStore.getState().start(10)
+    useTimerStore.getState().start()
     expect(useTimerStore.getState().running).toBe(true)
-    expect(useTimerStore.getState().totalMs).toBe(10000)
+  })
+
+  it('start: re-arms a fresh deadline each call (edge-driven by CountdownBar)', () => {
+    useTimerStore.getState().start()
+    const d0 = useTimerStore.getState().deadline
+    // simulate time passing then a new request edge
+    const later = Date.now() + 5
+    while (Date.now() < later) { /* spin briefly */ }
+    useTimerStore.getState().start()
+    expect(useTimerStore.getState().deadline).toBeGreaterThanOrEqual(d0)
   })
 
   it('fractionLeft: clamps to [0,1] across the window', () => {

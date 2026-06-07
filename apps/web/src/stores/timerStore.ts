@@ -1,54 +1,37 @@
-// timerStore.ts — the operation countdown (Room.qml `progress` ProgressBar +
-// progressAnim). A server REQUEST carries timeout (seconds). QML anchors the bar
-// to the server timestamp (elapsed = Date.now() - timestamp), which assumes the
-// client and server share a clock. In this port the server runs in WSL and the
-// browser on Windows, whose clocks drift — so we anchor the countdown to the
-// CLIENT's own receive time instead (no cross-machine skew). On expiry the room
-// leaves the active state and calls FinishRequestUI (UI cleanup only — the SERVER
-// owns the real timeout and picks the default answer; the client never replies).
+// timerStore.ts — the operation countdown (Room.qml `progress` ProgressBar). The
+// QML bar is anchored to the server timestamp; here the server runs in WSL and the
+// browser on Windows (clock skew), so we anchor to the CLIENT clock and use a
+// FIXED 30s think window. The countdown is driven by the active-request EDGE
+// (CountdownBar watches whether any request UI is active) rather than scattered
+// per-command start/stop calls — which was fragile across request boundaries. On
+// expiry CountdownBar calls FinishRequestUI (UI cleanup only — the server owns the
+// real timeout and picks the default answer; the client never auto-replies).
 
 import { create } from 'zustand'
 
-/** Default think window when a request carries no usable timeout (seconds). */
-export const DEFAULT_TIMEOUT_SEC = 30
+/** Fixed think window for the operation countdown (seconds). */
+export const TIMEOUT_SEC = 30
 
 interface TimerState {
   /** Whether a countdown is active. */
   running: boolean
-  /** Total request window in ms (timeout * 1000). */
+  /** Total window in ms (TIMEOUT_SEC * 1000). */
   totalMs: number
-  /** Absolute end time in ms epoch (client receive time + totalMs). */
+  /** Absolute end time in ms epoch (client start time + totalMs). */
   deadline: number
-  /** Latched timeout (seconds) from the most recent request packet — QML's
-   *  Backend.getRequestData().timeout. The visible countdown starts later, when
-   *  the request UI actually activates (roomScene.activate()). */
-  pendingSec: number
-  /** Latch the timeout from a request packet (does NOT show the bar yet). */
-  setPending: (timeoutSec: number) => void
-  /** Start the visible countdown — called when the request UI activates. Uses the
-   *  latched pending timeout (or an explicit override), falling back to 30s.
-   *  No-op if already running, so the local ui_emu click loop (which re-emits
-   *  UpdateRequestUI on every click) doesn't keep resetting the bar. */
-  start: (timeoutSec?: number) => void
-  /** Stop the countdown (reply sent, request cancelled, or expired). */
+  /** Start a fresh fixed-30s countdown (called on the active-request rising edge). */
+  start: () => void
+  /** Stop the countdown (active-request falling edge / expiry). */
   stop: () => void
 }
 
-export const useTimerStore = create<TimerState>((set, get) => ({
+export const useTimerStore = create<TimerState>((set) => ({
   running: false,
   totalMs: 0,
   deadline: 0,
-  pendingSec: 0,
 
-  setPending: (timeoutSec) => set({ pendingSec: timeoutSec && timeoutSec > 0 ? timeoutSec : 0 }),
-
-  start: (timeoutSec) => {
-    if (get().running) return // already counting — don't reset on each ui_emu click
-    const secs = timeoutSec && timeoutSec > 0 ? timeoutSec
-      : get().pendingSec > 0 ? get().pendingSec
-      : DEFAULT_TIMEOUT_SEC
-    const totalMs = secs * 1000
-    // Anchor to the client's own clock at activate time — avoids WSL/Windows skew.
+  start: () => {
+    const totalMs = TIMEOUT_SEC * 1000
     set({ running: true, totalMs, deadline: Date.now() + totalMs })
   },
 

@@ -15,7 +15,7 @@ import { useCardFaceStore } from './cardFaceStore.js'
 import { useInteractionStore } from './interactionStore.js'
 import { usePopupStore } from './popupStore.js'
 import { useLogStore } from './logStore.js'
-import { useTimerStore, DEFAULT_TIMEOUT_SEC } from './timerStore.js'
+import { TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
 import { registerTranslations, hasTranslation } from '../i18n/zh.js'
 
@@ -64,26 +64,23 @@ export const useVmStore = create<VmState>((set, get) => ({
         else if (e.command === 'DestroyTableCard') useCardStore.getState().destroyTableCards((e.data as number[]) ?? [])
         else if (e.command === 'DestroyTableCardByEvent') useCardStore.getState().destroyTableCardsByEvent(Number(e.data) || 0)
         else if (e.command === 'UpdateRequestUI') {
-          // ui_emu request UI activated (RoomLogic.js roomScene.activate()). Show
-          // the operation countdown using the latched request timeout.
+          // ui_emu request UI activated/updated. CountdownBar starts the 30s timer
+          // off the active edge (interactionStore.active), so no explicit call here.
           useInteractionStore.getState().applyChange(e.data)
-          useTimerStore.getState().start()
         }
         else if (e.command === 'AskForSkillInvoke') {
           // ui_emu request (ReqInvoke OK/Cancel via UpdateRequestUI); this notify
           // only carries the prompt [skill, prompt]. Inject it into the bar.
           const d = e.data as unknown[]
           useInteractionStore.getState().setPrompt(String(d?.[1] || ''))
-          useTimerStore.getState().start()
         }
         else if (e.command === 'ReplyToServer') {
           // The request finished in the VM; send the reply to asio. The gateway
           // stamps the correct requestId (see asio-client/ws-bridge).
           get().serverReply?.(e.data)
-          useInteractionStore.getState().clear()
-          useTimerStore.getState().stop()
+          useInteractionStore.getState().clear() // active→false → CountdownBar stops
         }
-        else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear(); useTimerStore.getState().stop(); useFocusStore.getState().clear() }
+        else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear(); useFocusStore.getState().clear() }
         else if (e.command === 'GetPlayerHandcards') {
           // Auto-reply with self's hand card ids (RoomLogic.js:1576) — no UI.
           const self = useGameStore.getState().selfId
@@ -101,7 +98,9 @@ export const useVmStore = create<VmState>((set, get) => ({
           const d = e.data as unknown[]
           const ids = Array.isArray(d?.[0]) ? (d[0] as number[]).map(Number) : []
           const command = String(d?.[1] ?? '')
-          const timeout = Number(d?.[2]) || useTimerStore.getState().totalMs || DEFAULT_TIMEOUT_SEC * 1000
+          // Per-Photo think bar window: use the server timeout if given, else the
+          // fixed 30s (server sends data[2] in ms).
+          const timeout = Number(d?.[2]) || TIMEOUT_SEC * 1000
           // Translate the command + the " thinking..." suffix (Photo.qml tip) once.
           const tkeys = [command, ' thinking...'].filter((k) => k && !hasTranslation(k))
           if (tkeys.length > 0) registerTranslations(get().vm!.translate(tkeys))
@@ -111,10 +110,8 @@ export const useVmStore = create<VmState>((set, get) => ({
         else if (usePopupStore.getState().handle(e.command, e.data)) {
           const active = usePopupStore.getState().active
           if (active) {
-            // A popup request activates the operation countdown (these QML handlers
-            // call roomScene.activate()). FillAG lays out the pile without prompting
-            // (interactive AskForAG follows) — so only start once it's our turn.
-            if (e.command !== 'FillAG') useTimerStore.getState().start()
+            // CountdownBar starts the 30s timer off the popup-active edge (it watches
+            // popupStore.active), so no explicit start here.
             // Translate any general/option keys the popup will display.
             const keys = [...(active.generals ?? []), ...(active.options ?? [])].filter((k) => !hasTranslation(k))
             if (keys.length > 0) registerTranslations(get().vm!.translate(keys))
@@ -166,15 +163,8 @@ export const useVmStore = create<VmState>((set, get) => ({
     const raw = (env as NotifyEnvelope | RequestEnvelope).raw
     if (!raw) return
     const isRequest = env.kind === 'request'
-    // Latch the request's timeout (QML Backend.getRequestData().timeout). The
-    // VISIBLE countdown does NOT start here — the VM first emits CancelRequest to
-    // leave the previous request, THEN the new request's UI activates. Starting
-    // the bar now would be immediately stopped by that CancelRequest. We start it
-    // on the activate-equivalent commands below (UpdateRequestUI / popups). timeout
-    // is in seconds.
-    if (isRequest) {
-      useTimerStore.getState().setPending((env as RequestEnvelope).timeout)
-    }
+    // (The operation countdown is driven by CountdownBar off the active-request
+    // edge with a fixed 30s window — no per-packet timer wiring here.)
     // A single bad packet must not break the feed chain (which would freeze all
     // subsequent packets). Log it and keep going; still re-sync the roster after.
     try {
