@@ -2,7 +2,7 @@
 // SkillInvoke). Verifies the notify→state and resolve→reply shapes.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { usePopupStore } from '../src/stores/popupStore.js'
+import { usePopupStore, shuffleInvisibleOutput } from '../src/stores/popupStore.js'
 
 beforeEach(() => { usePopupStore.getState().clear(); usePopupStore.setState({ replySender: undefined }) })
 
@@ -71,6 +71,25 @@ describe('popupStore', () => {
     const a = usePopupStore.getState().active!
     expect(a.groups![0]!.cards).toEqual([{ cid: 11, known: false }, { cid: 12, known: false }])
     expect(a.groups![1]!.cards).toEqual([{ cid: 20, known: true }])
+  })
+
+  it('shuffleInvisibleOutput: visible click replies the actual cid', () => {
+    const groups = [{ name: '装备', cards: [{ cid: 20, known: true }] }]
+    expect(shuffleInvisibleOutput(groups, 20, () => 0)).toBe(20)
+  })
+
+  it('shuffleInvisibleOutput: face-down click replies a random back from the SAME area', () => {
+    // hand all backs (blind pick); clicking any returns one of the area's backs by rng.
+    const groups = [
+      { name: '手牌', cards: [{ cid: 11, known: false }, { cid: 12, known: false }, { cid: 13, known: false }] },
+      { name: '装备', cards: [{ cid: 20, known: true }] },
+    ]
+    // rng→0 picks invisible[0]=11; rng→0.99 picks invisible[2]=13. The clicked cid (12)
+    // does not leak — the reply is decided purely by rng over the area's back set.
+    expect(shuffleInvisibleOutput(groups, 12, () => 0)).toBe(11)
+    expect(shuffleInvisibleOutput(groups, 12, () => 0.99)).toBe(13)
+    // a visible card in another area still replies as itself
+    expect(shuffleInvisibleOutput(groups, 20, () => 0)).toBe(20)
   })
 
   it('AskForCardsChosen → multi card pick with _min/_max', () => {

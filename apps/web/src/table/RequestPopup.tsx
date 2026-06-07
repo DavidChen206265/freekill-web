@@ -8,7 +8,7 @@
 // (AskForSkillInvoke is ui_emu — OK/Cancel via InteractionBar, not here.)
 
 import { useEffect, useState } from 'react'
-import { usePopupStore, type PopupRequest } from '../stores/popupStore.js'
+import { usePopupStore, shuffleInvisibleOutput, type PopupRequest } from '../stores/popupStore.js'
 import { CardFaceView } from './CardFaceView.js'
 import { tr } from '../i18n/zh.js'
 
@@ -99,7 +99,10 @@ export function RequestPopup() {
           <div style={styles.cards}>
             {grp.cards.map((c) => (
               <button key={c.cid} style={{ ...styles.agCard, ...(pickedNum.includes(c.cid) ? styles.picked : {}) }} onClick={() => {
-                if (max === 1) { resolve(c.cid); return } // single → reply immediately
+                // Single pick: shuffleInvisibleOutput — clicking a face-down card
+                // replies a RANDOM back from the same area (PlayerCardBox.qml, so
+                // you can't reveal which back you chose). Visible cards reply as-is.
+                if (max === 1) { resolve(shuffleInvisibleOutput(active.groups ?? [], c.cid)); return }
                 toggleNum(c.cid)
               }}><CardFaceView cid={c.cid} faceUp={c.known} width={56} height={80} /></button>
             ))}

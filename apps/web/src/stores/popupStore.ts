@@ -69,6 +69,22 @@ function flattenCards(cards: unknown): number[] {
   return out
 }
 
+// PlayerCardBox.qml shuffleInvisibleOutput (anti-cheat, single pick only): when
+// the clicked card is face-down (invisible) you must not reveal WHICH back you
+// picked — reply a RANDOM card from the SAME area's invisible set instead. Walk
+// areas in order; the first area whose invisible set contains `cid` decides
+// (mirrors the QML per-area loop with early return). A visible click is in no
+// area's invisible set, so it falls through and replies the actual cid.
+export function shuffleInvisibleOutput(groups: CardGroup[], cid: number, rng: () => number = Math.random): number {
+  for (const g of groups) {
+    const invisible = g.cards.filter((c) => !c.known).map((c) => c.cid)
+    if (invisible.includes(cid)) {
+      return invisible[Math.floor(rng() * invisible.length)] ?? cid
+    }
+  }
+  return cid
+}
+
 export const usePopupStore = create<PopupState>((set, get) => ({
   active: null,
 
