@@ -148,7 +148,9 @@ function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
       <div style={styles.groupName}>待分配(点选后再点区域)</div>
       <div style={styles.cards}>
         {unplaced.map((cid) => (
-          <button key={cid} style={{ ...styles.cardBtn, ...(sel === cid ? styles.picked : {}) }} onClick={() => setSel(cid)}>{cid}</button>
+          <button key={cid} style={{ ...styles.agCard, ...(sel === cid ? styles.picked : {}) }} onClick={() => setSel(cid)}>
+            <CardFaceView cid={cid} faceUp width={56} height={80} />
+          </button>
         ))}
         {unplaced.length === 0 && <span style={{ color: '#888' }}>(全部已分配)</span>}
       </div>
@@ -157,7 +159,9 @@ function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
           <button style={styles.areaHeader} onClick={() => place(i)}>{tr(a.name)} [{inArea(i).length}/{a.capacity}]</button>
           <div style={styles.cards}>
             {inArea(i).map((cid) => (
-              <button key={cid} style={styles.cardBtn} onClick={() => setPlacement((p) => { const n = { ...p }; delete n[cid]; return n })}>{cid}</button>
+              <button key={cid} style={styles.agCard} onClick={() => setPlacement((p) => { const n = { ...p }; delete n[cid]; return n })}>
+                <CardFaceView cid={cid} faceUp width={56} height={80} />
+              </button>
             ))}
           </div>
         </div>

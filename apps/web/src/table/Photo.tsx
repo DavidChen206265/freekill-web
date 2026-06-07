@@ -49,8 +49,9 @@ export function Photo({ player, playerNum, isSelf }: {
   return (
     <div
       onClick={onClick}
-      style={{ ...styles.photo, left: pos.x, top: pos.y, transform: `scale(${pos.scale})`, transformOrigin: 'top left', outline: targetOutline, cursor: selectable ? 'pointer' : 'default' }}
+      style={{ ...styles.wrap, left: pos.x, top: pos.y, transform: `scale(${pos.scale})`, transformOrigin: 'top left', cursor: selectable ? 'pointer' : 'default' }}
     >
+    <div style={{ ...styles.photo, outline: targetOutline }}>
       {/* kingdom background frame */}
       <img src={photoBack(player.kingdom)} alt="" style={styles.back} draggable={false} onError={hideImg} />
 
@@ -81,9 +82,8 @@ export function Photo({ player, playerNum, isSelf }: {
         <img src={rolePic(player.role_shown === false && !isSelf ? 'unknown' : player.role)} alt="" style={styles.role} draggable={false} onError={hideImg} />
       )}
 
-      {/* equip strip (lower area) + judge icons (bottom strip) */}
+      {/* equip strip (lower area) */}
       <div style={styles.equip}><EquipArea cids={player.equipCids ?? []} /></div>
-      <div style={styles.judge}><JudgeArea cids={player.judgeCids ?? []} /></div>
 
       {/* chain overlay */}
       {player.chained && <img src={chainPic()} alt="" style={styles.chain} draggable={false} onError={hideImg} />}
@@ -103,6 +103,10 @@ export function Photo({ player, playerNum, isSelf }: {
       {player.dead && (
         <img src={deathPic(player.role)} alt="阵亡" style={styles.death} draggable={false} onError={hideImg} />
       )}
+    </div>
+      {/* judge (delayed-trick) icons — rendered OUTSIDE the clipped photo box so they
+          can sit below the portrait without being cut off by overflow:hidden. */}
+      <div style={styles.judge}><JudgeArea cids={player.judgeCids ?? []} /></div>
     </div>
   )
 }
@@ -136,17 +140,25 @@ function seatChr(seat?: number): string {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  photo: { position: 'absolute', width: PHOTO_W, height: PHOTO_H, borderRadius: 8, overflow: 'hidden', background: '#14110c', color: '#eee', fontFamily: 'system-ui, sans-serif' },
+  wrap: { position: 'absolute', width: PHOTO_W, height: PHOTO_H, color: '#eee', fontFamily: 'system-ui, sans-serif' },
+  photo: { position: 'absolute', inset: 0, borderRadius: 8, overflow: 'hidden', background: '#14110c' },
   back: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
   portraitClip: { position: 'absolute', left: 4, top: 3, right: 4, bottom: 22, borderRadius: 6, overflow: 'hidden', display: 'flex' },
   portrait: { position: 'relative', height: '100%', flex: 1, overflow: 'hidden' },
   portraitImg: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
   generalName: { position: 'absolute', left: 4, top: 15, width: 15, zIndex: 5, fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '13px', textShadow: '0 1px 2px #000, 0 0 3px #000', writingMode: 'vertical-rl', letterSpacing: 0 },
   placeholder: { width: '100%', height: '100%' },
-  hp: { position: 'absolute', left: 2, bottom: 22, zIndex: 4 },
+  // HP magatama column (Photo.qml HpBar: x:6, bottomMargin:27 — far-left, a column
+  // rising upward). The delayed-trick row sits 19px lower and overlaps the lowest
+  // bead (trick drawn on top). We keep QML's absolute bottoms shifted up by our
+  // 20px name bar (a deviation: QML puts the name at top): 27 → 47.
+  hp: { position: 'absolute', left: 5, bottom: 27, zIndex: 4 },
   role: { position: 'absolute', top: -2, right: -2, width: 30, height: 33, zIndex: 4 },
   equip: { position: 'absolute', left: 22, right: 3, bottom: 40, zIndex: 3 },
-  judge: { position: 'absolute', left: 22, bottom: 20, zIndex: 3 },
+  // judge (delayed-trick) row — rendered outside the clipped photo box (in the
+  // unclipped wrap), sitting just BELOW the photo's bottom edge so the icons hang
+  // under the portrait. Was bottom:22 inside the clip; +60px down → ~2px below.
+  judge: { position: 'absolute', left: 2, right: 2, top: PHOTO_H - 3, zIndex: 6 },
   chain: { position: 'absolute', left: '50%', top: '46%', transform: 'translate(-50%,-50%)', width: '92%', zIndex: 2, opacity: 0.9 },
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', background: 'rgba(0,0,0,.6)', zIndex: 5 },
   name: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },

@@ -4,9 +4,9 @@
 // or a face isn't available, and to the card back when face-down. The art scales
 // with cardScale = width/93 (QML base card width).
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCardFaceStore, suitSymbol, isRedSuit, numberStr } from '../stores/cardFaceStore.js'
-import { cardPic, suitPic, numberPic, cardBackPic } from './skin.js'
+import { cardPicCandidates, suitPic, numberPic, cardBackPic } from './skin.js'
 import { tr } from '../i18n/zh.js'
 
 const CARD_BASE_W = 93 // PokerCard base width (for overlay scaling)
@@ -18,8 +18,18 @@ export function CardFaceView({ cid, faceUp, width, height }: {
   height: number
 }) {
   const face = useCardFaceStore((s) => s.faces[cid])
-  const [artFailed, setArtFailed] = useState(false)
+  // Index into the candidate art urls. On <img> error we advance to the next
+  // candidate (QML getCardPicture: try the card's extension, then scan all
+  // packages). Exhausting them → text face. backFailed: card back missing.
+  const [artIdx, setArtIdx] = useState(0)
   const [backFailed, setBackFailed] = useState(false)
+
+  // The face/art can arrive LATER than the first render (the VM fetches faces
+  // async). Reset the candidate cursor whenever the candidate set changes, or a
+  // stale "exhausted" state would wrongly stick on the text face (jink-no-art bug).
+  const candidates = face ? cardPicCandidates(face.name, face.extension) : []
+  const candKey = candidates.join('|')
+  useEffect(() => { setArtIdx(0) }, [candKey])
 
   if (!faceUp) {
     const back = cardBackPic()
@@ -33,15 +43,17 @@ export function CardFaceView({ cid, faceUp, width, height }: {
   }
 
   const scale = width / CARD_BASE_W
-  const art = cardPic(face.name, face.extension)
+  const art = candidates[artIdx] ?? ''
   const sImg = suitPic(face.suit)
   const nImg = numberPic(face.number, face.color)
 
-  // Real card art + image overlays (suit top-left, number above it).
-  if (art && !artFailed) {
+  // Real card art + image overlays (suit top-left, number above it). On error,
+  // advance to the next candidate package; when none are left `art` is '' and we
+  // fall through to the drawn text face below.
+  if (art) {
     return (
       <div style={{ ...styles.wrap, width, height }}>
-        <img src={art} alt="" style={{ ...styles.img, width, height }} draggable={false} onError={() => setArtFailed(true)} />
+        <img src={art} alt="" style={{ ...styles.img, width, height }} draggable={false} onError={() => setArtIdx((i) => i + 1)} />
         {nImg && <img src={nImg} alt="" style={{ position: 'absolute', left: 0, top: 0, width: 27 * scale, height: 28 * scale }} draggable={false} />}
         {sImg && <img src={sImg} alt="" style={{ position: 'absolute', left: 3 * scale, top: 19 * scale, width: 21 * scale, height: 17 * scale }} draggable={false} />}
       </div>

@@ -33,6 +33,21 @@ export function cardPic(name: string, ext?: string): string {
   return name ? pkgPath(ext, 'card', name, '.png') : ''
 }
 
+/** Candidate card-art URLs in QML getCardPicture order: the card's own extension
+ *  first, then every bundled art package (searchPkgResource scan). The caller
+ *  walks these on <img> error, mirroring SkinBank's "try ext → scan → unknown".
+ *  De-duplicated; empty when no name. */
+export function cardPicCandidates(name: string, ext?: string): string[] {
+  if (!name) return []
+  const urls: string[] = []
+  if (ext) urls.push(`${FK}/packages/${ext}/image/card/${name}.png`)
+  for (const p of ART_PKGS) {
+    const u = `${FK}/packages/${p}/image/card/${name}.png`
+    if (!urls.includes(u)) urls.push(u)
+  }
+  return urls
+}
+
 /** Equip icon: packages/<ext>/image/card/equipIcon/<name>.png */
 export function equipIcon(name: string, ext?: string): string {
   return name ? pkgPath(ext, 'card/equipIcon', name, '.png') : ''

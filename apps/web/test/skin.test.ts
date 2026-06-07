@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  generalPic, generalAvatar, cardPic, equipIcon, delayedTrickPic,
+  generalPic, generalAvatar, cardPic, cardPicCandidates, equipIcon, delayedTrickPic,
   photoBack, rolePic, magatama, shieldPic, deathPic,
 } from '../src/table/skin.js'
 
@@ -18,6 +18,22 @@ describe('skin path resolution', () => {
   it('returns empty when extension unknown (caller falls back to placeholder)', () => {
     expect(generalPic('caocao')).toBe('')
     expect(cardPic('slash')).toBe('')
+  })
+
+  it('cardPicCandidates tries the extension first, then scans art packages', () => {
+    // Known extension leads, then the bundled art packages (dedup'd).
+    expect(cardPicCandidates('jink', 'standard_cards')).toEqual([
+      '/fk/packages/standard_cards/image/card/jink.png',
+      '/fk/packages/standard/image/card/jink.png',
+      '/fk/packages/maneuvering/image/card/jink.png',
+    ])
+    // Unknown extension → just the package scan (so art still resolves on error).
+    expect(cardPicCandidates('jink')).toEqual([
+      '/fk/packages/standard/image/card/jink.png',
+      '/fk/packages/standard_cards/image/card/jink.png',
+      '/fk/packages/maneuvering/image/card/jink.png',
+    ])
+    expect(cardPicCandidates('')).toEqual([])
   })
 
   it('built-in chrome lives under /fk/image/photo', () => {
