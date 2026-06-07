@@ -15,7 +15,7 @@ import { useCardFaceStore } from './cardFaceStore.js'
 import { useInteractionStore } from './interactionStore.js'
 import { usePopupStore } from './popupStore.js'
 import { useLogStore } from './logStore.js'
-import { useTimerStore } from './timerStore.js'
+import { useTimerStore, DEFAULT_TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
 import { registerTranslations, hasTranslation } from '../i18n/zh.js'
 
@@ -89,12 +89,13 @@ export const useVmStore = create<VmState>((set, get) => ({
         else if (e.command === 'MoveFocus') {
           // [focuses[], command, timeout?]. Replaces the focus set (cancelAllFocus
           // then set). Photo shows a per-player thinking bar + "<command> thinking..".
-          // Default window = the active request window (timerStore) when timeout
-          // is absent (QML uses Config.roomTimeout*1000, which we don't carry).
+          // timeout here is in MS (server sends data[2] in ms; RoomLogic.js falls
+          // back to Config.roomTimeout*1000). We fall back to the active request
+          // window, then the 30s default — never 0 (which would hide the bar).
           const d = e.data as unknown[]
           const ids = Array.isArray(d?.[0]) ? (d[0] as number[]).map(Number) : []
           const command = String(d?.[1] ?? '')
-          const timeout = Number(d?.[2]) || useTimerStore.getState().totalMs || 0
+          const timeout = Number(d?.[2]) || useTimerStore.getState().totalMs || DEFAULT_TIMEOUT_SEC * 1000
           // Translate the command + the " thinking..." suffix (Photo.qml tip) once.
           const tkeys = [command, ' thinking...'].filter((k) => k && !hasTranslation(k))
           if (tkeys.length > 0) registerTranslations(get().vm!.translate(tkeys))
@@ -155,11 +156,11 @@ export const useVmStore = create<VmState>((set, get) => ({
     const raw = (env as NotifyEnvelope | RequestEnvelope).raw
     if (!raw) return
     const isRequest = env.kind === 'request'
-    // A server request starts the operation countdown (Room.qml notactive→active):
-    // total = timeout*1000, elapsed measured from the server timestamp.
+    // A server request starts the operation countdown (Room.qml notactive→active).
+    // We anchor to the client clock (timerStore) — the server timestamp can't be
+    // trusted across the WSL/Windows clock boundary. timeout is in seconds.
     if (isRequest) {
-      const r = env as RequestEnvelope
-      useTimerStore.getState().start(r.timeout, r.timestamp)
+      useTimerStore.getState().start((env as RequestEnvelope).timeout)
     }
     // A single bad packet must not break the feed chain (which would freeze all
     // subsequent packets). Log it and keep going; still re-sync the roster after.

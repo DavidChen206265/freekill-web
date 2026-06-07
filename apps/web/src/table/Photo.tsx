@@ -16,6 +16,7 @@ import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
 import { JudgeArea } from './JudgeArea.js'
 import { PhotoFocusBar } from './PhotoFocusBar.js'
+import { useLongPress } from './useLongPress.js'
 import { tr } from '../i18n/zh.js'
 
 const PHOTO_W = PHOTO_WIDTH
@@ -38,15 +39,18 @@ export function Photo({ player, playerNum, isSelf }: {
   const hasGeneral = !!player.general && player.general !== ''
   const selectable = !!targetState && (targetState.enabled || targetState.selected)
   const onClick = () => {
+    if (lp.consumeFired()) return // a long-press just opened detail — skip selection
     if (!selectable) return
     void interact('Photo', player.id, 'click', { selected: !targetState?.selected })
   }
-  // Right-click opens the player/general detail panel (Photo.qml showDetail,
-  // skipping playerid 0/-1). Suppress the browser context menu.
-  const onContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault()
-    if (player.id > 0) useDetailStore.getState().open(player.id)
-  }
+  // Open the player/general detail panel (Photo.qml showDetail; skip pid 0/-1).
+  // BasicItem.qml fires this on BOTH right-click and long-press (onLongPressed →
+  // rightClicked) — so long-press is FreeKill's own touch/browser equivalent that
+  // never conflicts with left-click target selection. We support both here.
+  const openDetail = () => { if (player.id > 0) useDetailStore.getState().open(player.id) }
+  const onContextMenu = (e: React.MouseEvent) => { e.preventDefault(); openDetail() }
+  // Long-press (500ms with no significant move) = detail, mirroring onLongPressed.
+  const lp = useLongPress(openDetail)
   const targetOutline = targetState?.selected ? '3px solid #e74c3c'
     : selectable ? '3px solid #2ecc71' : isSelf ? '2px solid #f1c40f' : 'none'
 
@@ -58,6 +62,10 @@ export function Photo({ player, playerNum, isSelf }: {
     <div
       onClick={onClick}
       onContextMenu={onContextMenu}
+      onPointerDown={lp.onPointerDown}
+      onPointerMove={lp.onPointerMove}
+      onPointerUp={lp.onPointerUp}
+      onPointerLeave={lp.onPointerCancel}
       style={{ ...styles.wrap, left: pos.x, top: pos.y, transform: `scale(${pos.scale})`, transformOrigin: 'top left', cursor: selectable ? 'pointer' : 'default' }}
     >
     <div style={{ ...styles.photo, outline: targetOutline }}>
