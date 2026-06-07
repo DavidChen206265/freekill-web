@@ -99,8 +99,14 @@ export function RequestPopup() {
           </div>
         </div>
       ))}
-      {max > 1 && (
-        <button style={{ ...styles.ok, ...(okCards ? {} : styles.disabled) }} disabled={!okCards} onClick={() => resolve(pickedNum)}>确定</button>
+      {(max > 1 || active.cancelable) && (
+        <div style={styles.row}>
+          {max > 1 && (
+            <button style={{ ...styles.ok, ...(okCards ? {} : styles.disabled) }} disabled={!okCards} onClick={() => resolve(pickedNum)}>确定</button>
+          )}
+          {/* cancelable card requests (e.g. AskForPoxi/CardsChosen min 0) → reply __cancel */}
+          {active.cancelable && <button style={styles.ghost} onClick={() => resolve('__cancel')}>取消</button>}
+        </div>
       )}
     </Modal>
   )
@@ -145,14 +151,17 @@ function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
   )
 }
 
-// AG: a shared pile; when it's your turn (prompt set) you click one card → reply cid.
+// AG: a shared pile; when it's your turn (prompt set) you click one card → reply
+// cid. Taken cards stay in place, greyed, with the taker's name (AG.qml takeAG).
 function AgBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
   return (
     <Modal prompt={active.prompt}>
       <div style={styles.cards}>
-        {(active.agCards ?? []).map((cid) => (
-          <button key={cid} style={styles.agCard} onClick={() => resolve(cid)}>
+        {(active.agCards ?? []).map(({ cid, takenBy }) => (
+          <button key={cid} style={{ ...styles.agCard, ...(takenBy ? styles.agTaken : {}) }}
+            disabled={!!takenBy} onClick={() => { if (!takenBy) resolve(cid) }}>
             <CardFaceView cid={cid} faceUp width={56} height={80} />
+            {takenBy && <span style={styles.agFootnote}>{takenBy}</span>}
           </button>
         ))}
       </div>
@@ -251,7 +260,9 @@ const styles: Record<string, React.CSSProperties> = {
   areaHeader: { fontSize: 13, color: '#eee', marginBottom: 4, padding: '4px 12px', borderRadius: 4, border: '1px dashed #4ec9b0', background: 'transparent', cursor: 'pointer' },
   cards: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   cardBtn: { width: 56, height: 80, borderRadius: 6, border: '2px solid #444', background: '#f5f0e1', color: '#222', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  agCard: { padding: 0, borderRadius: 6, border: '2px solid transparent', background: 'transparent', cursor: 'pointer' },
+  agCard: { position: 'relative', padding: 0, borderRadius: 6, border: '2px solid transparent', background: 'transparent', cursor: 'pointer' },
+  agTaken: { filter: 'grayscale(1) brightness(0.55)', cursor: 'default' },
+  agFootnote: { position: 'absolute', left: 0, right: 0, bottom: 2, fontSize: 11, fontWeight: 700, color: '#E4D5A0', textAlign: 'center', textShadow: '0 0 2px #000, 0 0 2px #000', pointerEvents: 'none' },
   row: { display: 'flex', gap: 10 },
   ok: { padding: '10px 28px', border: 'none', borderRadius: 6, background: '#0e639c', color: '#fff', fontSize: 16, cursor: 'pointer' },
   ghost: { padding: '10px 24px', border: '1px solid #555', borderRadius: 6, background: 'transparent', color: '#ccc', fontSize: 15, cursor: 'pointer' },

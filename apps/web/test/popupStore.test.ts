@@ -98,14 +98,17 @@ describe('popupStore', () => {
     expect(a.kind).toBe('cards'); expect(a.min).toBe(1); expect(a.max).toBe(2)
   })
 
-  it('AG flow: FillAG lays out, AskForAG prompts, TakeAG removes, CloseAG closes', () => {
+  it('AG flow: FillAG lays out, AskForAG prompts, TakeAG tags (keeps) the card, CloseAG closes', () => {
     const st = usePopupStore.getState()
     st.handle('FillAG', [[1, 2, 3]])
-    expect(usePopupStore.getState().active!.agCards).toEqual([1, 2, 3])
+    expect(usePopupStore.getState().active!.agCards).toEqual([{ cid: 1 }, { cid: 2 }, { cid: 3 }])
     st.handle('AskForAG', {})
     expect(usePopupStore.getState().active!.prompt).toContain('选择')
-    st.handle('TakeAG', [2, 2]) // player 2 took card 2
-    expect(usePopupStore.getState().active!.agCards).toEqual([1, 3])
+    st.handle('TakeAG', [2, 2]) // player 2 took card 2 — kept in place, tagged taken
+    const ag = usePopupStore.getState().active!.agCards!
+    expect(ag.map((c) => c.cid)).toEqual([1, 2, 3])
+    expect(ag.find((c) => c.cid === 2)!.takenBy).toBeTruthy()
+    expect(ag.find((c) => c.cid === 1)!.takenBy).toBeUndefined()
     st.handle('CloseAG', {})
     expect(usePopupStore.getState().active).toBeNull()
   })

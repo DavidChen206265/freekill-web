@@ -7,6 +7,16 @@
 
 import { create } from 'zustand'
 import { useTimerStore } from './timerStore.js'
+import { useGameStore } from './gameStore.js'
+import { tr } from '../i18n/zh.js'
+
+// Taker label for TakeAG = the player's (translated) general name, else their
+// screen name, else "P<id>" (RoomLogic.js TakeAG uses Lua.tr(photo.general)).
+function takerNameFor(pid: number): string {
+  const p = useGameStore.getState().players[pid]
+  if (!p) return `P${pid}`
+  return p.general ? tr(p.general) : (p.name || `P${pid}`)
+}
 
 export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange'
 
@@ -33,8 +43,9 @@ export interface PopupRequest {
   cancelable?: boolean
   // cards (AskForCardChosen/CardsChosen): grouped cards; pick min..max (1 if single)
   groups?: CardGroup[]
-  // ag (AskForAG): a flat list of card ids; pick one
-  agCards?: number[]
+  // ag (AskForAG): the pile of cards; taken ones stay (greyed) with the taker name
+  // (AG.qml takeAG marks selectable=false + footnote, it does NOT remove the card).
+  agCards?: { cid: number; takenBy?: string }[]
   // arrange (Guanxing/Exchange/ArrangeCards): assign cards into areas; reply [[cids]]
   arrangeCards?: number[]
   areas?: ArrangeArea[]
@@ -140,7 +151,8 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       case 'FillAG': {
         // [cids] — lay out the AG pile (does not by itself prompt).
         if (!arr) return false
-        set({ active: { kind: 'ag', prompt: '等待…', agCards: (arr[0] as number[]) ?? [] } })
+        const cids = (arr[0] as number[]) ?? []
+        set({ active: { kind: 'ag', prompt: '等待…', agCards: cids.map((cid) => ({ cid })) } })
         return true
       }
       case 'AskForAG': {
@@ -149,10 +161,15 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         return true
       }
       case 'TakeAG': {
-        // [pid, cid] — someone took a card; remove it from the pile.
+        // [pid, cid, ...] — someone took a card; KEEP it (greyed) and tag the taker
+        // (AG.qml takeAG: footnote=taker, selectable=false; does NOT remove it).
         if (!arr) return false
+        const takerId = Number(arr[0])
         const cid = Number(arr[1])
-        set((s) => (s.active?.kind === 'ag' ? { active: { ...s.active, agCards: (s.active.agCards ?? []).filter((c) => c !== cid) } } : {}))
+        const takerName = takerNameFor(takerId)
+        set((s) => (s.active?.kind === 'ag'
+          ? { active: { ...s.active, agCards: (s.active.agCards ?? []).map((c) => c.cid === cid ? { ...c, takenBy: takerName } : c) } }
+          : {}))
         return true
       }
       case 'CloseAG': {

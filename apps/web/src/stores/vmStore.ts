@@ -116,7 +116,7 @@ export const useVmStore = create<VmState>((set, get) => ({
             // Fetch faces for popup cards (AG / card-pick / arrange) — these cids
             // aren't in cardStore areas, so feed()'s face fetch won't cover them.
             const cardCids = [
-              ...(active.agCards ?? []),
+              ...(active.agCards ?? []).map((c) => c.cid),
               ...(active.arrangeCards ?? []),
               ...((active.groups ?? []).flatMap((g) => g.cards.map((c) => c.cid))),
             ]
