@@ -226,16 +226,19 @@ describe('client VM packet feed', () => {
     await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
     // Mirror clientVm's bridge handles.
     await lua.doString(`
-      function __fkReadCards(cidsJson) local out={} local ok,cids=pcall(json.decode,cidsJson) if ok then for _,cid in ipairs(cids) do local d=GetCardData(cid) out[tostring(cid)]={name=d.name,number=d.number,suit=d.suit,color=d.color} end end return json.encode(out) end
+      function __fkReadCards(cidsJson) local out={} local ok,cids=pcall(json.decode,cidsJson) if ok then for _,cid in ipairs(cids) do local d=GetCardData(cid) out[tostring(cid)]={name=d.name,number=d.number,suit=d.suit,color=d.color,mark=d.mark or {}} end end return json.encode(out) end
       function __fkTranslate(keysJson) local out={} local ok,keys=pcall(json.decode,keysJson) if ok then for _,k in ipairs(keys) do out[k]=Translate(tostring(k)) end end return json.encode(out) end
     `)
     const readCards = lua.global.get('__fkReadCards') as (j: string) => string
     const translate = lua.global.get('__fkTranslate') as (j: string) => string
     await lua.doString(`ClientCallback(ClientInstance,"Setup",cbor.encode({1,"me","caocao",0}),false)`)
     const slashId = await lua.doString(`for _,c in ipairs(Fk.cards) do if c.name=="slash" and c.suit~=Card.NoSuit then return c.id end end`) as number
-    const faces = JSON.parse(readCards(JSON.stringify([slashId]))) as Record<string, { name: string; suit: string; number: number }>
+    const faces = JSON.parse(readCards(JSON.stringify([slashId]))) as Record<string, { name: string; suit: string; number: number; mark: unknown[] }>
     expect(faces[String(slashId)]!.name).toBe('slash')
     expect(['spade', 'heart', 'club', 'diamond']).toContain(faces[String(slashId)]!.suit)
+    // D2: GetCardData.mark is an array (empty for a plain slash) — proves readCards
+    // carries marks for CardItem.qml's mark delegate.
+    expect(Array.isArray(faces[String(slashId)]!.mark)).toBe(true)
     const tx = JSON.parse(translate(JSON.stringify(['slash', 'jink', 'caocao', 'lord']))) as Record<string, string>
     expect(tx.slash).toBe('杀')
     expect(tx.jink).toBe('闪')

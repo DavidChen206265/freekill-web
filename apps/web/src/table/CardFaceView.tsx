@@ -56,6 +56,8 @@ export function CardFaceView({ cid, faceUp, width, height }: {
         <img src={art} alt="" style={{ ...styles.img, width, height }} draggable={false} onError={() => setArtIdx((i) => i + 1)} />
         {nImg && <img src={nImg} alt="" style={{ position: 'absolute', left: 0, top: 0, width: 27 * scale, height: 28 * scale }} draggable={false} />}
         {sImg && <img src={sImg} alt="" style={{ position: 'absolute', left: 3 * scale, top: 19 * scale, width: 21 * scale, height: 17 * scale }} draggable={false} />}
+        <VirtNameBox face={face} scale={scale} width={width} />
+        <CardMarks face={face} scale={scale} />
       </div>
     )
   }
@@ -73,8 +75,43 @@ export function CardFaceView({ cid, faceUp, width, height }: {
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  wrap: { position: 'relative', borderRadius: 6, overflow: 'hidden' },
+// CardItem.qml virt_rect/Text: when a card has a virtual name (≠ its real name),
+// a snow-colored box at y:40 (height 20) shows the virtual name (e.g. a card used
+// AS another). Scales with cardScale; only when known (we only render it face-up).
+function VirtNameBox({ face, scale, width }: { face: { name: string; virt_name?: string }; scale: number; width: number }) {
+  const vn = face.virt_name
+  if (!vn || vn === face.name) return null
+  return (
+    <div style={{
+      position: 'absolute', left: 0, top: 40 * scale, width, height: 20 * scale,
+      background: 'snow', opacity: 0.85, borderRadius: 4 * scale, border: '1px solid black',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: Math.floor(16 * scale), color: '#222', fontWeight: 700,
+    }}>{tr(vn)}</div>
+  )
+}
+
+// CardItem.qml cardMarkDelegate: each @-mark renders as a red→transparent gradient
+// pill with white outlined text = tr(k) [+ tr(v) unless k starts with "@@"], laid
+// out in a grid at y:60. (We only have public marks via GetCardData.mark here.)
+function CardMarks({ face, scale }: { face: { mark?: { k: string; v: number }[] }; scale: number }) {
+  const marks = face.mark ?? []
+  if (marks.length === 0) return null
+  return (
+    <div style={{ position: 'absolute', left: 0, top: 60 * scale, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      {marks.map((m, i) => (
+        <span key={i} style={{
+          fontSize: Math.floor(16 * scale), fontWeight: 700, color: '#fff',
+          padding: '0 6px', borderRadius: 4 * scale,
+          background: 'linear-gradient(90deg, #A50330 70%, transparent)',
+          textShadow: '0 0 2px purple, 0 0 2px purple',
+        }}>{m.k.startsWith('@@') ? tr(m.k) : `${tr(m.k)}${tr(String(m.v))}`}</span>
+      ))}
+    </div>
+  )
+}
+
+const styles: Record<string, React.CSSProperties> = {  wrap: { position: 'relative', borderRadius: 6, overflow: 'hidden' },
   img: { borderRadius: 6, objectFit: 'cover', display: 'block' },
   face: { background: '#f5f0e1', color: '#222', borderRadius: 6, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   back: { background: '#3b5b8c', color: '#dde', borderRadius: 6, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 13 },

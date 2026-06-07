@@ -133,6 +133,10 @@ export function numberPic(n: number, color: string): string {
 export function cardBackPic(): string {
   return `${FK}/image/card/card-back.png`
 }
+/** "Chosen" marker overlaid on a selected card (BasicCard chosen.png). */
+export function chosenPic(): string {
+  return `${FK}/image/card/chosen.png`
+}
 
 /** Net-state icon (online/offline/...). */
 export function statePic(state: string): string {

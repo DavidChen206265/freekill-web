@@ -150,7 +150,8 @@ export class ClientVm {
           for _, cid in ipairs(cids) do
             local d = GetCardData(cid)
             out[tostring(cid)] = { name = d.name, number = d.number, suit = d.suit,
-              color = d.color, type = d.type, subtype = d.subtype, extension = d.extension, virt_name = d.virt_name }
+              color = d.color, type = d.type, subtype = d.subtype, extension = d.extension,
+              virt_name = d.virt_name, mark = d.mark or {} }
           end
         end
         return json.encode(out)
@@ -334,6 +335,8 @@ export interface CardFace {
   subtype?: string // equip subtype: "weapon"/"armor"/"treasure"/"defensive_ride"/"offensive_ride"
   extension?: string // package name — needed to resolve card/equip/trick icon paths
   virt_name?: string
+  /** Card marks (CardItem.qml): [{k:"@mark",v:count}], shown below the card art. */
+  mark?: { k: string; v: number }[]
 }
 
 export interface VmPlayer {

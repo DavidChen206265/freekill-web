@@ -13,6 +13,7 @@ import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { resolveAreaBox, CARD_W, CARD_H } from './areas.js'
 import { CardFaceView } from './CardFaceView.js'
+import { chosenPic } from './skin.js'
 
 const GO_BACK_MS = 500
 const EASE_OUT_QUAD = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -113,11 +114,14 @@ export function CardLayer() {
               transform: `translate(${t.x}px, ${t.y}px)`,
               pointerEvents: interactable ? 'auto' : 'none',
               cursor: interactable ? 'pointer' : 'default',
-              outline: st?.selected ? '3px solid #f1c40f' : 'none',
-              filter: st && !st.enabled && !st.selected ? 'brightness(0.5)' : 'none',
             }}
           >
             <CardFaceView cid={cid} faceUp={t.faceUp} width={CARD_W} height={CARD_H} />
+            {/* selected: chosen.png centered low (BasicCard chosen, y:90 scale 1.25). */}
+            {st?.selected && <img src={chosenPic()} alt="" style={styles.chosen} draggable={false} />}
+            {/* unselectable: a translucent black overlay (BasicCard disable rect, not
+                a brightness filter — matches the QML rgba(0,0,0,.5) @ opacity .7). */}
+            {st && !st.enabled && !st.selected && <div style={styles.disable} />}
           </div>
         )
       })}
@@ -131,4 +135,8 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute', left: 0, top: 0, width: CARD_W, height: CARD_H,
     borderRadius: 6, willChange: 'transform',
   },
+  // BasicCard chosen.png: centered horizontally, low on the card, scaled up 1.25.
+  chosen: { position: 'absolute', left: '50%', top: `${(90 / 130) * 100}%`, transform: 'translateX(-50%) scale(1.25)', zIndex: 1, pointerEvents: 'none' },
+  // BasicCard disable rect: translucent black over the whole card (z:2).
+  disable: { position: 'absolute', inset: 0, borderRadius: 6, background: 'rgba(0,0,0,0.5)', opacity: 0.7, zIndex: 2, pointerEvents: 'none' },
 }
