@@ -45,6 +45,9 @@ export function CardLayer() {
     // as full floating cards on the stage — they're rendered there in slice 6.
     // CardLayer only floats the moving/table/hand/draw cards.
     if (key.startsWith('equip:') || key.startsWith('judge:') || key.startsWith('special:')) continue
+    // Other players' hands are NEVER rendered as cards in QML (only a count badge
+    // on the Photo + a HandcardViewer text list). Only render SELF's hand here.
+    if (key.startsWith('hand:') && Number(key.slice(5)) !== selfId) continue
     const box = resolveAreaBox(key, playerIndex, playerNum)
     if (!box) continue
     const n = ids.length

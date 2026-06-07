@@ -41,7 +41,7 @@ export function HpBar({ hp, maxHp, shield }: { hp: number; maxHp: number; shield
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  col: { display: 'flex', flexDirection: 'column-reverse', alignItems: 'center', gap: 0 },
+  col: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 },
   bead: { width: 14, height: 14, objectFit: 'contain' },
   shield: { position: 'relative', width: 15, height: 16, marginBottom: 1 },
   shieldImg: { width: 15, height: 16 },

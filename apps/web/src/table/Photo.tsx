@@ -59,16 +59,19 @@ export function Photo({ player, playerNum, isSelf }: {
         {hasGeneral ? (
           dual ? (
             <>
-              <Portrait src={portrait(player.general!)} bg={kingdomBg} name={tr(player.general!)} half />
-              <Portrait src={portrait(player.deputyGeneral!)} bg={kingdomBg} name={tr(player.deputyGeneral!)} half />
+              <Portrait src={portrait(player.general!)} bg={kingdomBg} />
+              <Portrait src={portrait(player.deputyGeneral!)} bg={kingdomBg} />
             </>
           ) : (
-            <Portrait src={portrait(player.general!)} bg={kingdomBg} name={tr(player.general!)} />
+            <Portrait src={portrait(player.general!)} bg={kingdomBg} />
           )
         ) : (
-          <div style={{ ...styles.placeholder, background: kingdomBg }}><span style={styles.phName}>(未选将)</span></div>
+          <div style={{ ...styles.placeholder, background: kingdomBg }} />
         )}
       </div>
+
+      {/* general name — Photo root x:5 y:21, vertical (PhotoBase.qml generalName) */}
+      <div style={styles.generalName}>{hasGeneral ? trName(player) : '未选将'}</div>
 
       {/* HP magatama (bottom-left) */}
       <div style={styles.hp}><HpBar hp={player.hp ?? 0} maxHp={player.maxHp ?? 0} shield={player.shield ?? 0} /></div>
@@ -104,15 +107,22 @@ export function Photo({ player, playerNum, isSelf }: {
   )
 }
 
-function Portrait({ src, bg, name, half }: { src: string; bg: string; name: string; half?: boolean }) {
-  // Show the portrait image; if it fails or is absent, fall back to a colored
-  // block with the (translated) general name so the seat is always legible.
+function Portrait({ src, bg }: { src: string; bg: string }) {
+  // Portrait image fills its slot (single = full width, dual = 50% via flex). If
+  // the art is missing we just show the kingdom-colored block (name is drawn at
+  // the Photo root, like PhotoBase.qml generalName).
   return (
-    <div style={{ ...styles.portrait, width: half ? '50%' : '100%', background: bg }}>
-      {src && <img src={src} alt={name} style={styles.portraitImg} draggable={false} onError={hideImg} />}
-      <span style={styles.portraitName}>{name}</span>
+    <div style={{ ...styles.portrait, background: bg }}>
+      {src && <img src={src} alt="" style={styles.portraitImg} draggable={false} onError={hideImg} />}
     </div>
   )
+}
+
+// General name shown vertically (PhotoBase generalName text = Lua.tr(general)).
+// Dual general: "main/deputy".
+function trName(player: GamePlayer): string {
+  const m = tr(player.general!)
+  return player.deputyGeneral ? `${m}/${tr(player.deputyGeneral)}` : m
 }
 
 function hideImg(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -129,11 +139,10 @@ const styles: Record<string, React.CSSProperties> = {
   photo: { position: 'absolute', width: PHOTO_W, height: PHOTO_H, borderRadius: 8, overflow: 'hidden', background: '#14110c', color: '#eee', fontFamily: 'system-ui, sans-serif' },
   back: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
   portraitClip: { position: 'absolute', left: 4, top: 3, right: 4, bottom: 22, borderRadius: 6, overflow: 'hidden', display: 'flex' },
-  portrait: { position: 'relative', height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' },
+  portrait: { position: 'relative', height: '100%', flex: 1, overflow: 'hidden' },
   portraitImg: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
-  portraitName: { position: 'relative', fontSize: 13, fontWeight: 700, textShadow: '0 1px 3px #000, 0 0 4px #000', padding: '0 1px', writingMode: 'vertical-rl', alignSelf: 'flex-start', marginTop: 3, marginLeft: 1 },
-  placeholder: { width: '100%', height: '100%', display: 'grid', placeItems: 'center' },
-  phName: { fontSize: 13, fontWeight: 700 },
+  generalName: { position: 'absolute', left: 4, top: 16, width: 15, zIndex: 5, fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '13px', textShadow: '0 1px 2px #000, 0 0 3px #000', writingMode: 'vertical-rl', letterSpacing: 0 },
+  placeholder: { width: '100%', height: '100%' },
   hp: { position: 'absolute', left: 2, bottom: 24, zIndex: 3 },
   role: { position: 'absolute', top: -2, right: -2, width: 30, height: 33, zIndex: 4 },
   equip: { position: 'absolute', left: 20, right: 4, bottom: 22, zIndex: 3 },

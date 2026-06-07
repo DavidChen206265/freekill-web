@@ -79,7 +79,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   prompt: { position: 'absolute', left: '50%', bottom: 90, transform: 'translateX(-50%)', color: '#fff', fontSize: 14, background: 'rgba(0,0,0,.55)', padding: '4px 14px', borderRadius: 6, pointerEvents: 'auto', maxWidth: 700, textAlign: 'center', whiteSpace: 'nowrap' },
   actions: { position: 'absolute', left: '50%', bottom: 50, transform: 'translateX(-50%)', display: 'flex', gap: 10, pointerEvents: 'auto' },
-  skills: { position: 'absolute', right: 12, bottom: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', maxHeight: 140, flexWrap: 'wrap', pointerEvents: 'auto' },
+  skills: { position: 'absolute', right: 195, bottom: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', maxHeight: 140, flexWrap: 'wrap', pointerEvents: 'auto' },
   skill: { padding: '6px 12px', borderRadius: 6, border: '1px solid #7a6a3b', background: '#3a3320', color: '#e8d8a8', fontSize: 13, cursor: 'pointer' },
   skillSelected: { background: '#d4af37', color: '#222', borderColor: '#f1c40f' },
   skillIdle: { opacity: 0.5, cursor: 'default' },
