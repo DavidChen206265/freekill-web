@@ -286,6 +286,9 @@ describe('client VM packet feed', () => {
     // G3: Self:roleVisible(Self) is always true (player.lua:1711) — proves the
     // roleVisible bridge expression resolves against the real VM (Photo shownRole).
     expect(await lua.doString(`return __fkRoleVisible()`)).toBe(true)
+    // TMR5: FinishRequestUI is callable without a pending request (no-op cleanup,
+    // never replies). Proves the __fkFinishRequestUI bridge target exists.
+    expect(await lua.doString(`local ok = pcall(FinishRequestUI); return ok`)).toBe(true)
     lua.global.close()
   }, 30_000)
 })

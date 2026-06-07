@@ -15,6 +15,7 @@ import { useCardFaceStore } from './cardFaceStore.js'
 import { useInteractionStore } from './interactionStore.js'
 import { usePopupStore } from './popupStore.js'
 import { useLogStore } from './logStore.js'
+import { useTimerStore } from './timerStore.js'
 import { registerTranslations, hasTranslation } from '../i18n/zh.js'
 
 interface VmState {
@@ -73,8 +74,9 @@ export const useVmStore = create<VmState>((set, get) => ({
           // stamps the correct requestId (see asio-client/ws-bridge).
           get().serverReply?.(e.data)
           useInteractionStore.getState().clear()
+          useTimerStore.getState().stop()
         }
-        else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear() }
+        else if (e.command === 'CancelRequest') { useInteractionStore.getState().clear(); usePopupStore.getState().clear(); useTimerStore.getState().stop() }
         else if (e.command === 'GetPlayerHandcards') {
           // Auto-reply with self's hand card ids (RoomLogic.js:1576) — no UI.
           const self = useGameStore.getState().selfId
@@ -138,6 +140,12 @@ export const useVmStore = create<VmState>((set, get) => ({
     const raw = (env as NotifyEnvelope | RequestEnvelope).raw
     if (!raw) return
     const isRequest = env.kind === 'request'
+    // A server request starts the operation countdown (Room.qml notactive→active):
+    // total = timeout*1000, elapsed measured from the server timestamp.
+    if (isRequest) {
+      const r = env as RequestEnvelope
+      useTimerStore.getState().start(r.timeout, r.timestamp)
+    }
     // A single bad packet must not break the feed chain (which would freeze all
     // subsequent packets). Log it and keep going; still re-sync the roster after.
     try {

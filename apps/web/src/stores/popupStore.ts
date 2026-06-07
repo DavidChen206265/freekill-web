@@ -6,6 +6,7 @@
 // kinds). Distinct from interactionStore (UpdateRequestUI / ui_emu).
 
 import { create } from 'zustand'
+import { useTimerStore } from './timerStore.js'
 
 export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange'
 
@@ -206,6 +207,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   resolve: (value) => {
     get().replySender?.(value)
     set({ active: null })
+    useTimerStore.getState().stop()
   },
 
   clear: () => set({ active: null }),

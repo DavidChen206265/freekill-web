@@ -46,6 +46,7 @@ export class ClientVm {
   private fnFeed: ((cmd: string, hex: string, isReq: boolean) => void) | null = null
   private fnReadPlayers: (() => string) | null = null
   private fnUpdateUI: ((t: string, id: string | number, action: string, dataJson: string) => void) | null = null
+  private fnFinishUI: (() => void) | null = null
   private fnReadCards: ((cidsJson: string) => string) | null = null
   private fnTranslate: ((keysJson: string) => string) | null = null
   private fnReadSkills: (() => string) | null = null
@@ -94,6 +95,12 @@ export class ClientVm {
           UpdateRequestUI(elemType, id, action, json.decode(dataJson))
         end)
         if not ok then __natives.qWarning("UpdateRequestUI error: " .. tostring(err)) end
+      end
+      -- Operation-timeout / state-leaving UI cleanup (client_util.lua FinishRequestUI):
+      -- runs the request handler's _finish (clears half-built UI objects). It does NOT
+      -- send a reply — the SERVER owns the real timeout and picks the default answer.
+      function __fkFinishRequestUI()
+        pcall(FinishRequestUI)
       end
       function __fkReadPlayers()
         local out = {}
@@ -178,6 +185,7 @@ export class ClientVm {
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
     this.fnUpdateUI = lua.global.get('__fkUpdateUI') as typeof this.fnUpdateUI
+    this.fnFinishUI = lua.global.get('__fkFinishRequestUI') as typeof this.fnFinishUI
     this.fnReadCards = lua.global.get('__fkReadCards') as typeof this.fnReadCards
     this.fnTranslate = lua.global.get('__fkTranslate') as typeof this.fnTranslate
     this.fnReadSkills = lua.global.get('__fkReadSkills') as typeof this.fnReadSkills
@@ -210,6 +218,12 @@ export class ClientVm {
   async updateRequestUI(elemType: string, id: string | number, action: string, data: unknown): Promise<void> {
     if (!this.fnUpdateUI) throw new Error('VM not booted')
     this.fnUpdateUI(elemType, id, action, JSON.stringify(data ?? {}))
+  }
+
+  /** UI cleanup when the operation times out / leaves the active state (does NOT
+   *  reply — the server owns the real timeout). Mirrors FinishRequestUI. */
+  finishRequestUI(): void {
+    this.fnFinishUI?.()
   }
 
   close(): void {

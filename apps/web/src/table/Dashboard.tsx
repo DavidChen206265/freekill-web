@@ -8,6 +8,7 @@
 import { useGameStore } from '../stores/gameStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
+import { CountdownBar } from './CountdownBar.js'
 import { tr } from '../i18n/zh.js'
 
 export function Dashboard() {
@@ -32,6 +33,10 @@ export function Dashboard() {
     <div style={styles.bar}>
       {/* prompt (current request) */}
       {active && prompt && <div style={styles.prompt}>{prompt}</div>}
+
+      {/* operation countdown (Room.qml progress, above okCancel) — shows for any
+          active request incl. popups; self-hides when no timer is running. */}
+      <CountdownBar />
 
       {/* OK / Cancel / End (centered) — only during a request */}
       {active && (
