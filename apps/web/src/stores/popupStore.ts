@@ -19,6 +19,12 @@ export interface PopupRequest {
   // general: list of general names, choose `count`
   generals?: string[]
   count?: number
+  // general: rule_type + extra_data drive the VM's chooseGeneral{Filter,Feasible,
+  // Prompt} (ChooseGeneralBox.qml); convertDisabled hides the convert button.
+  ruleType?: string
+  extraData?: unknown
+  hegemony?: boolean
+  convertDisabled?: boolean
   // choice/choices: display options + the raw values to reply with (parallel arrays)
   options?: string[]
   values?: string[]
@@ -96,7 +102,12 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       case 'AskForGeneral': {
         // [generals[], n, no_convert, heg, rule, extra_data]
         if (!arr) return false
-        set({ active: { kind: 'general', prompt: '请选择武将', generals: arr[0] as string[], count: Number(arr[1]) || 1 } })
+        const heg = !!arr[3]
+        const rule = (arr[4] as string) || (heg ? 'heg_general_choose' : 'askForGeneralsChosen')
+        set({ active: {
+          kind: 'general', prompt: '请选择武将', generals: arr[0] as string[], count: Number(arr[1]) || 1,
+          ruleType: rule, extraData: arr[5] ?? { n: Number(arr[1]) || 1 }, hegemony: heg, convertDisabled: !!arr[2],
+        } })
         return true
       }
       case 'AskForChoice': {

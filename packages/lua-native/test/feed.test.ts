@@ -264,6 +264,15 @@ describe('client VM packet feed', () => {
       end
       function __fkReadGenerals(j) local out={} local ok,ns=pcall(json.decode,j) if ok then for _,n in ipairs(ns) do local d=GetGeneralData(n) out[n]={extension=d.extension,kingdom=d.kingdom} end end return json.encode(out) end
       function __fkRoleVisible() return (Self ~= nil and Self.roleVisible and Self:roleVisible(Self)) or false end
+      function __fkChooseGeneral(kind, argsJson)
+        local ok, a = pcall(json.decode, argsJson)
+        if not ok then return json.encode({ r = false }) end
+        local res
+        if kind == "prompt" then res = ChooseGeneralPrompt(a.rule, a.generals or {}, a.extra)
+        elseif kind == "filter" then res = ChooseGeneralFilter(a.rule, a.name, a.selected or {}, a.generals or {}, a.extra)
+        elseif kind == "feasible" then res = ChooseGeneralFeasible(a.rule, a.selected or {}, a.generals or {}, a.extra) end
+        return json.encode({ r = res })
+      end
     `)
     const readPlayers = lua.global.get('__fkReadPlayers') as () => string
     const readGenerals = lua.global.get('__fkReadGenerals') as (j: string) => string
@@ -289,6 +298,18 @@ describe('client VM packet feed', () => {
     // TMR5: FinishRequestUI is callable without a pending request (no-op cleanup,
     // never replies). Proves the __fkFinishRequestUI bridge target exists.
     expect(await lua.doString(`local ok = pcall(FinishRequestUI); return ok`)).toBe(true)
+    // GEN12/13/22: choose-general rule helpers resolve against the real VM. With
+    // rule "askForGeneralsChosen" choosing n=1, feasible is false at 0 picks and
+    // true at 1, and a candidate is selectable. Proves the __fkChooseGeneral bridge.
+    const cg = lua.global.get('__fkChooseGeneral') as (k: string, j: string) => string
+    const cgGens = ['caocao', 'liubei', 'sunquan']
+    const cgExtra = { n: 1 }
+    const feas0 = JSON.parse(cg('feasible', JSON.stringify({ rule: 'askForGeneralsChosen', selected: [], generals: cgGens, extra: cgExtra }))).r
+    const feas1 = JSON.parse(cg('feasible', JSON.stringify({ rule: 'askForGeneralsChosen', selected: ['caocao'], generals: cgGens, extra: cgExtra }))).r
+    const filt = JSON.parse(cg('filter', JSON.stringify({ rule: 'askForGeneralsChosen', name: 'liubei', selected: [], generals: cgGens, extra: cgExtra }))).r
+    expect(feas0).toBe(false)
+    expect(feas1).toBe(true)
+    expect(filt).toBe(true)
     lua.global.close()
   }, 30_000)
 })

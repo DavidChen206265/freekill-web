@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePopupStore, shuffleInvisibleOutput, type PopupRequest } from '../stores/popupStore.js'
+import { useVmStore } from '../stores/vmStore.js'
 import { CardFaceView } from './CardFaceView.js'
 import { GeneralCard } from './GeneralCard.js'
 import { tr } from '../i18n/zh.js'
@@ -35,19 +36,7 @@ export function RequestPopup() {
   const toggleNum = (c: number) => setPickedNum((cur) =>
     cur.includes(c) ? cur.filter((x) => x !== c) : (max === 1 ? [c] : cur.length >= max ? [...cur.slice(1), c] : [...cur, c]))
 
-  if (active.kind === 'general') {
-    const ok = pickedStr.length === (active.count ?? 1)
-    return (
-      <Modal prompt={`${active.prompt}(选 ${active.count ?? 1} 个)`}>
-        <div style={styles.generals}>
-          {(active.generals ?? []).map((g) => (
-            <GeneralCard key={g} name={g} selected={pickedStr.includes(g)} onClick={() => toggleStr(g)} />
-          ))}
-        </div>
-        <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(pickedStr)}>确定</button>
-      </Modal>
-    )
-  }
+  if (active.kind === 'general') return <GeneralBox active={active} resolve={resolve} />
 
   if (active.kind === 'choice') {
     // ChoiceBox.qml: render ALL options (all_choices), enable only those in
@@ -113,6 +102,45 @@ export function RequestPopup() {
       {max > 1 && (
         <button style={{ ...styles.ok, ...(okCards ? {} : styles.disabled) }} disabled={!okCards} onClick={() => resolve(pickedNum)}>确定</button>
       )}
+    </Modal>
+  )
+}
+
+// GeneralBox (ChooseGeneralBox.qml): choose `count` generals. Portrait cards via
+// GeneralCard; the VM rules drive it — chooseGeneralPrompt (dynamic prompt),
+// chooseGeneralFilter (per-candidate selectability; already-chosen always allowed),
+// chooseGeneralFeasible (OK enabled). Reply = selected names array (box.choices).
+function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const vm = useVmStore((s) => s.vm)
+  const [picked, setPicked] = useState<string[]>([])
+  useEffect(() => { setPicked([]) }, [active])
+
+  const generals = active.generals ?? []
+  const rule = active.ruleType ?? 'askForGeneralsChosen'
+  const extra = active.extraData
+  const count = active.count ?? 1
+
+  // Dynamic prompt from the rule (fallback to the static prompt).
+  const vmPrompt = vm?.chooseGeneralPrompt(rule, generals, extra) || ''
+  const prompt = vmPrompt ? vmPrompt : `${active.prompt}(选 ${count} 个)`
+
+  const toggle = (g: string) => setPicked((cur) =>
+    cur.includes(g) ? cur.filter((x) => x !== g) : cur.length >= count ? [...cur.slice(1), g] : [...cur, g])
+
+  // Selectable = already chosen OR the rule's filter allows it (QML line 235-237).
+  const selectable = (g: string) => picked.includes(g) || (vm?.chooseGeneralFilter(rule, g, picked, generals, extra) ?? true)
+  // OK enabled by the rule's feasible (QML line 230); fall back to exact count.
+  const ok = vm ? vm.chooseGeneralFeasible(rule, picked, generals, extra) : picked.length === count
+
+  return (
+    <Modal prompt={prompt}>
+      <div style={styles.generals}>
+        {generals.map((g) => (
+          <GeneralCard key={g} name={g} selected={picked.includes(g)}
+            disabled={!selectable(g)} onClick={() => { if (selectable(g)) toggle(g) }} />
+        ))}
+      </div>
+      <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
     </Modal>
   )
 }

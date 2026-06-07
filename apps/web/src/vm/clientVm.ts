@@ -51,6 +51,7 @@ export class ClientVm {
   private fnTranslate: ((keysJson: string) => string) | null = null
   private fnReadSkills: (() => string) | null = null
   private fnReadGenerals: ((namesJson: string) => string) | null = null
+  private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -181,6 +182,23 @@ export class ClientVm {
         end
         return json.encode(out)
       end
+      -- Choose-general rule helpers (ChooseGeneralBox.qml -> client_util.lua):
+      -- prompt(rule,generals,extra), filter(rule,name,selected,generals,extra) per
+      -- candidate's selectability, feasible(rule,selected,generals,extra) for OK.
+      -- argsJson packs all params so we cross the bridge once per call.
+      function __fkChooseGeneral(kind, argsJson)
+        local ok, a = pcall(json.decode, argsJson)
+        if not ok or type(a) ~= "table" then return json.encode({ r = false }) end
+        local res
+        if kind == "prompt" then
+          res = ChooseGeneralPrompt(a.rule, a.generals or {}, a.extra)
+        elseif kind == "filter" then
+          res = ChooseGeneralFilter(a.rule, a.name, a.selected or {}, a.generals or {}, a.extra)
+        elseif kind == "feasible" then
+          res = ChooseGeneralFeasible(a.rule, a.selected or {}, a.generals or {}, a.extra)
+        end
+        return json.encode({ r = res })
+      end
     `)
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
@@ -190,6 +208,7 @@ export class ClientVm {
     this.fnTranslate = lua.global.get('__fkTranslate') as typeof this.fnTranslate
     this.fnReadSkills = lua.global.get('__fkReadSkills') as typeof this.fnReadSkills
     this.fnReadGenerals = lua.global.get('__fkReadGenerals') as typeof this.fnReadGenerals
+    this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
 
     return {
       mountFiles: mount.files,
@@ -265,6 +284,23 @@ export class ClientVm {
   readGenerals(names: string[]): Record<string, GeneralInfo> {
     if (!this.fnReadGenerals || names.length === 0) return {}
     try { return JSON.parse(this.fnReadGenerals(JSON.stringify(names))) as Record<string, GeneralInfo> } catch { return {} }
+  }
+
+  /** ChooseGeneralBox rule helpers. prompt → localized prompt string; filter →
+   *  whether `name` is selectable given `selected`; feasible → whether OK is
+   *  enabled for `selected`. (client_util.lua ChooseGeneral{Prompt,Filter,Feasible}.) */
+  chooseGeneralPrompt(rule: string, generals: string[], extra: unknown): string {
+    return String(this.callChooseGeneral('prompt', { rule, generals, extra }) ?? '')
+  }
+  chooseGeneralFilter(rule: string, name: string, selected: string[], generals: string[], extra: unknown): boolean {
+    return !!this.callChooseGeneral('filter', { rule, name, selected, generals, extra })
+  }
+  chooseGeneralFeasible(rule: string, selected: string[], generals: string[], extra: unknown): boolean {
+    return !!this.callChooseGeneral('feasible', { rule, selected, generals, extra })
+  }
+  private callChooseGeneral(kind: string, args: unknown): unknown {
+    if (!this.fnChooseGeneral) return undefined
+    try { return (JSON.parse(this.fnChooseGeneral(kind, JSON.stringify(args))) as { r: unknown }).r } catch { return undefined }
   }
 }
 
