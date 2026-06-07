@@ -242,4 +242,46 @@ describe('client VM packet feed', () => {
     expect(tx.caocao).toBe('曹操')
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!ready)('VM read bridge: player equip/judge/shield + general extension (slice 6)', async () => {
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    await lua.doString(`
+      function __fkReadPlayers()
+        local out={} for _,p in ipairs(ClientInstance.players) do
+          out[#out+1]={id=p.id,general=p.general,shield=p.shield,chained=p.chained,
+            equipCids=p.getCardIds and p:getCardIds("e") or {}, judgeCids=p.getCardIds and p:getCardIds("j") or {}}
+        end return json.encode(out)
+      end
+      function __fkReadGenerals(j) local out={} local ok,ns=pcall(json.decode,j) if ok then for _,n in ipairs(ns) do local d=GetGeneralData(n) out[n]={extension=d.extension,kingdom=d.kingdom} end end return json.encode(out) end
+    `)
+    const readPlayers = lua.global.get('__fkReadPlayers') as () => string
+    const readGenerals = lua.global.get('__fkReadGenerals') as (j: string) => string
+    await lua.doString(`
+      ClientCallback(ClientInstance,"Setup",cbor.encode({1,"me","caocao",0}),false)
+      Self.general="caocao"; Self.shield=1; Self.chained=true
+      local function fid(n) for _,c in ipairs(Fk.cards) do if c.name==n then return c.id end end end
+      local eq=fid("qinggang_sword"); local jt=fid("indulgence")
+      if eq then Self.player_cards[Player.Equip]={eq} end
+      if jt then Self.player_cards[Player.Judge]={jt} end
+    `)
+    const self = (JSON.parse(readPlayers()) as Array<{ shield: number; chained: boolean; equipCids: number[]; judgeCids: number[] }>)[0]!
+    expect(self.shield).toBe(1)
+    expect(self.chained).toBe(true)
+    expect(self.equipCids.length).toBe(1) // qinggang in equip area
+    expect(self.judgeCids.length).toBe(1) // indulgence in judge area
+    const gens = JSON.parse(readGenerals(JSON.stringify(['caocao', 'zhugeliang']))) as Record<string, { extension: string; kingdom: string }>
+    expect(gens.caocao).toEqual({ extension: 'standard', kingdom: 'wei' })
+    expect(gens.zhugeliang.kingdom).toBe('shu')
+    lua.global.close()
+  }, 30_000)
 })

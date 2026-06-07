@@ -152,16 +152,33 @@ export const useVmStore = create<VmState>((set, get) => ({
       console.error('[vm] readPlayers threw:', err)
     }
     // Fetch faces for any cards now present that we haven't cached (faces are
-    // static per cid). Keeps hand/table cards showing real suit/number/name.
+    // static per cid). Covers card areas + players' equip/judge cards.
     try {
       const cached = useCardFaceStore.getState().faces
       const cids = new Set<number>()
       for (const ids of Object.values(useCardStore.getState().areas)) {
         for (const cid of ids) if (cid > 0 && !cached[cid]) cids.add(cid)
       }
+      for (const p of Object.values(useGameStore.getState().players)) {
+        for (const cid of [...(p.equipCids ?? []), ...(p.judgeCids ?? [])]) {
+          if (cid > 0 && !cached[cid]) cids.add(cid)
+        }
+      }
       if (cids.size > 0) useCardFaceStore.getState().merge(vm.readCards([...cids]))
     } catch (err) {
       console.error('[vm] readCards threw:', err)
+    }
+    // Fetch general extensions (for portrait paths) for any uncached generals.
+    try {
+      const cachedGen = useCardFaceStore.getState().generals
+      const names = new Set<string>()
+      for (const p of Object.values(useGameStore.getState().players)) {
+        if (p.general && !cachedGen[p.general]) names.add(p.general)
+        if (p.deputyGeneral && !cachedGen[p.deputyGeneral]) names.add(p.deputyGeneral)
+      }
+      if (names.size > 0) useCardFaceStore.getState().mergeGenerals(vm.readGenerals([...names]))
+    } catch (err) {
+      console.error('[vm] readGenerals threw:', err)
     }
     // Translate any keys we now show but haven't localized yet (card names,
     // general names, skill names) via the VM's Fk:translate. Cache so we only

@@ -21,12 +21,23 @@ export interface GamePlayer {
   deputyGeneral?: string
   hp?: number
   maxHp?: number
+  shield?: number
   role?: string
   kingdom?: string
   dead?: boolean
   ready?: boolean
   owner?: boolean
+  chained?: boolean
+  dying?: boolean
+  role_shown?: boolean
+  faceup?: boolean
+  sealedSlots?: string[]
+  /** Card ids in this player's equip / judge areas (rendered inside the Photo). */
+  equipCids?: number[]
+  judgeCids?: number[]
   handcardNum?: number
+  /** Displayable @-marks (from the VM mirror). */
+  displayMarks?: { name: string; value: number }[]
   marks: Record<string, number>
 }
 
@@ -61,6 +72,16 @@ export interface VmPlayerLike {
   dead?: boolean
   ready?: boolean
   owner?: boolean
+  shield?: number
+  chained?: boolean
+  dying?: boolean
+  role_shown?: boolean
+  faceup?: boolean
+  sealedSlots?: string[]
+  equipCids?: number[]
+  judgeCids?: number[]
+  handcardNum?: number
+  marks?: { name: string; value: number }[]
   isSelf?: boolean
 }
 
@@ -148,11 +169,21 @@ export const useGameStore = create<GameState>((set, get) => ({
           deputyGeneral: vp.deputyGeneral ?? prev.deputyGeneral,
           hp: vp.hp ?? prev.hp,
           maxHp: vp.maxHp ?? prev.maxHp,
+          shield: vp.shield ?? prev.shield,
           role: vp.role ?? prev.role,
           kingdom: vp.kingdom ?? prev.kingdom,
           dead: vp.dead ?? prev.dead,
           ready: vp.ready ?? prev.ready,
           owner: vp.owner ?? prev.owner,
+          chained: vp.chained ?? prev.chained,
+          dying: vp.dying ?? prev.dying,
+          role_shown: vp.role_shown ?? prev.role_shown,
+          faceup: vp.faceup ?? prev.faceup,
+          sealedSlots: vp.sealedSlots ?? prev.sealedSlots,
+          equipCids: vp.equipCids ?? prev.equipCids,
+          judgeCids: vp.judgeCids ?? prev.judgeCids,
+          handcardNum: vp.handcardNum ?? prev.handcardNum,
+          displayMarks: vp.marks ?? prev.displayMarks,
         }
         if (vp.isSelf) selfId = vp.id
       }

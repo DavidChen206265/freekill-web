@@ -4,17 +4,22 @@
 // here too. The VM is the source of truth (we never invent card data).
 
 import { create } from 'zustand'
-import type { CardFace } from '../vm/clientVm.js'
+import type { CardFace, GeneralInfo } from '../vm/clientVm.js'
 
 interface CardFaceState {
   faces: Record<number, CardFace>
+  /** general name -> {extension,kingdom} (for portrait path resolution). */
+  generals: Record<string, GeneralInfo>
   /** Merge freshly-read faces into the cache. */
   merge: (faces: Record<string, CardFace>) => void
+  /** Merge general info into the cache. */
+  mergeGenerals: (gens: Record<string, GeneralInfo>) => void
   reset: () => void
 }
 
 export const useCardFaceStore = create<CardFaceState>((set) => ({
   faces: {},
+  generals: {},
   merge: (incoming) => set((s) => {
     const faces = { ...s.faces }
     for (const [cid, face] of Object.entries(incoming)) {
@@ -22,7 +27,14 @@ export const useCardFaceStore = create<CardFaceState>((set) => ({
     }
     return { faces }
   }),
-  reset: () => set({ faces: {} }),
+  mergeGenerals: (gens) => set((s) => {
+    const generals = { ...s.generals }
+    for (const [name, info] of Object.entries(gens)) {
+      if (info && info.extension) generals[name] = info
+    }
+    return { generals }
+  }),
+  reset: () => set({ faces: {}, generals: {} }),
 }))
 
 // Suit string -> symbol (matches QML ♠♥♣♦); red/black for color.
