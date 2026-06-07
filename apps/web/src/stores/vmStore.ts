@@ -61,12 +61,26 @@ const ACTIVATE_COMMANDS = new Set<string>([
 // Translate + interpolate a prompt (RoomLogic.js processPrompt). The prompt is a
 // ":"-joined "<key>:<src>:<dest>:<arg...>"; the key + arg parts are translation
 // keys (numeric src/dest are player ids, not keys). Register any missing keys with
-// the VM translation cache, then run processPrompt for %src/%dest/%arg substitution.
+// the VM translation cache — including the helper keys getPlayerStr() consults
+// (playerstr_self, seat#N) and the src/dest players' general names — then run
+// processPrompt for %src/%dest/%arg substitution.
 function localizePrompt(vm: ClientVm | null, prompt: string): string {
   if (!prompt) return ''
   const parts = prompt.split(':')
-  // key = parts[0]; parts[1]/[2] are src/dest ids (skip); parts[3+] are arg keys.
-  const keys = [parts[0]!, ...parts.slice(3)].filter((k) => k && isNaN(Number(k)) && !hasTranslation(k))
+  const players = useGameStore.getState().players
+  // The src/dest ids (parts[1], parts[2]) → their general/deputy names + seat keys.
+  const playerKeys: string[] = ['playerstr_self']
+  for (const idStr of [parts[1], parts[2]]) {
+    const id = Number(idStr)
+    if (!idStr || isNaN(id)) continue
+    const p = players[id]
+    if (p?.general) playerKeys.push(p.general)
+    if (p?.deputyGeneral) playerKeys.push(p.deputyGeneral)
+    if (p?.seat) playerKeys.push(`seat#${p.seat}`)
+  }
+  // key = parts[0]; parts[3+] are arg keys (numeric parts are ids/values, not keys).
+  const keys = [parts[0]!, ...parts.slice(3), ...playerKeys]
+    .filter((k) => k && isNaN(Number(k)) && !hasTranslation(k))
   if (vm && keys.length > 0) registerTranslations(vm.translate(keys))
   return processPrompt(prompt)
 }
