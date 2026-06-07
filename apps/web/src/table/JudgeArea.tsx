@@ -5,12 +5,12 @@
 // the CARD's extension (package). Item size 47×55 ×0.6 = 28×33.
 
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
-import { delayedTrickPic } from './skin.js'
+import { delayedTrickPic, delayedTrickSealedPic } from './skin.js'
 import { tr } from '../i18n/zh.js'
 
-export function JudgeArea({ cids }: { cids: number[] }) {
+export function JudgeArea({ cids, sealed = false }: { cids: number[]; sealed?: boolean }) {
   const faces = useCardFaceStore((s) => s.faces)
-  if (!cids.length) return null
+  if (!cids.length && !sealed) return null
 
   // Group by display name (virt_name||name), preserving first-seen order — the
   // DelayedTrickArea.qml `cids[cardName]` bucketing. Each group = one icon + count.
@@ -26,6 +26,8 @@ export function JudgeArea({ cids }: { cids: number[] }) {
 
   return (
     <div style={styles.row}>
+      {/* JudgeSlot sealed marker (DelayedTrickArea.qml sealed image, x:-6 y:8) */}
+      {sealed && <img src={delayedTrickSealedPic()} alt="封" style={styles.sealed} draggable={false} onError={hideImg} />}
       {order.map((key) => {
         const g = groups.get(key)!
         const icon = g.name ? delayedTrickPic(g.name, g.ext) : ''
@@ -53,4 +55,5 @@ const styles: Record<string, React.CSSProperties> = {
   img: { width: 28, height: 33, objectFit: 'contain' },
   count: { position: 'absolute', right: 1, bottom: 1, fontSize: 11, fontWeight: 700, color: '#fff', textShadow: '0 0 2px #000, 0 0 2px #000' },
   fallback: { fontSize: 9, color: '#fff', background: 'rgba(0,0,0,.5)', borderRadius: 2, padding: '0 2px' },
+  sealed: { width: 18, height: 21, objectFit: 'contain', marginRight: -2 },
 }

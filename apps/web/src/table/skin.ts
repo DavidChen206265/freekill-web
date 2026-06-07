@@ -71,6 +71,10 @@ export function equipIcon(name: string, ext?: string): string {
 export function delayedTrickPic(name: string, ext?: string): string {
   return name ? pkgPath(ext, 'card/delayedTrick', name, '.png') : ''
 }
+/** Built-in "JudgeSlot sealed" marker (DelayedTrickArea.qml sealed image). */
+export function delayedTrickSealedPic(): string {
+  return `${FK}/image/card/delayedTrick/sealed.png`
+}
 
 // ---- built-in chrome (always under /fk/image/photo) ------------------------
 const KINGDOMS = new Set(['wei', 'shu', 'wu', 'qun', 'god', 'wild'])

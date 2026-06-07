@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest'
 import {
   generalPic, generalAvatar, cardPic, cardPicCandidates, equipIcon, delayedTrickPic,
   photoBack, rolePic, magatama, shieldPic, deathPic, generalCardBorder, kingdomIcon,
+  chosenPic, delayedTrickSealedPic,
 } from '../src/table/skin.js'
 
 describe('skin path resolution', () => {
@@ -53,6 +54,11 @@ describe('skin path resolution', () => {
     expect(kingdomIcon('shu')).toBe('/fk/image/card/general/shu.png')
     expect(kingdomIcon('nonsense')).toBe('') // unknown kingdom → no icon
     expect(kingdomIcon(undefined)).toBe('')
+  })
+
+  it('card-state chrome (chosen + judge-slot sealed)', () => {
+    expect(chosenPic()).toBe('/fk/image/card/chosen.png')
+    expect(delayedTrickSealedPic()).toBe('/fk/image/card/delayedTrick/sealed.png')
   })
 
   it('magatama clamps state 0..3 + heg variant', () => {

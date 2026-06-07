@@ -92,8 +92,17 @@ export function Photo({ player, playerNum, isSelf }: {
         <img src={rolePic(shownRole(player))} alt="" style={styles.role} draggable={false} onError={hideImg} />
       )}
 
+      {/* mark area (@-marks: text + value) above the equip strip (Photo.qml MarkArea) */}
+      {(player.displayMarks?.length ?? 0) > 0 && (
+        <div style={styles.marks}>
+          {player.displayMarks!.map((m) => (
+            <span key={m.name} style={styles.mark}>{tr(m.name)} {m.value}</span>
+          ))}
+        </div>
+      )}
+
       {/* equip strip (lower area) */}
-      <div style={styles.equip}><EquipArea cids={player.equipCids ?? []} /></div>
+      <div style={styles.equip}><EquipArea cids={player.equipCids ?? []} sealedSlots={player.sealedSlots ?? []} /></div>
 
       {/* chain overlay */}
       {player.chained && <img src={chainPic()} alt="" style={styles.chain} draggable={false} onError={hideImg} />}
@@ -119,7 +128,7 @@ export function Photo({ player, playerNum, isSelf }: {
     </div>
       {/* judge (delayed-trick) icons — rendered OUTSIDE the clipped photo box so they
           can sit below the portrait without being cut off by overflow:hidden. */}
-      <div style={styles.judge}><JudgeArea cids={player.judgeCids ?? []} /></div>
+      <div style={styles.judge}><JudgeArea cids={player.judgeCids ?? []} sealed={(player.sealedSlots ?? []).includes('JudgeSlot')} /></div>
     </div>
   )
 }
@@ -178,6 +187,10 @@ const styles: Record<string, React.CSSProperties> = {
   hp: { position: 'absolute', left: 5, bottom: 27, zIndex: 4 },
   role: { position: 'absolute', top: -2, right: -2, width: 30, height: 33, zIndex: 4 },
   equip: { position: 'absolute', left: 22, right: 3, bottom: 40, zIndex: 3 },
+  // MarkArea: x:23, anchored just above the equip strip (Photo.qml). @-marks as
+  // outlined white text on a dark translucent backing.
+  marks: { position: 'absolute', left: 23, right: 2, bottom: 56, zIndex: 4, display: 'flex', flexWrap: 'wrap', gap: 2 },
+  mark: { fontSize: 11, color: '#fff', background: 'rgba(60,50,41,.8)', borderRadius: 4, border: '1px solid rgba(255,255,255,.5)', padding: '0 3px', lineHeight: '14px', textShadow: '0 0 2px #000, 0 0 2px #000' },
   // judge (delayed-trick) row — rendered outside the clipped photo box (in the
   // unclipped wrap), sitting just BELOW the photo's bottom edge so the icons hang
   // under the portrait. Was bottom:22 inside the clip; +60px down → ~2px below.
