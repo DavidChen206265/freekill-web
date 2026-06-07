@@ -200,7 +200,7 @@ const styles: Record<string, React.CSSProperties> = {
   portraitClip: { position: 'absolute', left: 4, top: 3, right: 4, bottom: 22, borderRadius: 6, overflow: 'hidden', display: 'flex' },
   portrait: { position: 'relative', height: '100%', flex: 1, overflow: 'hidden' },
   portraitImg: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
-  generalName: { position: 'absolute', left: 4, top: 15, width: 15, zIndex: 5, fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '13px', textShadow: '0 1px 2px #000, 0 0 3px #000', writingMode: 'vertical-rl', letterSpacing: 0 },
+  generalName: { position: 'absolute', left: 4, top: 26, width: 15, zIndex: 5, fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '13px', textShadow: '0 1px 2px #000, 0 0 3px #000', writingMode: 'vertical-rl', letterSpacing: 0 },
   placeholder: { width: '100%', height: '100%' },
   // HP magatama column (Photo.qml HpBar: x:6, bottomMargin:27 — far-left, a column
   // rising upward). The delayed-trick row sits 19px lower and overlaps the lowest
@@ -225,5 +225,5 @@ const styles: Record<string, React.CSSProperties> = {
   death: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%)', width: 56, height: 56, zIndex: 7 },
   // detail (ⓘ) button, top-left corner — reliable web replacement for QML
   // right-click/long-press. Small, semi-transparent so it doesn't fight the art.
-  detailBtn: { position: 'absolute', left: 1, top: 1, width: 18, height: 18, padding: 0, zIndex: 8, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 12, lineHeight: '18px', cursor: 'pointer', display: 'grid', placeItems: 'center', pointerEvents: 'auto' },
+  detailBtn: { position: 'absolute', left: 0, top: 0, width: 25, height: 25, padding: 0, zIndex: 8, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 12, lineHeight: '18px', cursor: 'pointer', display: 'grid', placeItems: 'center', pointerEvents: 'auto' },
 }
