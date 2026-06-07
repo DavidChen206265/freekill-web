@@ -91,7 +91,7 @@ export function RequestPopup() {
               <button key={c.cid} style={{ ...styles.agCard, ...(pickedNum.includes(c.cid) ? styles.picked : {}) }} onClick={() => {
                 if (max === 1) { resolve(c.cid); return } // single → reply immediately
                 toggleNum(c.cid)
-              }}><CardFaceView cid={c.cid} faceUp width={56} height={80} /></button>
+              }}><CardFaceView cid={c.cid} faceUp={c.known} width={56} height={80} /></button>
             ))}
           </div>
         </div>

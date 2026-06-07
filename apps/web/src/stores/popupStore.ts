@@ -9,7 +9,7 @@ import { create } from 'zustand'
 
 export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange'
 
-export interface CardGroup { name: string; cards: { cid: number; name?: string }[] }
+export interface CardGroup { name: string; cards: { cid: number; known: boolean }[] }
 export interface ArrangeArea { name: string; capacity: number; limit: number }
 
 export interface PopupRequest {
@@ -45,12 +45,19 @@ interface PopupState {
   setReplySender: (fn: (data: unknown) => void) => void
 }
 
-// Parse card_data [[name, [cids]]] groups (AskForCardChosen/CardsChosen).
-function parseGroups(cardData: unknown): CardGroup[] {
+// Parse card_data [[name, [cids]]] groups (AskForCardChosen/CardsChosen). Each
+// card's `known` (face-up) comes from visible_data[cid] — a card is hidden (back)
+// when visible_data[cid] === false (PlayerCardBox.qml: known = vd[cid] != false).
+// This is why e.g. Snatch/Dismantlement show the target's HAND as backs (you pick
+// blind) while equip/judge are face-up.
+function parseGroups(cardData: unknown, visibleData: Record<string, unknown>): CardGroup[] {
   if (!Array.isArray(cardData)) return []
   return cardData.map((g) => {
     const arr = g as [string, number[]]
-    return { name: String(arr[0]), cards: (arr[1] ?? []).map((cid) => ({ cid })) }
+    return {
+      name: String(arr[0]),
+      cards: (arr[1] ?? []).map((cid) => ({ cid, known: visibleData[String(cid)] !== false })),
+    }
   })
 }
 
@@ -91,13 +98,15 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       case 'AskForCardChosen': {
         // { _reason, _prompt, _id, card_data: [[name,[cids]]], visible_data }
         if (!obj) return false
-        set({ active: { kind: 'cards', prompt: String(obj._prompt || obj._reason || '请选择一张牌'), groups: parseGroups(obj.card_data), min: 1, max: 1 } })
+        const vd = (obj.visible_data as Record<string, unknown>) ?? {}
+        set({ active: { kind: 'cards', prompt: String(obj._prompt || obj._reason || '请选择一张牌'), groups: parseGroups(obj.card_data, vd), min: 1, max: 1 } })
         return true
       }
       case 'AskForCardsChosen': {
         // { _reason, _prompt, _id, _min, _max, card_data, visible_data }
         if (!obj) return false
-        set({ active: { kind: 'cards', prompt: String(obj._prompt || obj._reason || '请选择牌'), groups: parseGroups(obj.card_data), min: Number(obj._min) || 0, max: Number(obj._max) || 1 } })
+        const vdc = (obj.visible_data as Record<string, unknown>) ?? {}
+        set({ active: { kind: 'cards', prompt: String(obj._prompt || obj._reason || '请选择牌'), groups: parseGroups(obj.card_data, vdc), min: Number(obj._min) || 0, max: Number(obj._max) || 1 } })
         return true
       }
       case 'FillAG': {
@@ -162,7 +171,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         // { type, data:[[name,[cids]]], extra_data, cancelable } — selection (poxi
         // rules computed server-side); downgrade to a min0..maxAll card pick.
         if (!obj) return false
-        const groups = parseGroups(obj.data)
+        const groups = parseGroups(obj.data, (obj.visible_data as Record<string, unknown>) ?? {})
         const total = groups.reduce((n, g) => n + g.cards.length, 0)
         set({ active: { kind: 'cards', prompt: '请选择牌(拼点/破袭)', groups, min: 0, max: total, cancelable: !!obj.cancelable } })
         return true

@@ -51,15 +51,26 @@ describe('popupStore', () => {
     expect(a.values).toEqual(['a', 'b', 'c'])
   })
 
-  it('AskForCardChosen → single card pick (groups)', () => {
+  it('AskForCardChosen → single card pick (groups); known defaults true', () => {
     usePopupStore.getState().handle('AskForCardChosen', { _prompt: '选一张', _id: 3, card_data: [['手牌', [11, 12]], ['装备', [20]]] })
     const a = usePopupStore.getState().active!
     expect(a.kind).toBe('cards')
     expect(a.min).toBe(1); expect(a.max).toBe(1)
     expect(a.groups).toEqual([
-      { name: '手牌', cards: [{ cid: 11 }, { cid: 12 }] },
-      { name: '装备', cards: [{ cid: 20 }] },
+      { name: '手牌', cards: [{ cid: 11, known: true }, { cid: 12, known: true }] },
+      { name: '装备', cards: [{ cid: 20, known: true }] },
     ])
+  })
+
+  it('AskForCardChosen → visible_data hides cards (Snatch: target hand is backs)', () => {
+    // hand cards invisible (you pick blind), equip visible — like 顺手牵羊/过河拆桥.
+    usePopupStore.getState().handle('AskForCardChosen', {
+      _prompt: '选一张', _id: 3, card_data: [['手牌', [11, 12]], ['装备', [20]]],
+      visible_data: { '11': false, '12': false, '20': true },
+    })
+    const a = usePopupStore.getState().active!
+    expect(a.groups![0]!.cards).toEqual([{ cid: 11, known: false }, { cid: 12, known: false }])
+    expect(a.groups![1]!.cards).toEqual([{ cid: 20, known: true }])
   })
 
   it('AskForCardsChosen → multi card pick with _min/_max', () => {
