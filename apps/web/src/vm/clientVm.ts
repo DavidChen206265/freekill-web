@@ -54,6 +54,7 @@ export class ClientVm {
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
   private fnPlayerSkills: ((id: number) => string) | null = null
   private fnGameSummary: (() => string) | null = null
+  private fnResetClient: (() => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -244,6 +245,16 @@ export class ClientVm {
         end
         return json.encode(out)
       end
+      -- Back-to-room after GameOver (RoomPage.qml resetRoomPage -> ResetClientLua).
+      -- Rebuilds the client from the preserved cpp players + enter_room_data so the
+      -- waiting room can render seats/owner/ready + capacity again. Returns the
+      -- post-reset capacity so the JS side can repopulate its store.
+      function __fkResetClient()
+        local ok, err = pcall(ResetClientLua)
+        if not ok then __natives.qWarning("ResetClientLua error: " .. tostring(err)) end
+        local cap = (ClientInstance and ClientInstance.capacity) or 0
+        return json.encode({ capacity = cap })
+      end
     `)
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
@@ -256,6 +267,7 @@ export class ClientVm {
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
+    this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
 
     return {
       mountFiles: mount.files,
@@ -307,6 +319,18 @@ export class ClientVm {
     if (!this.fnReadPlayers) return []
     const json = this.fnReadPlayers()
     try { return JSON.parse(json) as VmPlayer[] } catch { return [] }
+  }
+
+  /**
+   * Reset the client VM back to the waiting-room state after a game ends
+   * (RoomPage.qml resetRoomPage → Lua ResetClientLua). Rebuilds ClientInstance
+   * from the preserved cpp players + enter_room_data, so readPlayers() yields the
+   * roster (with owner/ready) and the returned capacity drives the seat grid.
+   * Returns the post-reset room capacity (0 if unavailable).
+   */
+  resetClientLua(): { capacity: number } {
+    if (!this.fnResetClient) return { capacity: 0 }
+    try { return JSON.parse(this.fnResetClient()) as { capacity: number } } catch { return { capacity: 0 } }
   }
 
   /** Batch-read card faces (cid -> {name,number,suit,color,type,...}). */

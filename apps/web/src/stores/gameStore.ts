@@ -58,6 +58,9 @@ interface GameState {
   syncPlayers: (players: VmPlayerLike[], started?: boolean) => void
   setSelfSkills: (skills: SkillInfo[]) => void
   resetGame: () => void
+  /** Back-to-room after GameOver: clear game flags + winner but KEEP the roster,
+   *  set the (post-ResetClientLua) capacity so WaitingRoom can render seats. */
+  backToRoom: (capacity: number) => void
 }
 
 export interface VmPlayerLike {
@@ -155,6 +158,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   setSelfSkills: (skills) => set({ selfSkills: skills }),
 
   resetGame: () => set({ players: {}, seatOrder: [], started: false, capacity: 0, selfSkills: [], winner: undefined, selfId: get().selfId }),
+
+  // Back to waiting room: drop the game-over banner + started flag and reset the
+  // in-game roster props, but DON'T wipe players (the caller re-syncs them from the
+  // VM's post-ResetClientLua mirror). Capacity comes from ResetClientLua so the
+  // seat grid + owner/start controls reappear (issue: controls vanished on return).
+  backToRoom: (capacity) => set({ started: false, winner: undefined, capacity, seatOrder: [], selfSkills: [] }),
 
   syncPlayers: (vmPlayers, started) => {
     set((s) => {

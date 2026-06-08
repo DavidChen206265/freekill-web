@@ -22,7 +22,6 @@ export function GameOverModal() {
   const winner = useGameStore((s) => s.winner)
   const selfId = useGameStore((s) => s.selfId)
   const players = useGameStore((s) => s.players)
-  const resetGame = useGameStore((s) => s.resetGame)
   const vm = useVmStore((s) => s.vm)
   const client = useConnectionStore((s) => s.client)
   const [summary, setSummary] = useState<GameSummaryRow[]>([])
@@ -34,6 +33,21 @@ export function GameOverModal() {
   }, [winner, vm])
 
   if (winner === undefined) return null
+
+  // Back to waiting room (RoomPage.qml resetRoomPage → ResetClientLua): rebuild the
+  // client VM (preserves players + owner/ready + capacity from enter_room_data),
+  // then re-sync the roster + capacity into the store so the seat grid and the
+  // owner controls (add-robot / start) reappear. A bare local reset wiped players
+  // and capacity, leaving the waiting room blank for everyone (the bug).
+  const backToRoom = async () => {
+    if (!vm) { useGameStore.getState().resetGame(); return }
+    const { capacity } = vm.resetClientLua()
+    useGameStore.getState().backToRoom(capacity)
+    try {
+      const ps = await vm.readPlayers()
+      useGameStore.getState().syncPlayers(ps, false)
+    } catch { /* roster re-sync best-effort; seats fill on next server delta */ }
+  }
 
   const selfRole = selfId !== undefined ? players[selfId]?.role : undefined
   const result = resultOf(winner, selfRole)
@@ -86,7 +100,7 @@ export function GameOverModal() {
           </table>
         )}
         <div style={styles.btns}>
-          <button style={styles.btn} onClick={() => resetGame()}>返回房间</button>
+          <button style={styles.btn} onClick={() => void backToRoom()}>返回房间</button>
           <button style={styles.btn} onClick={() => client?.notify('QuitRoom', '')}>返回大厅</button>
         </div>
       </div>
