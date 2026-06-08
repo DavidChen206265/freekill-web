@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  generalPic, generalAvatar, cardPic, cardPicCandidates, equipIcon, delayedTrickPic,
+  generalPic, generalAvatar, cardPic, cardPicCandidates, equipIcon, equipIconCandidates, delayedTrickPic,
   photoBack, rolePic, magatama, shieldPic, deathPic, generalCardBorder, kingdomIcon,
   chosenPic, delayedTrickSealedPic,
 } from '../src/table/skin.js'
@@ -35,6 +35,25 @@ describe('skin path resolution', () => {
       '/fk/packages/maneuvering/image/card/jink.png',
     ])
     expect(cardPicCandidates('')).toEqual([])
+  })
+
+  it('equipIconCandidates falls back ext → art packages → built-in unknown', () => {
+    // A mount's "horse" icon only ships in standard_cards; a card from another
+    // extension must still resolve via the scan, then unknown.png — never blank.
+    expect(equipIconCandidates('horse', 'maneuvering')).toEqual([
+      '/fk/packages/maneuvering/image/card/equipIcon/horse.png',
+      '/fk/packages/standard/image/card/equipIcon/horse.png',
+      '/fk/packages/standard_cards/image/card/equipIcon/horse.png',
+      '/fk/image/card/equipIcon/unknown.png',
+    ])
+    // Unknown extension → scan only, then unknown.
+    expect(equipIconCandidates('horse')).toEqual([
+      '/fk/packages/standard/image/card/equipIcon/horse.png',
+      '/fk/packages/standard_cards/image/card/equipIcon/horse.png',
+      '/fk/packages/maneuvering/image/card/equipIcon/horse.png',
+      '/fk/image/card/equipIcon/unknown.png',
+    ])
+    expect(equipIconCandidates('')).toEqual([])
   })
 
   it('built-in chrome lives under /fk/image/photo', () => {

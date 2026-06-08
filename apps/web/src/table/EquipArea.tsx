@@ -6,7 +6,7 @@
 
 import { useCardFaceStore, suitSymbol, isRedSuit, numberStr } from '../stores/cardFaceStore.js'
 import type { CardFace } from '../vm/clientVm.js'
-import { equipIcon } from './skin.js'
+import { equipIconCandidates } from './skin.js'
 import { tr } from '../i18n/zh.js'
 
 // slot order matches EquipArea.qml subtypes[]; sealedKey = Player.<X>Slot name.
@@ -40,14 +40,22 @@ export function EquipArea({ cids, sealedSlots = [] }: { cids: number[]; sealedSl
           return <div key={subtype} style={{ ...styles.row, position: 'relative' }}><div style={styles.sealed} /></div>
         }
         const { cid, face } = entry
-        const iconUrl = equipIcon(icon || face.name, face.extension)
+        // Horses use the generic "horse" icon name; weapons/armor/treasure use the
+        // card's own name. getEquipIcon falls back across packages → unknown, so we
+        // walk candidates on <img> error (some mounts' extension lacks horse.png).
+        const iconName = icon || face.name
+        const candidates = equipIconCandidates(iconName, face.extension)
         const red = isRedSuit(face.suit)
+        // Label: mounts show the distance modifier (+1/-1) followed by the mount's
+        // NAME (user request "+1和-1后应该显示马的名称"); other equips show the
+        // (possibly virtual) card name. QML showed only "+1"/"-1" for mounts.
+        const mountSign = subtype === 'defensive_ride' ? '+1' : '-1'
         const label = icon === 'horse'
-          ? (subtype === 'defensive_ride' ? '+1' : '-1')
+          ? `${mountSign} ${tr(face.virt_name || face.name)}`
           : tr(face.virt_name || face.name)
         return (
           <div key={cid} style={{ ...styles.row, position: 'relative' }}>
-            {iconUrl && <img src={iconUrl} alt="" style={styles.icon} draggable={false} onError={hideImg} />}
+            <img src={candidates[0]} alt="" style={styles.icon} draggable={false} data-i="0" onError={(e) => walkIcon(e, candidates)} />
             <span style={styles.name}>{label}</span>
             <span style={{ ...styles.suit, color: red ? '#c0392b' : '#eee' }}>{suitSymbol(face.suit)}{numberStr(face.number)}</span>
             {/* sealed (废除) slot: grey overlay (EquipItem.qml rect #CCC @ .8) */}
@@ -59,8 +67,15 @@ export function EquipArea({ cids, sealedSlots = [] }: { cids: number[]; sealedSl
   )
 }
 
-function hideImg(e: React.SyntheticEvent<HTMLImageElement>) {
-  (e.currentTarget as HTMLImageElement).style.display = 'none'
+function walkIcon(e: React.SyntheticEvent<HTMLImageElement>, candidates: string[]) {
+  const img = e.currentTarget as HTMLImageElement
+  const i = Number(img.dataset.i ?? '0') + 1
+  if (i < candidates.length) {
+    img.dataset.i = String(i)
+    img.src = candidates[i]!
+  } else {
+    img.style.display = 'none' // exhausted all fallbacks (shouldn't happen: unknown.png)
+  }
 }
 
 const styles: Record<string, React.CSSProperties> = {

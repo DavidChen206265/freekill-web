@@ -67,6 +67,24 @@ export function equipIcon(name: string, ext?: string): string {
   return name ? pkgPath(ext, 'card/equipIcon', name, '.png') : ''
 }
 
+/** Candidate equip-icon URLs in SkinBank.getEquipIcon order: the card's own
+ *  extension first, then every bundled art package (searchPkgResource scan), then
+ *  the built-in "unknown" icon. The caller walks these on <img> error so a horse
+ *  whose card extension lacks horse.png (it only ships in standard_cards) still
+ *  resolves instead of vanishing. De-duplicated; empty when no name. */
+export function equipIconCandidates(name: string, ext?: string): string[] {
+  if (!name) return []
+  const urls: string[] = []
+  if (ext) urls.push(`${FK}/packages/${ext}/image/card/equipIcon/${name}.png`)
+  for (const p of ART_PKGS) {
+    const u = `${FK}/packages/${p}/image/card/equipIcon/${name}.png`
+    if (!urls.includes(u)) urls.push(u)
+  }
+  // Built-in fallback (SkinBank.searchBuiltinPic equipIcon/unknown).
+  urls.push(`${FK}/image/card/equipIcon/unknown.png`)
+  return urls
+}
+
 /** Delayed-trick icon: packages/<ext>/image/card/delayedTrick/<name>.png */
 export function delayedTrickPic(name: string, ext?: string): string {
   return name ? pkgPath(ext, 'card/delayedTrick', name, '.png') : ''
