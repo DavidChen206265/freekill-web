@@ -185,6 +185,106 @@ describe('client VM packet feed', () => {
     lua.global.close()
   }, 30_000)
 
+  it.skipIf(!ready)('notifyUI survives non-serializable payloads (nullification extra_data.players cycle)', async () => {
+    // Regression for the "b" prompt: AskForUseCard for 无懈可击 carries extra_data
+    // with `players` = live Player objects (cyclic player<->room refs). json.encode
+    // throws "circular reference", and the old fallback sent tostring(data) =
+    // "table: 0x...", which the client indexed char-by-char (data[2] = 'b' in
+    // "ta-b-le"). notifyUI must now emit a decodable array, not that string.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const feed: Array<{ command: string; data: unknown }> = []
+    const natives = createNatives({ emfs: FS as never, onNotifyUI: (e) => feed.push(e), log: () => {} })
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives, preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    // Emit a notify whose data contains a cyclic table (mirrors extra_data.players).
+    await lua.doString(`
+      local room = { name = "r" }
+      local p1 = { id = 1, room = room }; local p2 = { id = 2, room = room }
+      room.players = { p1, p2 }; p1.next = p2; p2.next = p1 -- cycles everywhere
+      local extra = { effectCardId = 7, prompt = "#AskForNullification::-10:lightning",
+                      effectFrom = 1, players = { p1, p2 } }
+      local data = { "nullification", "nullification", extra.prompt, true, extra, {} }
+      ClientInstance:notifyUI("AskForUseCard", data)
+    `)
+    const ask = feed.find((e) => e.command === 'AskForUseCard')
+    expect(ask).toBeTruthy()
+    // The payload must be a decoded ARRAY, not the literal "table: 0x..." string.
+    expect(typeof ask!.data).not.toBe('string')
+    expect(Array.isArray(ask!.data)).toBe(true)
+    const arr = ask!.data as unknown[]
+    expect(arr[0]).toBe('nullification')          // card_name intact
+    expect(arr[2]).toBe('#AskForNullification::-10:lightning') // prompt intact (was "b")
+    // extra_data survived with its scalar fields; cyclic players were pruned safely.
+    const extra = arr[4] as { effectCardId?: number; prompt?: string }
+    expect(extra.effectCardId).toBe(7)
+    lua.global.close()
+  }, 30_000)
+
+  it.skipIf(!ready)('play phase: selecting 铁索连环 emits SpecialSkills with recast (重铸 option)', async () => {
+    // Issue: 铁索连环 has special_skills={"recast"} (maneuvering pkg). When picked in
+    // the play phase the ui_emu (ReqPlayCard:selectCard, play_card.lua:194-203)
+    // prepends "_normal_use" and pushes a SpecialSkills change. The web Dashboard
+    // renders that as the 正常使用/重铸 radio. This verifies the VM actually emits it.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const changes: Array<{ command: string; data: { SpecialSkills?: Array<{ id: string; skills: string[] }> } }> = []
+    const natives = createNatives({
+      emfs: FS as never, log: () => {},
+      onNotifyUI: (e) => { if (e.command === 'UpdateRequestUI') changes.push(e as never) },
+    })
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives, preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+
+    lua.global.set('__setup', JSON.stringify({ gameMode: 'aaa_role_mode', disabledPack: [], disabledGenerals: [] }))
+    const chainId = await lua.doString(`
+      ClientCallback(ClientInstance, "Setup", cbor.encode({1, "me", "caocao", 0}), false)
+      ClientCallback(ClientInstance, "EnterRoom", cbor.encode({2, 15, json.decode(__setup)}), false)
+      ClientCallback(ClientInstance, "AddPlayer", cbor.encode({2, "foe", "zhangfei", true}), false)
+      Self.general="caocao"; Self.maxHp=4; Self.hp=4; Self.kingdom="wei"; Self.role="lord"; Self.dead=false
+      for _, p in ipairs(ClientInstance.players) do
+        p.dead=false; p.general=(p.general and p.general~="") and p.general or "zhangfei"
+        p.maxHp=(p.maxHp and p.maxHp>0) and p.maxHp or 4; p.hp=(p.hp and p.hp>0) and p.hp or 4
+      end
+      local circle={}; for _,p in ipairs(ClientInstance.players) do table.insert(circle,p.id) end
+      ClientCallback(ClientInstance,"ArrangeSeats",cbor.encode(circle),false)
+      ClientCallback(ClientInstance,"StartGame",cbor.encode({}),false)
+      ClientInstance.current=Self; Fk:currentRoom().current=Self
+      local function findCardId(n) for _,c in ipairs(Fk.cards) do if c.name==n and c.suit~=Card.NoSuit then return c.id end end end
+      local cid=findCardId("iron_chain")
+      Self.player_cards[Player.Hand]={}; Self:addCards(Player.Hand,{cid})
+      Self.phase=Player.Play
+      ClientCallback(ClientInstance,"PlayCard",cbor.encode({}),true)
+      return cid
+    `)
+    lua.global.set('__chain', chainId)
+    changes.length = 0 // ignore the initial PlayCard setup change
+    await lua.doString(`UpdateRequestUI("CardItem", __chain, "click", { selected = true })`)
+
+    // The last UpdateRequestUI after selecting 铁索连环 must carry SpecialSkills with
+    // _normal_use + recast (the radio the Dashboard renders).
+    const withSpecial = changes.filter((c) => Array.isArray(c.data?.SpecialSkills) && c.data.SpecialSkills[0])
+    expect(withSpecial.length).toBeGreaterThan(0)
+    const skills = withSpecial[withSpecial.length - 1]!.data.SpecialSkills![0]!.skills
+    expect(skills).toContain('recast')
+    expect(skills).toContain('_normal_use')
+    lua.global.close()
+  }, 30_000)
+
   it.skipIf(!ready)('pre-compiled function handle survives many calls (doString leaks ~44 calls)', async () => {
     // Regression: lua.doString compiles a fresh chunk every call and corrupts the
     // WASM Lua heap after ~44 calls (_ENV becomes nil / memory access out of

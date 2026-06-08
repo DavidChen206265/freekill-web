@@ -90,14 +90,74 @@ function CppClient.new()
   return c
 end
 
+-- Make an arbitrary Lua value JSON-safe before json.encode.
+-- The core occasionally puts non-serializable things in notify payloads — most
+-- notably AskForUseCard's nullification extra_data.players, a list of live Player
+-- objects with cyclic refs (player <-> room). lib/json.lua throws "circular
+-- reference" on those, and the old tostring(data) fallback then sent the literal
+-- "table: 0x..." string, which the client indexed as characters (the infamous
+-- "b" prompt = the 'b' in "table"). The Qt/QML client never hits this because its
+-- variant marshalling can't carry live objects either — the client only reads
+-- plain ids/strings/numbers. So we drop functions/userdata/threads and break
+-- cycles (seen-set), keeping the serializable shape the client actually consumes.
+--
+-- Mirrors lib/json.lua's array/object rule so the output never trips its
+-- "mixed/invalid key types" or "sparse array" checks: a table with [1] is encoded
+-- as a DENSE array (1..n, stop at the first nil), otherwise as an object with only
+-- string keys.
+--
+-- `seen` is PERMANENT for the whole walk (NOT cleared on unwind). Clearing it would
+-- only detect cycles along the current DFS path, so a dense DAG (room -> every
+-- player -> room -> every player ...) re-expands each shared node along every path
+-- and blows up exponentially — that caused a 2GB "Cannot enlarge memory" OOM in a
+-- full game. Keeping nodes seen forever bounds the walk to O(distinct objects) and
+-- dedupes shared sub-trees. Scalars aren't tracked (returned as-is), so the scalar
+-- arrays the client actually reads (card-id lists etc.) never truncate; only the
+-- cyclic player-object arrays the client ignores get pruned.
+local function jsonSanitize(v, seen)
+  local t = type(v)
+  if t == "function" or t == "userdata" or t == "thread" then return nil end
+  if t ~= "table" then return v end
+  if seen[v] then return nil end -- already visited (cycle or shared DAG node): drop
+  seen[v] = true
+  local out = {}
+  if rawget(v, 1) ~= nil then
+    -- Array: keep contiguous 1..n (a dropped element ends the array).
+    local i = 1
+    while true do
+      local sv = jsonSanitize(rawget(v, i), seen)
+      if sv == nil then break end
+      out[i] = sv
+      i = i + 1
+    end
+  else
+    -- Object: string keys only.
+    for k, val in pairs(v) do
+      if type(k) == "string" then
+        local sv = jsonSanitize(val, seen)
+        if sv ~= nil then out[k] = sv end
+      end
+    end
+  end
+  return out
+end
+
+local function safeEncode(data)
+  local ok, payload = pcall(json.encode, data)
+  if ok then return payload end
+  -- Retry on a sanitized copy (strips cycles/functions/userdata).
+  local ok2, payload2 = pcall(json.encode, jsonSanitize(data, {}))
+  if ok2 then return payload2 end
+  -- Last resort: an empty object, never the "table: 0x..." string.
+  return "{}"
+end
+
 function CppClient:notifyUI(command, data)
   -- Serialize the (already fully expanded) payload to JSON for the JS sink.
-  local ok, payload = pcall(json.encode, data)
-  __n.notifyUI(command, ok and payload or tostring(data))
+  __n.notifyUI(command, safeEncode(data))
 end
 function CppClient:notifyServer(command, data)
-  local ok, payload = pcall(json.encode, data)
-  __n.notifyServer(command, ok and payload or tostring(data))
+  __n.notifyServer(command, safeEncode(data))
 end
 function CppClient:getSelf() return self._self end
 function CppClient:changeSelf(id) self._self = self._players[id] or self._self end
