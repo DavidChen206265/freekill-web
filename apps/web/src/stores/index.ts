@@ -7,6 +7,7 @@ import type { Envelope, NotifyEnvelope, RequestEnvelope } from '@freekill-web/pr
 import { GatewayClient, type GatewayStatus, type LoginCredentials } from '../net/gatewayClient.js'
 import { useVmStore } from './vmStore.js'
 import { usePopupStore } from './popupStore.js'
+import { isRoomBootstrap } from './roomRouting.js'
 
 // ---- connection ----
 interface ConnectionState {
@@ -132,12 +133,23 @@ function routeEnvelope(env: Envelope): void {
     loginSetup = env
   }
 
-  // EnterRoom flips us into the room: boot the VM, replay the login Setup (so Self
-  // is correct), then feed this packet. CRITICAL: chain the boot onto feedChain so
-  // any packet arriving DURING boot (e.g. AddPlayer for an existing player) queues
-  // behind it instead of being dropped while vm is still null (that race caused a
-  // late joiner to not see players already in the room).
-  if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterRoom') {
+  // A room-bootstrap packet flips us into the room: boot the VM, replay the login
+  // Setup (so Self is correct), then feed this packet. There are THREE asio
+  // server→client commands that bootstrap a room VM:
+  //   - EnterRoom  : normal join / waiting room (room.cpp:190)
+  //   - Observe    : join a running room as observer (room.cpp:346)
+  //   - Reconnect  : rejoin after disconnect (serverplayer.cpp:246)
+  // The client Lua handles Observe/Reconnect via loadRoomSummary, which itself
+  // re-emits notifyUI("EnterRoom") (clientbase.lua:470) + startGame() — but that
+  // is a VM-OUTPUT notify on a different sink (vmStore→gameStore), NOT a server
+  // packet seen here, so there is no double-boot. Previously only EnterRoom was
+  // handled, so the Observe/Reconnect server packets fell through to the lobby
+  // `default` and were dropped → the VM never booted → observe/reconnect broke.
+  // CRITICAL: chain the boot onto feedChain so any packet arriving DURING boot
+  // (e.g. AddPlayer for an existing player) queues behind it instead of being
+  // dropped while vm is still null (that race caused a late joiner to not see
+  // players already in the room).
+  if (env.kind === 'notify' && isRoomBootstrap((env as NotifyEnvelope).command)) {
     inRoom = true
     useLobbyStore.setState({ enteredRoomId: -1 })
     feedChain = feedChain
@@ -167,6 +179,16 @@ function routeEnvelope(env: Envelope): void {
   if (env.kind !== 'notify') return
   const { command, data } = env as NotifyEnvelope
   switch (command) {
+    case 'Heartbeat': {
+      // asio sends Heartbeat every 30s to all online players and decrements ttl
+      // (server.cpp:64-90, max_ttl=6); a client→server Heartbeat resets ttl
+      // (serverplayer.cpp:170). In a room the VM replies via ClientBase:heartbeat
+      // (notifyServer → setServerSender → gateway). In the LOBBY the VM isn't
+      // booted, so without this echo ttl hits 0 and the player is kicked after
+      // ~3 min of idling in the lobby. Reply with the same notify the VM would.
+      useConnectionStore.getState().client?.notify('Heartbeat', '')
+      break
+    }
     case 'UpdatePlayerNum': {
       // [lobbyPlayers, totalPlayers] (asio updateOnlineInfo)
       if (Array.isArray(data)) {

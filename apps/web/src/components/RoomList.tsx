@@ -7,12 +7,18 @@ export function RoomList() {
   const rooms = useLobbyStore((s) => s.rooms)
   const client = useConnectionStore((s) => s.client)
 
+  // asio Lobby::joinRoom applies the SAME password gate to enter and observe
+  // (lobby.cpp:240 — `password.empty() || pw == password`). Sending "" for a
+  // passworded room hits `room password error` (lobby.cpp:256), so observe must
+  // prompt for the password exactly like enter does.
+  const promptPassword = (room: RoomInfo) =>
+    room.hasPassword ? (window.prompt('房间密码:') ?? '') : ''
   const enter = (room: RoomInfo) => {
-    let password = ''
-    if (room.hasPassword) password = window.prompt('房间密码:') ?? ''
-    client?.notify('EnterRoom', [room.id, password])
+    client?.notify('EnterRoom', [room.id, promptPassword(room)])
   }
-  const observe = (room: RoomInfo) => client?.notify('ObserveRoom', [room.id, ''])
+  const observe = (room: RoomInfo) => {
+    client?.notify('ObserveRoom', [room.id, promptPassword(room)])
+  }
 
   if (rooms.length === 0) {
     return <p style={{ color: '#777', padding: 12 }}>暂无房间。点「刷新」或「建房」。</p>

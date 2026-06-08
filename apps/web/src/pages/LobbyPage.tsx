@@ -21,6 +21,14 @@ export function LobbyPage() {
 
   useEffect(() => { client?.notify('RefreshRoomList', '') }, [client])
 
+  // Mirror QML RoomPage.tryQuitRoom (RoomPage.qml:296-311): quit directly when the
+  // game hasn't started (waiting room / observing); once a game is in progress,
+  // confirm before sending QuitRoom so a misclick doesn't abandon the match.
+  const tryQuitRoom = () => {
+    if (started && !window.confirm('游戏尚未结束，确定离开房间？')) return
+    client?.notify('QuitRoom', '')
+  }
+
   // In-room: waiting room until the game starts, then the fixed-stage table.
   if (enteredRoomId !== undefined) {
     return (
@@ -29,7 +37,7 @@ export function LobbyPage() {
         <div style={styles.roomBar}>
           <span style={styles.meta}>房间 · {username}</span>
           <button style={styles.btn} onClick={() => setShowDebug((v) => !v)}>{showDebug ? '隐藏' : 'VM 调试'}</button>
-          <button style={styles.ghost} onClick={() => client?.notify('QuitRoom', '')}>离开</button>
+          <button style={styles.ghost} onClick={tryQuitRoom}>离开</button>
         </div>
         {showDebug && <div style={styles.debugOverlay}><VmDebugPanel /></div>}
       </div>
