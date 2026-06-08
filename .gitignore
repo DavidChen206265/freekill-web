@@ -9,8 +9,12 @@ dist/
 .vite/
 apps/web/dist/
 
-# Generated from upstream FreeKill-release (run `pnpm --filter web sync-assets`)
+# Generated from upstream FreeKill-release (run `pnpm --filter web sync-assets`).
+# Upstream Lua source + game art (copyrighted, NOT redistributable) live here.
 apps/web/public/fk/
+# Any other synced upstream art / packages
+**/image/generals/
+**/image/card/*.png
 
 # Test / coverage
 coverage/
@@ -21,7 +25,13 @@ coverage/
 .idea/
 .vscode/
 
-# Env
+# Env / secrets — never commit credentials, keys, or local server config
 .env
-.env.local
+.env.*
 *.local
+*.pem
+*.key
+*.crt
+secrets.json
+**/config.local.*
+fk-*.log
