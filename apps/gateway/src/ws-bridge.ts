@@ -122,10 +122,12 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
       try {
         const env = result.data as Envelope
         // A reply must echo the requestId of asio's pending request (asio matches
-        // by id). The browser's VM-emitted reply doesn't carry it, so the gateway
-        // stamps it — mirroring the QML router's this->requestId.
+        // by id). Prefer the id the BROWSER supplies (it captured the exact request
+        // that opened the prompt — robust when several requests are in flight, e.g.
+        // the multi-human game-start AskForGeneral). Only fall back to the gateway's
+        // own lastRequestId guess when the browser sends 0 (legacy / unknown).
         const stamped: Envelope = env.kind === 'reply'
-          ? { ...env, requestId: asio.getLastRequestId() }
+          ? { ...env, requestId: env.requestId || asio.getLastRequestId() }
           : env
         asio.send(envelopeToPacket(stamped))
       } catch (e) {

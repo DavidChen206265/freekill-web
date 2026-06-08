@@ -3,7 +3,7 @@
 // is just the decoded envelope data.
 
 import { create } from 'zustand'
-import type { Envelope, NotifyEnvelope } from '@freekill-web/protocol'
+import type { Envelope, NotifyEnvelope, RequestEnvelope } from '@freekill-web/protocol'
 import { GatewayClient, type GatewayStatus, type LoginCredentials } from '../net/gatewayClient.js'
 import { useVmStore } from './vmStore.js'
 import { usePopupStore } from './popupStore.js'
@@ -33,10 +33,15 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     useAuthStore.setState({ username: creds.user })
     // VM outbound (Heartbeat etc.) → gateway notify.
     useVmStore.getState().setServerSender((command, data) => client.notify(command, data))
-    // VM reply (ReplyToServer) → gateway reply (gateway stamps the requestId).
-    useVmStore.getState().setServerReply((data) => client.reply(0, data))
+    // VM reply (ReplyToServer) → gateway reply. Echo the requestId of the request
+    // we're actually answering (captured in routeEnvelope) instead of 0. The
+    // gateway falls back to its own lastRequestId guess when we send 0, but that
+    // guess can be stale when several requests are in flight (multi-human game
+    // start: the batched AskForGeneral to all non-lords) — a wrong id makes asio
+    // treat the reply as never-arrived and substitute the default (random) general.
+    useVmStore.getState().setServerReply((data) => client.reply(currentRequestId, data))
     // Popup requests (AskForGeneral/Choice/...) reply the same way.
-    usePopupStore.getState().setReplySender((data) => client.reply(0, data))
+    usePopupStore.getState().setReplySender((data) => client.reply(currentRequestId, data))
     client.connect(creds)
   },
   disconnect: () => {
@@ -100,6 +105,12 @@ let feedChain: Promise<void> = Promise.resolve()
 // It carries [selfId, name, avatar] — the VM needs it to know who Self is, so we
 // stash it and replay it into the VM right after boot, before EnterRoom.
 let loginSetup: Envelope | null = null
+// The requestId of the most recent server REQUEST packet. A client reply must
+// echo it so asio matches it to the pending request (router expectedReplyIds).
+// We track it client-side (not just the gateway's lastRequestId) because the reply
+// senders fire from React/VM callbacks that don't carry the id; capturing it at the
+// exact request that opened the prompt avoids the gateway's stale-guess race.
+let currentRequestId = 0
 
 function feedVmOrdered(env: Envelope): void {
   // Serialize VM feeds so packets are applied in arrival order despite async.
@@ -145,6 +156,9 @@ function routeEnvelope(env: Envelope): void {
 
   if (inRoom) {
     // In-room: the VM owns game state. Feed every server packet (notify+request).
+    // Capture the requestId of REQUEST packets so replies (VM ReplyToServer or a
+    // popup resolve) echo the right id — see currentRequestId / setServerReply.
+    if (env.kind === 'request') currentRequestId = (env as RequestEnvelope).requestId
     feedVmOrdered(env)
     return
   }
