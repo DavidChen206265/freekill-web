@@ -12,6 +12,7 @@ import { usePopupStore, shuffleInvisibleOutput, type PopupRequest } from '../sto
 import { useVmStore } from '../stores/vmStore.js'
 import { CardFaceView } from './CardFaceView.js'
 import { GeneralCard } from './GeneralCard.js'
+import { PromptText } from './PromptText.js'
 import { tr } from '../i18n/zh.js'
 
 export function RequestPopup() {
@@ -240,7 +241,7 @@ function vchoicesGrid(n: number): React.CSSProperties {
 function Modal({ prompt, children }: { prompt: string; children: React.ReactNode }) {  return (
     <div style={styles.backdrop}>
       <div style={styles.modal}>
-        <div style={styles.prompt}>{prompt}</div>
+        <PromptText prompt={prompt} style={styles.prompt} />
         {children}
       </div>
     </div>

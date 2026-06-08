@@ -18,7 +18,7 @@ import { usePopupStore } from './popupStore.js'
 import { useLogStore } from './logStore.js'
 import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
-import { registerTranslations, hasTranslation } from '../i18n/zh.js'
+import { registerTranslations, hasTranslation, tr } from '../i18n/zh.js'
 
 interface VmState {
   vm: ClientVm | null
@@ -85,6 +85,20 @@ function localizePrompt(vm: ClientVm | null, prompt: string): string {
   return processPrompt(prompt)
 }
 
+// Default request prompt (RoomLogic.js request callbacks: when the server sends an
+// empty prompt, the bar shows Lua.tr("#AskFor…").arg(Lua.tr(arg)) — e.g.
+// #AskForUseCard "请使用【%1】" with the card name, #AskForResponseCard "请打出【%1】",
+// #AskForUseActiveSkill "请发动〖%1〗"). Qt's .arg() replaces %1; we register the key +
+// arg with the VM translation cache then substitute. The ui_emu UpdateRequestUI
+// emits an empty _prompt for these (response_card.lua original_prompt = prompt or
+// ""), which the truthy guard in interactionStore drops — so this default wins,
+// exactly as in QML (the request callback fires after UpdateRequestUI).
+function defaultPrompt(vm: ClientVm | null, key: string, arg: string): string {
+  const need = [key, arg].filter((k) => k && !hasTranslation(k))
+  if (vm && need.length > 0) registerTranslations(vm.translate(need))
+  return tr(key).replace(/%1/g, tr(arg))
+}
+
 export const useVmStore = create<VmState>((set, get) => ({
   vm: null,
   booting: false,
@@ -113,17 +127,57 @@ export const useVmStore = create<VmState>((set, get) => ({
           // activate() — the countdown is started by the request command below.
           // Translate + interpolate the prompt (RoomLogic.js processPrompt) so the
           // bar shows real text, not a "#slash_skill" key.
-          const data = e.data as { _prompt?: unknown }
+          const data = e.data as { _prompt?: unknown; SpecialSkills?: unknown }
           if (data && typeof data._prompt === 'string' && data._prompt) {
             data._prompt = localizePrompt(get().vm, data._prompt)
+          }
+          // SpecialSkills (重铸/正常使用 radio, e.g. 铁索连环 → ["_normal_use","recast"])
+          // are translation keys; register them so tr() shows Chinese (Room.qml
+          // RadioButton text: Lua.tr(modelData)).
+          if (Array.isArray(data?.SpecialSkills) && data.SpecialSkills[0]) {
+            const sk = (data.SpecialSkills[0] as { skills?: string[] }).skills
+            const keys = Array.isArray(sk) ? sk.filter((k) => k && !hasTranslation(k)) : []
+            if (get().vm && keys.length > 0) registerTranslations(get().vm!.translate(keys))
           }
           useInteractionStore.getState().applyChange(e.data)
         }
         else if (e.command === 'AskForSkillInvoke') {
-          // ui_emu request (ReqInvoke OK/Cancel via UpdateRequestUI); this notify
-          // only carries the prompt [skill, prompt]. Inject it into the bar.
+          // ui_emu request (ReqInvoke OK/Cancel via UpdateRequestUI; invoke.lua sets
+          // NO prompt). Data is [skill_name, prompt?] — for trigger skills (洛神/倾国
+          // etc.) the server sends ONLY the name (verified: captured packet ["luoyi"]),
+          // so prompt is empty. QML falls back to #AskForSkillInvoke "你想发动〖%1〗吗？"
+          // with the skill name (RoomLogic.js:829-830). Non-empty → processPrompt.
           const d = e.data as unknown[]
-          useInteractionStore.getState().setPrompt(localizePrompt(get().vm, String(d?.[1] || '')))
+          const skill = String(d?.[0] ?? '')
+          const prompt = String(d?.[1] ?? '')
+          useInteractionStore.getState().setPrompt(prompt ? localizePrompt(get().vm, prompt) : defaultPrompt(get().vm, '#AskForSkillInvoke', skill))
+        }
+        // Card/skill request commands (RoomLogic.js callbacks). These fire AFTER the
+        // handler's first UpdateRequestUI, whose _prompt is empty for the no-explicit-
+        // prompt case (response_card.lua original_prompt = prompt or "") — the truthy
+        // guard in interactionStore drops that empty value, so the default we set here
+        // wins, exactly as in QML. Non-empty server prompt → processPrompt instead.
+        else if (e.command === 'PlayCard') {
+          // RoomLogic.js:1172 — no data; bar shows "#PlayCard" (出牌阶段，请使用一张牌).
+          useInteractionStore.getState().setPrompt(defaultPrompt(get().vm, '#PlayCard', ''))
+        }
+        else if (e.command === 'AskForUseCard' || e.command === 'AskForResponseCard') {
+          // [cardname, pattern, prompt, …]. Empty prompt → #AskForUseCard "请使用【%1】"
+          // / #AskForResponseCard "请打出【%1】" with the card name (RoomLogic.js
+          // :1225-1274). %1 ← Lua.tr(cardname).
+          const d = e.data as unknown[]
+          const cardname = String(d?.[0] ?? '')
+          const prompt = String(d?.[2] ?? '')
+          const key = e.command === 'AskForUseCard' ? '#AskForUseCard' : '#AskForResponseCard'
+          useInteractionStore.getState().setPrompt(prompt ? localizePrompt(get().vm, prompt) : defaultPrompt(get().vm, key, cardname))
+        }
+        else if (e.command === 'AskForUseActiveSkill') {
+          // [skill_name, prompt, …]. Empty → #AskForUseActiveSkill "请发动〖%1〗" with
+          // the skill name (RoomLogic.js:1204-1219). %1 ← Lua.tr(skill_name).
+          const d = e.data as unknown[]
+          const skill = String(d?.[0] ?? '')
+          const prompt = String(d?.[1] ?? '')
+          useInteractionStore.getState().setPrompt(prompt ? localizePrompt(get().vm, prompt) : defaultPrompt(get().vm, '#AskForUseActiveSkill', skill))
         }
         else if (e.command === 'ReplyToServer') {
           // The request finished in the VM; send the reply to asio. The gateway
@@ -167,6 +221,12 @@ export const useVmStore = create<VmState>((set, get) => ({
         else if (usePopupStore.getState().handle(e.command, e.data)) {
           const active = usePopupStore.getState().active
           if (active) {
+            // Localize the popup prompt (RoomLogic.js processPrompt()s every box
+            // prompt: ChoiceBox/CheckBox/PlayerCardBox titles). The VM sends a raw
+            // "#key:src:dest:arg" prompt — translate + interpolate it, and render
+            // any embedded <br/> as a real break (PromptText). Idempotent for the
+            // already-Chinese literals some handlers set ('请选择武将' etc.).
+            if (active.prompt) usePopupStore.getState().setActivePrompt(localizePrompt(get().vm, active.prompt))
             // CountdownBar starts the 30s timer off the popup-active edge (it watches
             // popupStore.active), so no explicit start here.
             // Translate any general/option keys the popup will display.

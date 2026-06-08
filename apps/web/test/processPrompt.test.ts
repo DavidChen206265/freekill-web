@@ -3,14 +3,16 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { processPrompt } from '../src/table/processPrompt.js'
-import { registerTranslations } from '../src/i18n/zh.js'
+import { registerTranslations, tr } from '../src/i18n/zh.js'
 import { useGameStore } from '../src/stores/gameStore.js'
 
 beforeEach(() => {
   registerTranslations({
     '#slash_skill': '选择攻击范围内的一名角色，对其造成1点伤害',
     '#AskForUseCard': '请使用 %arg，目标为 %dest',
+    '#AskForSkillInvoke': '你想发动〖%1〗吗？',
     slash: '杀',
+    luoyi: '洛神',
     playerstr_self: '(你)',
     caocao: '曹操',
     liubei: '刘备',
@@ -44,5 +46,17 @@ describe('processPrompt', () => {
 
   it('empty prompt → empty string', () => {
     expect(processPrompt('')).toBe('')
+  })
+})
+
+// Default request prompt (vmStore defaultPrompt): when the server sends an empty
+// prompt, QML shows Lua.tr("#AskFor…").arg(Lua.tr(arg)) — Qt .arg() replaces %1.
+// This mirrors that substitution. Verified packet: AskForSkillInvoke data = ["luoyi"]
+// (skill name only, no prompt) → falls back to #AskForSkillInvoke with the name.
+describe('defaultPrompt substitution (%1 ← translated arg)', () => {
+  const defaultPrompt = (key: string, arg: string) => tr(key).replace(/%1/g, tr(arg))
+
+  it('#AskForSkillInvoke with only a skill name (洛神/倾国 triggers)', () => {
+    expect(defaultPrompt('#AskForSkillInvoke', 'luoyi')).toBe('你想发动〖洛神〗吗？')
   })
 })

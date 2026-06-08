@@ -57,6 +57,19 @@ describe('interactionStore.applyChange', () => {
     expect(useInteractionStore.getState().cards[9]).toBeUndefined()
   })
 
+  it('keeps the existing prompt when _prompt is empty (RoomLogic.js truthy guard)', () => {
+    const st = useInteractionStore.getState()
+    // A request command set a default prompt (vmStore defaultPrompt → setPrompt).
+    st.setPrompt('请使用【杀】')
+    // The ui_emu UpdateRequestUI then arrives with an EMPTY _prompt (no explicit
+    // server prompt). It must NOT clobber the default (QML drops empty _prompt).
+    st.applyChange({ _prompt: '', CardItem: [{ id: 5, enabled: true }] })
+    expect(useInteractionStore.getState().prompt).toBe('请使用【杀】')
+    // A non-empty _prompt DOES update it (later click recomputes a real prompt).
+    st.applyChange({ _prompt: '请选择目标' })
+    expect(useInteractionStore.getState().prompt).toBe('请选择目标')
+  })
+
   it('clear resets to inactive', () => {
     const st = useInteractionStore.getState()
     st.applyChange({ _prompt: 'x', _new: [{ type: 'Button', data: { id: 'OK', enabled: true } }] })

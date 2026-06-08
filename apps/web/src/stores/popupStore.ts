@@ -57,6 +57,9 @@ interface PopupState {
   replySender?: (data: unknown) => void
   /** Handle an incoming notifyUI for a popup-style request. Returns true if handled. */
   handle: (command: string, data: unknown) => boolean
+  /** Localize the active popup's prompt in place (vmStore runs processPrompt after
+   *  handle(), mirroring RoomLogic.js which processPrompt()s every box prompt). */
+  setActivePrompt: (prompt: string) => void
   /** Player resolved the popup → reply to server + close. */
   resolve: (value: unknown) => void
   clear: () => void
@@ -240,4 +243,5 @@ export const usePopupStore = create<PopupState>((set, get) => ({
 
   clear: () => set({ active: null }),
   setReplySender: (fn) => set({ replySender: fn }),
+  setActivePrompt: (prompt) => set((s) => (s.active ? { active: { ...s.active, prompt } } : {})),
 }))

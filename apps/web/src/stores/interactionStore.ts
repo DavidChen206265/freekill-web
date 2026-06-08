@@ -84,7 +84,12 @@ export const useInteractionStore = create<InteractionState>((set) => ({
         const sk = (c.SpecialSkills[0] as { skills?: string[] }).skills
         specialSkills = Array.isArray(sk) ? sk : []
       }
-      const prompt = typeof c._prompt === 'string' ? c._prompt : s.prompt
+      // Prompt: only a NON-EMPTY _prompt updates the bar (RoomLogic.js:1567
+      // `if (uiUpdate["_prompt"]) …` — truthy guard). The ui_emu handler emits an
+      // empty _prompt for the no-explicit-prompt case (response_card.lua
+      // original_prompt = prompt or ""); dropping it lets the request command's
+      // default prompt (vmStore defaultPrompt) stand, exactly as in QML.
+      const prompt = typeof c._prompt === 'string' && c._prompt ? c._prompt : s.prompt
       return { active: true, prompt, cards, photos, buttons, skills, specialSkills }
     })
   },
