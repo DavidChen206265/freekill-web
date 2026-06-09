@@ -44,20 +44,19 @@ services:
     depends_on:
       - asio
 
-  # Public entry: HTTPS, serves the web static files + proxies /ws → gateway.
+  # Public entry: serves the web static files + proxies /ws → gateway.
+  # Plain HTTP on host port 8088 (no domain available on this VPS). For a real
+  # domain + auto-HTTPS later, restore the {$FK_DOMAIN} Caddyfile + FK_DOMAIN env
+  # and publish 80/443 instead.
   caddy:
     build:
       context: ../../
       dockerfile: freekill-web/docker/caddy.Dockerfile
     restart: unless-stopped
-    environment:
-      FK_DOMAIN: ${FK_DOMAIN:?set FK_DOMAIN to your domain, e.g. play.example.com}
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"   # HTTP/3
+      - "8088:80"
     volumes:
-      - caddy-data:/data     # Let's Encrypt certs (persist to avoid re-issue limits)
+      - caddy-data:/data
       - caddy-config:/config
     depends_on:
       - gateway

@@ -1,23 +1,31 @@
 # Caddyfile — public entry for FreeKill Web.
-# {$FK_DOMAIN} is substituted from the environment (docker-compose passes it).
-# Caddy auto-provisions a Let's Encrypt cert for the domain (needs ports 80+443
-# reachable and the domain's A/AAAA record pointing at this VPS).
+# Plain-HTTP deploy (no domain): Caddy listens on container :80, served on a host
+# port via docker-compose. Browser hits http://<vps-ip>:<port>, and the app uses
+# a same-origin ws://<vps-ip>:<port>/ws to reach the gateway. No TLS / Let's Encrypt
+# (that path needs a real domain — switch the site address back to {$FK_DOMAIN} and
+# republish 80/443 if you add one later).
 
-{$FK_DOMAIN} {
+:80 {
 	encode zstd gzip
 
-	# WebSocket gateway: browser connects to wss://<domain>/ws → gateway:9528.
-	# The gateway speaks ws (plain) internally; Caddy terminates TLS.
-	@ws path /ws
-	reverse_proxy @ws gateway:9528
+	# WebSocket gateway: browser connects to ws(s)://<host>/ws → gateway:9528.
+	# Must be a `handle` so it's mutually exclusive with the SPA fallback below —
+	# otherwise `try_files` rewrites /ws → /index.html before the proxy sees it and
+	# the upgrade never reaches the gateway (HTTP 200 html instead of 101).
+	handle /ws* {
+		reverse_proxy gateway:9528
+	}
 
 	# Everything else: the built React app (static). SPA fallback to index.html so
 	# client-side routing works on refresh.
-	root * /srv
-	try_files {path} /index.html
-	file_server
+	handle {
+		root * /srv
 
-	# Long cache for hashed assets; the html itself is revalidated.
-	@assets path /assets/* /fk/*
-	header @assets Cache-Control "public, max-age=31536000, immutable"
+		# Long cache for hashed assets; the html itself is revalidated.
+		@assets path /assets/* /fk/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+
+		try_files {path} /index.html
+		file_server
+	}
 }
