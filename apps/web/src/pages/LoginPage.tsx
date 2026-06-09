@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useConnectionStore } from '../stores/index.js'
+import { unlockAudio } from '../table/audio.js'
 
 // Default gateway URL. In dev (vite on :5173) point at the local gateway on :9528.
 // In production the page is served behind a reverse proxy (Caddy) that forwards
@@ -31,6 +32,9 @@ export function LoginPage() {
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // Unlock audio on this user gesture so in-game sounds can play (browsers block
+    // autoplay until the first interaction). See table/audio.ts.
+    unlockAudio()
     // uuid: stable per browser so asio's ban-by-uuid + device limits behave.
     // The connection store persists {url,user,password,uuid} for seamless reconnect
     // (R2; see store CRED_KEY + risk R-CRED for the plaintext-storage tradeoff).

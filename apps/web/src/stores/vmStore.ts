@@ -18,6 +18,9 @@ import { usePopupStore } from './popupStore.js'
 import { useLogStore } from './logStore.js'
 import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
+import { useAnimationStore } from './animationStore.js'
+import { useCardNoteStore } from './cardNoteStore.js'
+import { playSystem, playByPath, playSkillSound, playDeath } from '../table/audio.js'
 import { registerTranslations, hasTranslation, tr } from '../i18n/zh.js'
 import { log, noteNotify } from '../diag/log.js'
 
@@ -102,6 +105,85 @@ function defaultPrompt(vm: ClientVm | null, key: string, arg: string): string {
   const need = [key, arg].filter((k) => k && !hasTranslation(k))
   if (vm && need.length > 0) registerTranslations(vm.translate(need))
   return tr(key).replace(/%1/g, tr(arg))
+}
+
+// Animate dispatch — mirrors RoomLogic.js callbacks["Animate"] (1310-1372). Routes
+// each animation type to the animationStore (per-player or scene channel). The data
+// is clean JSON (prelude safeEncode), so string fields are plain strings here.
+function handleAnimate(data: unknown, vm: ClientVm | null): void {
+  const d = data as { type?: string; from?: number; to?: unknown; player?: number; emotion?: string; is_card?: boolean; name?: string; skill_type?: string; deputy?: boolean; path?: string }
+  const anim = useAnimationStore.getState()
+  switch (d?.type) {
+    case 'Indicate': {
+      // to = [[pid, ...], ...]; each entry is a chain (RoomLogic.js:1313-1319).
+      const chains = Array.isArray(d.to) ? (d.to as unknown[]).map((c) => (Array.isArray(c) ? c.map(Number) : [Number(c)])) : []
+      anim.pushScene({ kind: 'indicate', from: Number(d.from), chains })
+      break
+    }
+    case 'Emotion': {
+      // player is a cid when is_card (setCardEmotion); else a player id.
+      const emotion = String(d.emotion ?? '')
+      if (!emotion) break
+      if (d.is_card) anim.pushCard(Number(d.player), { kind: 'emotion', emotion })
+      else anim.pushPlayer(Number(d.player), { kind: 'emotion', emotion })
+      break
+    }
+    case 'InvokeSkill': {
+      const name = String(d.name ?? '')
+      if (vm && name && !hasTranslation(name)) registerTranslations(vm.translate([name]))
+      anim.pushPlayer(Number(d.player), { kind: 'invokeSkill', skillName: tr(name), skillType: String(d.skill_type || 'special') })
+      break
+    }
+    case 'InvokeUltSkill': {
+      const name = String(d.name ?? '')
+      if (vm && name && !hasTranslation(name)) registerTranslations(vm.translate([name]))
+      anim.pushScene({ kind: 'ultSkill', player: Number(d.player), skillName: tr(name), deputy: !!d.deputy })
+      break
+    }
+    case 'SuperLightBox': {
+      // Only the built-in default path; package-specific complex qml is out of scope
+      // (M5) — render nothing rather than stall (no timer involved; pure notify).
+      anim.pushScene({ kind: 'superLightBox', path: String(d.path ?? '') })
+      break
+    }
+    // 'LightBox' is a no-op in QML too (RoomLogic.js:1324-1325).
+    default: break
+  }
+}
+
+// LogEvent dispatch — mirrors RoomLogic.js callbacks["LogEvent"] (1374-1442). Visual
+// side here (tremble/emotion/death); audio is added in V-5. Damage shakes the target
+// Photo and plays the "damage" emotion sprite.
+function handleLogEvent(data: unknown): void {
+  const d = data as { type?: string; to?: number; damageType?: string; damageNum?: number; num?: number; name?: string; general?: string; deputy?: string }
+  const anim = useAnimationStore.getState()
+  switch (d?.type) {
+    case 'Damage': {
+      const to = Number(d.to)
+      anim.pushPlayer(to, { kind: 'tremble' })
+      anim.pushPlayer(to, { kind: 'emotion', emotion: 'damage' })
+      // RoomLogic.js:1382 — /audio/system/<damageType>[2 if num>1].
+      const dt = String(d.damageType || 'normal_damage') + (Number(d.damageNum) > 1 ? '2' : '')
+      playSystem(dt)
+      break
+    }
+    case 'LoseHP': playSystem('losehp'); break
+    case 'ChangeMaxHp': if (Number(d.num) < 0) playSystem('losemaxhp'); break
+    case 'PlaySkillSound': {
+      // RoomLogic.js:1396-1425 — try <skill>_<general>, <skill>_<deputy>, then <skill>.
+      // general/deputy come on the event; fall back to the actor's mirror generals.
+      playSkillSound(String(d.name ?? ''), d.general ? String(d.general) : undefined, d.deputy ? String(d.deputy) : undefined)
+      break
+    }
+    case 'PlaySound': playByPath(String(d.name ?? '')); break
+    case 'Death': {
+      // Death voice uses the dead player's general (RoomLogic.js:1433-1436).
+      const p = useGameStore.getState().players[Number(d.to)]
+      if (p?.general) playDeath(p.general)
+      break
+    }
+    default: break
+  }
 }
 
 export const useVmStore = create<VmState>((set, get) => ({
@@ -236,6 +318,21 @@ export const useVmStore = create<VmState>((set, get) => ({
           const cid = Number(Array.isArray(e.data) ? e.data[0] : e.data)
           if (get().vm && cid > 0) useCardFaceStore.getState().merge(get().vm!.readCards([cid]))
         }
+        else if (e.command === 'SetCardFootnote') {
+          // {ids[], log, virtual} (room.lua:494). log is already parseMsg-localized
+          // (client.lua setCardNote). Annotate the table card(s) (RoomLogic.js sets
+          // card.footnote). data = [ids, log, virtual].
+          const arr = e.data as unknown[]
+          const ids = Array.isArray(arr?.[0]) ? (arr[0] as number[]).map(Number) : []
+          if (ids.length > 0) useCardNoteStore.getState().setFootnote(ids, String(arr?.[1] ?? ''))
+        }
+        else if (e.command === 'SetCardVirtName') {
+          // {ids[], name, virtual} (room.lua:502) — virtual transformed name on a
+          // table card. data = [ids, name, virtual].
+          const arr = e.data as unknown[]
+          const ids = Array.isArray(arr?.[0]) ? (arr[0] as number[]).map(Number) : []
+          if (ids.length > 0) useCardNoteStore.getState().setVirtName(ids, String(arr?.[1] ?? ''))
+        }
         else if (e.command === 'ChangeSelf') {
           // Observer switched viewpoint (client.lua changeSelf → notifyUI ChangeSelf).
           // The VM's Self is already rebound; re-read the mirror so isSelf flips and
@@ -258,6 +355,17 @@ export const useVmStore = create<VmState>((set, get) => ({
           const tkeys = [command, ' thinking...'].filter((k) => k && !hasTranslation(k))
           if (tkeys.length > 0) registerTranslations(get().vm!.translate(tkeys))
           useFocusStore.getState().setFocus(ids, command, timeout)
+        }
+        else if (e.command === 'Animate') {
+          // Pure visual effect (room.lua doAnimate). data={type, ...}. RoomLogic.js
+          // callbacks["Animate"]:1310-1372 dispatches by type.
+          handleAnimate(e.data, get().vm)
+        }
+        else if (e.command === 'LogEvent') {
+          // Visual + audio event (room.lua sendLogEvent). data={type, ...}.
+          // RoomLogic.js callbacks["LogEvent"]:1374-1442. Audio comes in V-5; here we
+          // drive the visual side (Damage → tremble + "damage" emotion, Death).
+          handleLogEvent(e.data)
         }
         // Popup-style requests (AskForGeneral/Choice/cards/AG/arrange) — not ui_emu.
         else if ((popupHandled = usePopupStore.getState().handle(e.command, e.data))) {
@@ -452,6 +560,9 @@ export const useVmStore = create<VmState>((set, get) => ({
     useInteractionStore.getState().clear()
     usePopupStore.getState().clear()
     useLogStore.getState().reset()
+    useFocusStore.getState().clear()
+    useAnimationStore.getState().reset()
+    useCardNoteStore.getState().reset()
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
 }))

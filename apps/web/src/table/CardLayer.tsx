@@ -10,6 +10,7 @@ import { useEffect, useRef } from 'react'
 import { useCardStore, type AreaKey } from '../stores/cardStore.js'
 import { useGameStore } from '../stores/gameStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
+import { useCardNoteStore } from '../stores/cardNoteStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { resolveAreaBox, CARD_W, CARD_H } from './areas.js'
 import { CardFaceView } from './CardFaceView.js'
@@ -30,6 +31,7 @@ export function CardLayer() {
   const selfId = useGameStore((s) => s.selfId)
   const cardStates = useInteractionStore((s) => s.cards)
   const expandCards = useInteractionStore((s) => s.expandCards)
+  const cardNotes = useCardNoteStore((s) => s.notes)
   const interact = useVmStore((s) => s.interact)
 
   const nodeRefs = useRef(new Map<number, HTMLDivElement>())
@@ -139,8 +141,13 @@ export function CardLayer() {
             }}
           >
             <CardFaceView cid={cid} faceUp={t.faceUp} width={CARD_W} height={CARD_H} />
-            {/* expand-pile footnote (active_skill expandPile, e.g. 遗计's drawn cards) */}
-            {expandCards[cid]?.footnote && <span style={styles.footnote}>{tr(expandCards[cid]!.footnote!)}</span>}
+            {/* table-card virtual name (SetCardVirtName): snow box over the face. */}
+            {cardNotes[cid]?.virtName && <span style={styles.virtName}>{tr(cardNotes[cid]!.virtName!)}</span>}
+            {/* footnote: SetCardFootnote (table cards, already localized) wins; else
+                expand-pile footnote (active_skill expandPile, e.g. 遗计's drawn cards) */}
+            {cardNotes[cid]?.footnote
+              ? <span style={styles.footnote}>{cardNotes[cid]!.footnote}</span>
+              : expandCards[cid]?.footnote && <span style={styles.footnote}>{tr(expandCards[cid]!.footnote!)}</span>}
             {/* selected: chosen.png centered low (BasicCard chosen, y:90 scale 1.25). */}
             {st?.selected && <img src={chosenPic()} alt="" style={styles.chosen} draggable={false} />}
             {/* unselectable: a translucent black overlay (BasicCard disable rect, not
@@ -165,4 +172,7 @@ const styles: Record<string, React.CSSProperties> = {
   disable: { position: 'absolute', inset: 0, borderRadius: 6, background: 'rgba(0,0,0,0.5)', opacity: 0.7, zIndex: 2, pointerEvents: 'none' },
   // expand-pile footnote (CardItem.footnote): a label strip at the card bottom.
   footnote: { position: 'absolute', left: 0, right: 0, bottom: 0, fontSize: 10, fontWeight: 700, color: '#E4D5A0', textAlign: 'center', background: 'rgba(0,0,0,.55)', borderRadius: '0 0 6px 6px', zIndex: 3, pointerEvents: 'none' },
+  // SetCardVirtName: transformed name shown in a snow box over the mid card (mirrors
+  // CardItem.qml virt_rect — a light label band).
+  virtName: { position: 'absolute', left: 0, right: 0, top: '42%', fontSize: 11, fontWeight: 700, color: '#222', textAlign: 'center', background: 'rgba(255,250,250,.85)', border: '1px solid #000', borderRadius: 3, zIndex: 4, pointerEvents: 'none' },
 }

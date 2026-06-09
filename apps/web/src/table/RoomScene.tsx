@@ -5,9 +5,11 @@
 import { Stage } from './Stage.js'
 import { Photo } from './Photo.js'
 import { CardLayer } from './CardLayer.js'
+import { AnimationLayer } from './AnimationLayer.js'
 import { Dashboard } from './Dashboard.js'
 import { RequestPopup } from './RequestPopup.js'
 import { GameLogPanel } from './GameLogPanel.js'
+import { Toast } from './Toast.js'
 import { GameOverModal } from './GameOverModal.js'
 import { GeneralDetailModal } from './GeneralDetailModal.js'
 import { useGameStore } from '../stores/gameStore.js'
@@ -29,8 +31,10 @@ export function RoomScene() {
         return <Photo key={id} player={p} playerNum={playerNum} isSelf={id === selfId} />
       })}
       <CardLayer />
+      <AnimationLayer />
       <Dashboard />
       <GameLogPanel />
+      <Toast />
       <RequestPopup />
       <GameOverModal />
       <GeneralDetailModal />

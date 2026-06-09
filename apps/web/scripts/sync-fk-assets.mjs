@@ -103,6 +103,83 @@ for (const pkg of ['standard', 'standard_cards', 'maneuvering']) {
 const PRELUDE_SRC = path.join(WEB, '..', '..', 'packages', 'lua-native', 'lua', 'fkprelude.lua')
 fs.copyFileSync(PRELUDE_SRC, path.join(WEB, 'public', 'fk', 'fkprelude.lua'))
 
+// ---- Animation sprites (slice V) + frame-count manifest --------------------
+// setEmotion/PixmapAnimation play numbered PNG frames from image/anim/<emotion>/.
+// The browser can't list a directory, so we copy the sprite folders AND build an
+// anim.json mapping "<emotion>" (built-in) / "<pkg>/<emotion>" → frame count, so
+// EmotionSprite knows how many frames to cycle. Built-in dir wins; packages add
+// their own (card-use / equipment-skill animations).
+function copyAnimDir(srcAnim, destAnim, manifest, keyPrefix) {
+  if (!fs.existsSync(srcAnim)) return { dirs: 0, files: 0, bytes: 0 }
+  let dirs = 0, files = 0, bytes = 0
+  for (const emotion of fs.readdirSync(srcAnim)) {
+    const srcDir = path.join(srcAnim, emotion)
+    if (!fs.statSync(srcDir).isDirectory()) continue
+    const frames = fs.readdirSync(srcDir).filter((f) => IMG_EXTS.has(path.extname(f).toLowerCase()))
+    if (frames.length === 0) continue
+    const destDir = path.join(destAnim, emotion)
+    fs.mkdirSync(destDir, { recursive: true })
+    for (const f of frames) {
+      const st = fs.statSync(path.join(srcDir, f))
+      fs.copyFileSync(path.join(srcDir, f), path.join(destDir, f))
+      files++; bytes += st.size
+    }
+    // Frame count = highest numeric basename + 1 (frames are 0..n-1). Fall back to
+    // count if non-numeric. PixmapAnimation loads source/0, source/1, ...
+    const nums = frames.map((f) => parseInt(path.basename(f, path.extname(f)), 10)).filter((n) => !Number.isNaN(n))
+    const count = nums.length > 0 ? Math.max(...nums) + 1 : frames.length
+    manifest[keyPrefix + emotion] = count
+    dirs++
+  }
+  return { dirs, files, bytes }
+}
+
+const animManifest = {}
+let animDirs = 0, animFiles = 0, animBytes = 0
+const accAnim = (r) => { animDirs += r.dirs; animFiles += r.files; animBytes += r.bytes }
+// built-in image/anim → /fk/image/anim, key = "<emotion>"
+accAnim(copyAnimDir(path.join(SOURCECODE, 'image', 'anim'), path.join(FK_ROOT, 'image', 'anim'), animManifest, ''))
+// per-package image/anim → /fk/packages/<pkg>/image/anim, key = "<pkg>/<emotion>"
+for (const pkg of ['standard', 'standard_cards', 'maneuvering']) {
+  accAnim(copyAnimDir(path.join(PACKAGES, pkg, 'image', 'anim'), path.join(FK_ROOT, 'packages', pkg, 'image', 'anim'), animManifest, pkg + '/'))
+}
+fs.writeFileSync(path.join(FK_ROOT, 'anim.json'), JSON.stringify(animManifest, null, 0))
+
+// ---- Audio (slice V) -------------------------------------------------------
+// LogEvent/SkinBank play .mp3 from audio/<type>/ (built-in: system/...) and per-
+// package audio/<type>/ (skill/death voices). Mirror the same roots so audio.ts can
+// resolve SkinBank.getAudio-style paths; lazily fetched at play time. We copy the
+// whole audio tree (system sounds are small; skill/death voices add up but are
+// lazy-loaded, never bundled). No frame manifest needed — paths are direct.
+function copyAudioTree(srcAudio, destAudio) {
+  if (!fs.existsSync(srcAudio)) return { files: 0, bytes: 0 }
+  let files = 0, bytes = 0
+  const walk = (s, d) => {
+    for (const name of fs.readdirSync(s)) {
+      const full = path.join(s, name)
+      const st = fs.statSync(full)
+      if (st.isDirectory()) walk(full, path.join(d, name))
+      else if (path.extname(name).toLowerCase() === '.mp3') {
+        fs.mkdirSync(d, { recursive: true })
+        fs.copyFileSync(full, path.join(d, name))
+        files++; bytes += st.size
+      }
+    }
+  }
+  walk(srcAudio, destAudio)
+  return { files, bytes }
+}
+let audioFiles = 0, audioBytes = 0
+const accAudio = (r) => { audioFiles += r.files; audioBytes += r.bytes }
+// built-in audio (system/card/...) → /fk/audio
+accAudio(copyAudioTree(path.join(SOURCECODE, 'audio'), path.join(FK_ROOT, 'audio')))
+// per-package audio (skill/death voices) → /fk/packages/<pkg>/audio
+for (const pkg of ['standard', 'standard_cards', 'maneuvering']) {
+  accAudio(copyAudioTree(path.join(PACKAGES, pkg, 'audio'), path.join(FK_ROOT, 'packages', pkg, 'audio')))
+}
+
 console.log(`[sync-fk-assets] copied ${relPaths.length} files (${(bytes / 1024 / 1024).toFixed(2)} MB) -> public/fk`)
 console.log(`[sync-fk-assets] images: ${imgFiles} files (${(imgBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/image + packages/*/image`)
+console.log(`[sync-fk-assets] anim: ${animDirs} sprites / ${animFiles} frames (${(animBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/**/image/anim + anim.json`)
+console.log(`[sync-fk-assets] audio: ${audioFiles} files (${(audioBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/**/audio`)
 console.log(`[sync-fk-assets] manifest: ${path.relative(WEB, MANIFEST)} + fkprelude.lua`)

@@ -12,6 +12,8 @@ import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
+import { PhotoEffects } from './PhotoEffects.js'
+import { useRef } from 'react'
 import { generalPic, photoBack, rolePic, deathPic, chainPic } from './skin.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
@@ -32,6 +34,7 @@ export function Photo({ player, playerNum, isSelf }: {
   isSelf: boolean
 }) {
   const pos = seatPosition(player.index, playerNum)
+  const photoBoxRef = useRef<HTMLDivElement | null>(null)
   const generals = useCardFaceStore((s) => s.generals)
   const targetState = useInteractionStore((s) => s.photos[player.id])
   const interact = useVmStore((s) => s.interact)
@@ -74,7 +77,7 @@ export function Photo({ player, playerNum, isSelf }: {
       onPointerLeave={lp.onPointerCancel}
       style={{ ...styles.wrap, left: pos.x, top: pos.y, transform: `scale(${pos.scale})`, transformOrigin: 'top left', cursor: selectable ? 'pointer' : 'default' }}
     >
-    <div style={{ ...styles.photo, outline: targetOutline }}>
+    <div ref={photoBoxRef} style={{ ...styles.photo, outline: targetOutline }}>
       {/* kingdom background frame */}
       <img src={photoBack(player.kingdom)} alt="" style={styles.back} draggable={false} onError={hideImg} />
 
@@ -157,6 +160,9 @@ export function Photo({ player, playerNum, isSelf }: {
       {/* judge (delayed-trick) icons — rendered OUTSIDE the clipped photo box so they
           can sit below the portrait without being cut off by overflow:hidden. */}
       <div style={styles.judge}><JudgeArea cids={player.judgeCids ?? []} sealed={(player.sealedSlots ?? []).includes('JudgeSlot')} /></div>
+      {/* slice V: transient visual effects (emotion sprite / skill banner). tremble
+          is applied to the photo box ref. */}
+      <PhotoEffects playerId={player.id} boxRef={photoBoxRef} />
     </div>
   )
 }

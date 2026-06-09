@@ -129,6 +129,19 @@ export function chainPic(): string {
   return `${PHOTO}/chain.png`
 }
 
+// ---- emotion / animation sprites (image/anim/<emotion>/<frame>.png) ---------
+// Mirrors SkinBank.pixAnimDir (built-in image/anim/) + package image/anim/. A frame
+// is a PNG numbered 0..n-1 in the emotion's folder. Built-in first, then the art
+// packages (matching setEmotion's fallback search). The frame COUNT comes from the
+// synced anim-manifest (anim.json) since the browser can't list a directory.
+export function animFrameUrl(emotion: string, frame: number, pkg?: string): string {
+  if (pkg) return `${FK}/packages/${pkg}/image/anim/${emotion}/${frame}.png`
+  return `${FK}/image/anim/${emotion}/${frame}.png`
+}
+export function animBuiltinDir(emotion: string): string {
+  return `${FK}/image/anim/${emotion}`
+}
+
 /** Handcard-count background. */
 export function handcardPic(): string {
   return `${PHOTO}/handcard.png`
