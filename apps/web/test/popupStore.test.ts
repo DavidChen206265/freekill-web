@@ -196,4 +196,20 @@ describe('popupStore', () => {
     expect(sent).toEqual([{ cardId: 11, pos: 0 }])
     expect(usePopupStore.getState().active).toBeNull()
   })
+
+  it('CustomDialog / MiniGame → unsupported popup that cancels (no timer stall)', () => {
+    const sent: unknown[] = []
+    usePopupStore.getState().setReplySender((d) => sent.push(d))
+    for (const cmd of ['CustomDialog', 'MiniGame']) {
+      usePopupStore.getState().clear()
+      sent.length = 0
+      const handled = usePopupStore.getState().handle(cmd, { type: 'x', data: {} })
+      expect(handled).toBe(true)
+      const a = usePopupStore.getState().active!
+      expect(a.kind).toBe('unsupported')
+      usePopupStore.getState().resolve('__cancel')
+      expect(sent).toEqual(['__cancel'])
+      expect(usePopupStore.getState().active).toBeNull()
+    }
+  })
 })

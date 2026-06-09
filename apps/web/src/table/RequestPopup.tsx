@@ -41,6 +41,16 @@ export function RequestPopup() {
   if (active.kind === 'poxi') return <PoxiBox active={active} resolve={resolve} />
   if (active.kind === 'cardsAndChoice') return <CardsAndChoiceBox active={active} resolve={resolve} />
   if (active.kind === 'moveBoard') return <MoveBoardBox active={active} resolve={resolve} />
+  if (active.kind === 'unsupported') return (
+    // CustomDialog/MiniGame fallback: extension QML can't run in the web port, so
+    // we don't stall the timer — show the notice and cancel (reply __cancel) so the
+    // server proceeds.
+    <Modal prompt={active.prompt}>
+      <div style={styles.row}>
+        <button style={styles.ok} onClick={() => resolve('__cancel')}>跳过</button>
+      </div>
+    </Modal>
+  )
 
   if (active.kind === 'choice') {
     // ChoiceBox.qml: render ALL options (all_choices), enable only those in

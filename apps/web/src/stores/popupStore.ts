@@ -18,7 +18,7 @@ function takerNameFor(pid: number): string {
   return p.general ? tr(p.general) : (p.name || `P${pid}`)
 }
 
-export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice' | 'moveBoard'
+export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice' | 'moveBoard' | 'unsupported'
 
 export interface CardGroup { name: string; cards: { cid: number; known: boolean }[] }
 export interface ArrangeArea { name: string; capacity: number; limit: number }
@@ -290,6 +290,18 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           mbPositions: (obj.cardsPosition as number[]) ?? [],
           mbSideNames: (obj.generalNames as string[]) ?? [],
         } })
+        return true
+      }
+      case 'CustomDialog':
+      case 'MiniGame': {
+        // These load arbitrary extension QML (RoomLogic.js:1478/1488: popupBox.source
+        // = AppPath + path/qml_path). There is no QML runtime in the web port and the
+        // dialogs are extension-pack specific, so they are unsupported. BUT they are
+        // in ACTIVATE_COMMANDS (they start the operation timer), so leaving them
+        // unhandled would stall the timer with no way to respond. Render a minimal
+        // "unsupported" popup whose only action cancels — replies __cancel so the
+        // server gets a response and the game proceeds (audit: no silent stall).
+        set({ active: { kind: 'unsupported', prompt: `本功能(扩展 ${command})暂不支持,已跳过`, cancelable: true } })
         return true
       }
       case 'EmptyRequest':
