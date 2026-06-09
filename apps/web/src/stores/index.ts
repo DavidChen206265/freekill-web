@@ -8,6 +8,8 @@ import { GatewayClient, type GatewayStatus, type LoginCredentials } from '../net
 import { useVmStore } from './vmStore.js'
 import { usePopupStore } from './popupStore.js'
 import { useGameStore } from './gameStore.js'
+import { useTimerStore } from './timerStore.js'
+import { useLogStore } from './logStore.js'
 import { isRoomBootstrap } from './roomRouting.js'
 
 // ---- connection ----
@@ -249,6 +251,14 @@ function onVmError(where: string, err: unknown): void {
 }
 
 function routeEnvelope(env: Envelope): void {
+  // War-report replay after a reconnect: the gateway buffered GameLog lines (asio's
+  // resync omits them). Prepend them to the log panel, before the VM rebuild's own
+  // fresh lines. Handled here (not the VM) since it's a gateway control notify.
+  if (env.kind === 'notify' && (env as NotifyEnvelope).command === '__gateway_log_replay') {
+    const lines = (env as NotifyEnvelope).data
+    if (Array.isArray(lines)) useLogStore.getState().prepend(lines.map(String))
+    return
+  }
   // Capture the login Setup (lobby phase) so we can seed Self into the VM later.
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'Setup') {
     loginSetup = env
@@ -295,7 +305,16 @@ function routeEnvelope(env: Envelope): void {
     // In-room: the VM owns game state. Feed every server packet (notify+request).
     // Capture the requestId of REQUEST packets so replies (VM ReplyToServer or a
     // popup resolve) echo the right id — see currentRequestId / setServerReply.
-    if (env.kind === 'request') currentRequestId = (env as RequestEnvelope).requestId
+    // Also capture the server's real timeout/timestamp so the countdown bar matches
+    // the server's actual window (the room timeout, e.g. 90s) instead of a fixed
+    // guess — otherwise the bar hits 0 long before the server picks the default,
+    // leaving the player waiting (timeout in SECONDS, timestamp in ms epoch; the
+    // server times out at timestamp + timeout*1000 + 500, request.lua:210).
+    if (env.kind === 'request') {
+      const r = env as RequestEnvelope
+      currentRequestId = r.requestId
+      if (r.timeout && r.timestamp) useTimerStore.getState().setServerWindow(r.timeout * 1000, r.timestamp)
+    }
     feedVmOrdered(env)
     return
   }

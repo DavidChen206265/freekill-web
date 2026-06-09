@@ -60,6 +60,23 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
   const SESSION_GRACE_MS = 25_000
   const parked = new Map<string, { asio: AsioClient; timer: ReturnType<typeof setTimeout> }>()
 
+  // Per-uuid GameLog history. asio broadcasts GameLog as a server packet
+  // (server.cpp:396) but room:serialize on reconnect does NOT include past log lines
+  // (upstream limitation — even the Qt client loses the log on reconnect). We record
+  // them here so a reconnecting browser can have its war report replayed. Capped to
+  // bound memory; cleared when the player leaves the room (EnterLobby) or game ends.
+  const GAMELOG_CAP = 200
+  const gameLogs = new Map<string, string[]>()
+  const recordLog = (uuid: string, env: ReturnType<typeof packetToEnvelope>) => {
+    // Leaving the room / lobby resets the war report (a new game logs fresh).
+    if (env.command === 'EnterLobby') { gameLogs.delete(uuid); return }
+    if (env.command !== 'GameLog') return
+    const arr = gameLogs.get(uuid) ?? []
+    arr.push(typeof env.data === 'string' ? env.data : JSON.stringify(env.data))
+    if (arr.length > GAMELOG_CAP) arr.splice(0, arr.length - GAMELOG_CAP)
+    gameLogs.set(uuid, arr)
+  }
+
   wss.on('connection', (ws: WebSocket, req) => {
     const peer = req.socket.remoteAddress ?? '?'
     log(`browser connected from ${peer}`)
@@ -73,9 +90,14 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
 
       // Build the live asio→browser forwarder once (reused for both new + reattached
       // sessions). Closes the browser WS if asio itself dies.
+      const uuidForLog = creds?.uuid
       const forward = (pkt: FkPacket) => {
         if (!alive || ws.readyState !== ws.OPEN) return
-        try { ws.send(JSON.stringify(packetToEnvelope(pkt))) }
+        try {
+          const env = packetToEnvelope(pkt)
+          if (uuidForLog) recordLog(uuidForLog, env)
+          ws.send(JSON.stringify(env))
+        }
         catch (e) { log('failed to forward packet', (e as Error).message) }
       }
 
@@ -88,6 +110,7 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
       // (hard-refreshed) browser VM needs to rebuild. We just retire the parked
       // entry; asio's emitKicked on the stale conn handles the rest.
       const uuid = creds?.uuid
+      let isReturning = false
       if (uuid && parked.has(uuid)) {
         const entry = parked.get(uuid)!
         clearTimeout(entry.timer)
@@ -95,6 +118,7 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
         // Don't close() immediately — asio will kick it when the fresh login lands.
         // But detach our listeners so its imminent close doesn't touch this new ws.
         entry.asio.removeAllListeners()
+        isReturning = true
         log(`returning login for parked uuid=${uuid.slice(0, 8)}… → fresh reconnect (asio resync)`)
         // fall through to a normal fresh login below
       }
@@ -137,6 +161,20 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
             }))
           }
           if (!res.ok && alive) ws.close(4001, 'login failed')
+          // Returning login (refresh): replay the recorded war report so the
+          // rebuilt browser VM doesn't start with an empty GameLog (asio's reconnect
+          // resync doesn't include past log lines). Delay slightly so the Reconnect
+          // state resync lands first; send as a batch the browser prepends.
+          if (res.ok && isReturning && uuid) {
+            const logs = gameLogs.get(uuid)
+            if (logs && logs.length > 0) {
+              setTimeout(() => {
+                if (!alive || ws.readyState !== ws.OPEN) return
+                try { ws.send(JSON.stringify({ kind: 'notify', command: '__gateway_log_replay', data: logs })) }
+                catch { /* ignore */ }
+              }, 400)
+            }
+          }
         })
         .catch((err) => {
           log('handshake error', err.message)

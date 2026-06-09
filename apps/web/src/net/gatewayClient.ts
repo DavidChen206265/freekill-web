@@ -55,6 +55,13 @@ export class GatewayClient {
       try { env = JSON.parse(ev.data as string) as Envelope } catch { return }
       const command = (env as NotifyEnvelope).command
       if (command === '__gateway_login_ok') { this.setStatus('online'); return }
+      if (command === '__gateway_log_replay') {
+        // War-report replay after a reconnect (gateway buffered GameLog lines; the
+        // asio resync doesn't include them). Surface as a normal notify the store
+        // layer handles (prepend to the log panel).
+        this.opts.onEnvelope?.(env)
+        return
+      }
       if (command === '__gateway_login_failed') {
         const d = (env as NotifyEnvelope).data as { reason?: string } | null
         this.setStatus('failed', d?.reason)

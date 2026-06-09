@@ -28,9 +28,12 @@ interface TimerState {
   totalMs: number
   /** Absolute end time in ms epoch (client activate time + totalMs). */
   deadline: number
-  /** roomScene.activate(): (re)start a fresh fixed-30s countdown. Always restarts,
-   *  matching `if(active) →notactive; →active`. */
+  /** roomScene.activate(): (re)start the countdown. Uses the server window captured
+   *  by setServerWindow if present, else a fixed TIMEOUT_SEC fallback. */
   activate: () => void
+  /** Record the server's real request window (ms total, ms-epoch send time) from the
+   *  request envelope; the next activate() aligns the bar to it. */
+  setServerWindow: (totalMs: number, timestamp: number) => void
   /** state="notactive": hide/stop the countdown. */
   deactivate: () => void
 }
@@ -41,12 +44,34 @@ export const useTimerStore = create<TimerState>((set) => ({
   deadline: 0,
 
   activate: () => {
+    // Prefer the server's real request window (captured from the request envelope:
+    // setServerWindow) so the bar matches when the server actually times out. The
+    // server times out at timestamp + timeout*1000 (+500ms grace, request.lua:210),
+    // so the deadline is absolute, not "now + 30s". Fall back to TIMEOUT_SEC when no
+    // server window is known (it's consumed once per request, then cleared).
+    const w = pendingWindow
+    pendingWindow = null
+    if (w) {
+      const totalMs = w.totalMs
+      const deadline = w.timestamp + totalMs
+      // If the server window already elapsed (clock skew / very late), show a short
+      // tail rather than a negative/instant bar.
+      set({ running: true, totalMs, deadline: Math.max(deadline, Date.now() + 1000) })
+      return
+    }
     const totalMs = TIMEOUT_SEC * 1000
     set({ running: true, totalMs, deadline: Date.now() + totalMs })
   },
 
+  setServerWindow: (totalMs, timestamp) => { pendingWindow = { totalMs, timestamp } },
+
   deactivate: () => set({ running: false }),
 }))
+
+// The most recent server request window (ms total + ms-epoch send time), captured
+// from the request envelope and consumed by the next activate(). Module-level so it
+// survives across the request→notify→activate hop without widening the store API.
+let pendingWindow: { totalMs: number; timestamp: number } | null = null
 
 /** Fraction remaining in [0,1] for the current instant (1 = full, 0 = expired). */
 export function fractionLeft(totalMs: number, deadline: number, now: number): number {
