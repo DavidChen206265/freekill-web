@@ -61,6 +61,10 @@ export class AsioClient extends EventEmitter {
   // echo it (asio matches replies by requestId — router.cpp expectedReplyIds). The
   // QML router tracks the same value as `this->requestId`.
   private lastRequestId = 0
+  // Session-keepalive (browser refresh): while the browser WS is gone but we keep
+  // the asio TCP alive (parked), packets are dropped (detached) — a returning login
+  // gets a full asio reconnect resync, so the gap content isn't needed.
+  private detached = false
   private readonly creds: { user: string; password: string; uuid: string }
 
   constructor(private readonly config: GatewayConfig, creds?: Credentials) {
@@ -113,6 +117,10 @@ export class AsioClient extends EventEmitter {
     if (this.handshakeDone) {
       // Track the latest request id so client replies can echo it.
       if (packetKind(pkt) === 'request') this.lastRequestId = pkt.requestId
+      // While detached (browser gone, session parked) drop packets — a returning
+      // login triggers asio's native reconnect + full resync, so gap content isn't
+      // needed and there's no live WS to forward to anyway.
+      if (this.detached) return
       this.emit('packet', pkt)
       return
     }
@@ -164,6 +172,24 @@ export class AsioClient extends EventEmitter {
   /** The requestId a client reply should echo (latest request from asio). */
   getLastRequestId(): number {
     return this.lastRequestId
+  }
+
+  /** The uuid this session logged in with — the session-reuse map key. */
+  getUuid(): string {
+    return this.creds.uuid
+  }
+
+  /** Detach from the browser WS (it dropped) but KEEP the asio TCP alive so the
+   *  player stays Online in asio during the grace window → no premature AI takeover.
+   *  Packets that arrive while detached are dropped (a returning login triggers
+   *  asio's native reconnect + full resync, so the gap content isn't needed). */
+  detach(): void {
+    this.detached = true
+  }
+
+  /** True if the asio TCP is still connected (used to validate a park candidate). */
+  isAlive(): boolean {
+    return !!this.socket && !this.socket.destroyed
   }
 
   close(): void {
