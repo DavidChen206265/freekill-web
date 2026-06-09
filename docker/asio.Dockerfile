@@ -1,0 +1,53 @@
+# freekill-asio — build the C++ game server and run it with the freekill-core package.
+# Build context = repo root (E:/Games/freekill) so we can COPY the freekill-asio
+# source AND the FreeKill-release packages (siblings of freekill-web).
+#
+#   docker compose build asio   (context: repo root, see docker-compose.yml)
+
+# ---- build stage ----
+FROM ubuntu:24.04 AS build
+ENV DEBIAN_FRONTEND=noninteractive
+# Deps per memory asio-wsl-runtime: all find_package()'d, no network pulls at build.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git g++ cmake pkg-config make \
+      libasio-dev libssl-dev libcbor-dev nlohmann-json3-dev libsqlite3-dev \
+      libgit2-dev libreadline-dev libspdlog-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY freekill-asio/ ./
+RUN rm -rf build && mkdir build && cd build && cmake .. && make -j"$(nproc)"
+
+# ---- runtime stage ----
+FROM ubuntu:24.04 AS runtime
+ENV DEBIAN_FRONTEND=noninteractive
+# Install runtime libs by pulling the same -dev packages that built it: avoids
+# guessing versioned .so package names (libgit2-1.7 etc.) that drift across Ubuntu
+# point releases. Slightly larger image, but reliable. Plus lua5.4 + rocks (asio
+# forks `lua5.4` to run the game logic).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libssl-dev libsqlite3-dev libgit2-dev libreadline-dev libspdlog-dev libcbor-dev \
+      lua5.4 lua-socket lua-filesystem \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=build /src/build/freekill-asio ./freekill-asio
+# The freekill-core package set (game rules/cards/generals) + db init.
+COPY FreeKill-release/packages/freekill-core ./packages/freekill-core
+# packages.db / init.sql live alongside packages in the release tree.
+COPY FreeKill-release/packages/packages.db ./packages/packages.db
+COPY FreeKill-release/packages/init.sql ./packages/init.sql
+COPY freekill-web/docker/freekill.server.config.json ./freekill.server.config.json
+
+# server/ holds users.db, game.db and the RSA keypair — asio creates them on first
+# run and they MUST persist across restarts (accounts, stats, identity). Mount a
+# volume here (see docker-compose.yml). Declared so it's never baked into the image.
+VOLUME ["/app/server"]
+
+# asio is an interactive CLI: it reads stdin and exits on EOF. Feed it a never-ending
+# stdin so it stays up as a daemon (the FIFO trick from wsl-run-asio.sh, inlined).
+EXPOSE 9527/tcp 9527/udp
+COPY freekill-web/docker/asio-entrypoint.sh /usr/local/bin/asio-entrypoint.sh
+RUN chmod +x /usr/local/bin/asio-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/asio-entrypoint.sh"]

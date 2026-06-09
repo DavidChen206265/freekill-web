@@ -3,9 +3,27 @@
 import { useState } from 'react'
 import { useConnectionStore } from '../stores/index.js'
 
+// Default gateway URL. In dev (vite on :5173) point at the local gateway on :9528.
+// In production the page is served behind a reverse proxy (Caddy) that forwards
+// `/ws` to the gateway on the SAME origin — so use a same-origin wss:// URL, which
+// also gives WSS automatically when the page is https. Overridable via the input
+// (and VITE_GATEWAY_URL at build time) for non-standard setups.
+function defaultGatewayUrl(): string {
+  const fromEnv = import.meta.env.VITE_GATEWAY_URL as string | undefined
+  if (fromEnv) return fromEnv
+  if (typeof window !== 'undefined') {
+    const { protocol, host, hostname } = window.location
+    // Dev: vite dev server → talk to the standalone gateway on :9528.
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return 'ws://localhost:9528'
+    // Prod: same-origin /ws, ws/wss matching the page's http/https.
+    return `${protocol === 'https:' ? 'wss' : 'ws'}://${host}/ws`
+  }
+  return 'ws://localhost:9528'
+}
+
 export function LoginPage() {
   const { connect, status, detail } = useConnectionStore()
-  const [url, setUrl] = useState('ws://localhost:9528')
+  const [url, setUrl] = useState(defaultGatewayUrl())
   const [user, setUser] = useState('webtester')
   const [password, setPassword] = useState('web-m0-pass')
 

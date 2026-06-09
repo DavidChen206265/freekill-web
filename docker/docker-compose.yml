@@ -1,0 +1,68 @@
+# docker-compose.yml — FreeKill Web full stack.
+# Run from this directory (freekill-web/docker/). Build context is the REPO ROOT
+# (../../ = E:/Games/freekill) so images can reach the sibling repos
+# (freekill-asio, FreeKill-release, FreeKill-sourcecode) + the freekill-web workspace.
+#
+#   FK_DOMAIN=play.example.com docker compose up -d --build
+#
+# Prereqs: a domain whose A/AAAA record points at this VPS, ports 80+443 open.
+
+name: freekill-web
+
+services:
+  # C++ game server (TCP/UDP 9527). Internal only — never exposed publicly; the
+  # gateway reaches it over the compose network as host "asio".
+  asio:
+    build:
+      context: ../../
+      dockerfile: freekill-web/docker/asio.Dockerfile
+    restart: unless-stopped
+    volumes:
+      # Persist accounts/stats/RSA keys across restarts + upgrades.
+      - asio-server:/app/server
+    # No ports: published — internal network access only (security).
+    expose:
+      - "9527"
+
+  # Node WSS↔asio bridge (9528). Internal only; Caddy proxies /ws to it.
+  gateway:
+    build:
+      context: ../../
+      dockerfile: freekill-web/docker/gateway.Dockerfile
+    restart: unless-stopped
+    environment:
+      # asio is reachable by service name on the compose network.
+      ASIO_HOST: asio
+      ASIO_PORT: "9527"
+      # MD5 of the shipped package set. The default in config.ts is freekill-core's
+      # flist MD5 — correct for a core-only deploy. If you add packages, recompute
+      # and set FK_MD5 here (otherwise asio rejects the handshake).
+      # FK_MD5: "<recomputed-md5>"
+      FK_VERSION: "0.5.20"
+    expose:
+      - "9528"
+    depends_on:
+      - asio
+
+  # Public entry: HTTPS, serves the web static files + proxies /ws → gateway.
+  caddy:
+    build:
+      context: ../../
+      dockerfile: freekill-web/docker/caddy.Dockerfile
+    restart: unless-stopped
+    environment:
+      FK_DOMAIN: ${FK_DOMAIN:?set FK_DOMAIN to your domain, e.g. play.example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - caddy-data:/data     # Let's Encrypt certs (persist to avoid re-issue limits)
+      - caddy-config:/config
+    depends_on:
+      - gateway
+
+volumes:
+  asio-server:
+  caddy-data:
+  caddy-config:

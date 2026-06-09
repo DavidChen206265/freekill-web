@@ -1,0 +1,23 @@
+# Caddyfile — public entry for FreeKill Web.
+# {$FK_DOMAIN} is substituted from the environment (docker-compose passes it).
+# Caddy auto-provisions a Let's Encrypt cert for the domain (needs ports 80+443
+# reachable and the domain's A/AAAA record pointing at this VPS).
+
+{$FK_DOMAIN} {
+	encode zstd gzip
+
+	# WebSocket gateway: browser connects to wss://<domain>/ws → gateway:9528.
+	# The gateway speaks ws (plain) internally; Caddy terminates TLS.
+	@ws path /ws
+	reverse_proxy @ws gateway:9528
+
+	# Everything else: the built React app (static). SPA fallback to index.html so
+	# client-side routing works on refresh.
+	root * /srv
+	try_files {path} /index.html
+	file_server
+
+	# Long cache for hashed assets; the html itself is revalidated.
+	@assets path /assets/* /fk/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+}
