@@ -251,12 +251,27 @@ function onVmError(where: string, err: unknown): void {
 }
 
 function routeEnvelope(env: Envelope): void {
-  // War-report replay after a reconnect: the gateway buffered GameLog lines (asio's
-  // resync omits them). Prepend them to the log panel, before the VM rebuild's own
-  // fresh lines. Handled here (not the VM) since it's a gateway control notify.
+  // War-report replay after a reconnect: the gateway buffered the RAW GameLog
+  // LogMessages (asio's resync omits past log lines). The live path runs each through
+  // the VM's parseMsg → localized HTML (clientbase.lua appendLog); the buffered JSON
+  // would render as raw text. Prettify each through the rebuilt VM and prepend them
+  // (before the VM rebuild's own fresh lines). Chain onto feedChain so the VM is
+  // booted AND the Reconnect state resync (player/seat/general mirror parseMsg reads)
+  // has been applied first — otherwise names wouldn't resolve. Fall back to the raw
+  // string per-line if parseMsg fails. Handled here (not the VM) since it's a gateway
+  // control notify.
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === '__gateway_log_replay') {
     const lines = (env as NotifyEnvelope).data
-    if (Array.isArray(lines)) useLogStore.getState().prepend(lines.map(String))
+    if (Array.isArray(lines)) {
+      const raw = lines.map(String)
+      feedChain = feedChain
+        .then(() => {
+          const vm = useVmStore.getState().vm
+          const html = raw.map((line) => (vm?.parseLog(line) ?? null) || line)
+          useLogStore.getState().prepend(html)
+        })
+        .catch((err) => onVmError('log replay', err))
+    }
     return
   }
   // Capture the login Setup (lobby phase) so we can seed Self into the VM later.

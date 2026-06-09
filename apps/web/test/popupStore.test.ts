@@ -101,15 +101,58 @@ describe('popupStore', () => {
   it('AG flow: FillAG lays out, AskForAG prompts, TakeAG tags (keeps) the card, CloseAG closes', () => {
     const st = usePopupStore.getState()
     st.handle('FillAG', [[1, 2, 3]])
+    // FillAG lays out the pile but it is NOT interactive yet (RoomLogic.js:1462).
     expect(usePopupStore.getState().active!.agCards).toEqual([{ cid: 1 }, { cid: 2 }, { cid: 3 }])
+    expect(usePopupStore.getState().active!.agInteractive).toBe(false)
     st.handle('AskForAG', {})
     expect(usePopupStore.getState().active!.prompt).toContain('选择')
+    expect(usePopupStore.getState().active!.agInteractive).toBe(true)
     st.handle('TakeAG', [2, 2]) // player 2 took card 2 — kept in place, tagged taken
     const ag = usePopupStore.getState().active!.agCards!
     expect(ag.map((c) => c.cid)).toEqual([1, 2, 3])
     expect(ag.find((c) => c.cid === 2)!.takenBy).toBeTruthy()
     expect(ag.find((c) => c.cid === 1)!.takenBy).toBeUndefined()
     st.handle('CloseAG', {})
+    expect(usePopupStore.getState().active).toBeNull()
+  })
+
+  it('AG box survives clearExceptAg (CancelRequest fires before every AskFor*)', () => {
+    // The VM emits notifyUI("CancelRequest") before EVERY AskFor* command
+    // (client.lua:48-49), so it lands between FillAG and the AskForAG that activates
+    // the pile. A blanket clear() would wipe the box before AskForAG can mutate it.
+    const st = usePopupStore.getState()
+    st.handle('FillAG', [[5, 6]])
+    expect(usePopupStore.getState().active!.kind).toBe('ag')
+    st.clearExceptAg() // the CancelRequest that precedes AskForAG
+    expect(usePopupStore.getState().active).not.toBeNull()
+    expect(usePopupStore.getState().active!.kind).toBe('ag')
+    st.handle('AskForAG', {})
+    expect(usePopupStore.getState().active!.agInteractive).toBe(true)
+  })
+
+  it('clearExceptAg closes a NON-AG popup (regular cancel behavior)', () => {
+    const st = usePopupStore.getState()
+    st.handle('AskForChoice', [['弃牌'], ['discard'], 'sk', '请选择', false])
+    expect(usePopupStore.getState().active!.kind).toBe('choice')
+    st.clearExceptAg()
+    expect(usePopupStore.getState().active).toBeNull()
+  })
+
+  it('resolveAg replies the cid but KEEPS the box open + locked until CloseAG', () => {
+    // AG.qml onClicked: reply cid, interactive=false, but the box stays (only CloseAG
+    // closes it) so the player still sees the subsequent TakeAG tags.
+    const sent: unknown[] = []
+    const st = usePopupStore.getState()
+    st.setReplySender((d) => sent.push(d))
+    st.handle('FillAG', [[7, 8]])
+    st.handle('AskForAG', {})
+    usePopupStore.getState().resolveAg(7)
+    expect(sent).toEqual([7])
+    const a = usePopupStore.getState().active
+    expect(a).not.toBeNull()
+    expect(a!.kind).toBe('ag')
+    expect(a!.agInteractive).toBe(false) // no longer clickable after picking
+    usePopupStore.getState().handle('CloseAG', {})
     expect(usePopupStore.getState().active).toBeNull()
   })
 

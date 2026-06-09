@@ -535,4 +535,57 @@ describe('client VM packet feed', () => {
     expect(ve[String(slashId)]).toBeUndefined() // plain slash is not a virtual equip
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!ready)('parseLog prettifies a raw GameLog LogMessage into localized HTML (reconnect replay)', async () => {
+    // The gateway buffers the RAW LogMessage JSON of each GameLog; on reconnect the
+    // browser must run it through the SAME parseMsg the live path uses so the war
+    // report shows prettified text (player generals + card names), not raw JSON.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    // Enter a room with a known self + another player so parseMsg can resolve names.
+    // Generals must be REVEALED (not the default "anjiang") for parseMsg to show the
+    // general name instead of the seat number (client.lua getPlayerStr:114-120).
+    lua.global.set('__setup', JSON.stringify({ gameMode: 'aaa_role_mode', disabledPack: [], disabledGenerals: [] }))
+    await lua.doString(`
+      ClientCallback(ClientInstance, "Setup", cbor.encode({ 1, "me", "caocao", 0 }), false)
+      ClientCallback(ClientInstance, "EnterRoom", cbor.encode({ 2, 15, json.decode(__setup) }), false)
+      ClientCallback(ClientInstance, "AddPlayer", cbor.encode({ 2, "Bob", "liubei", true }), false)
+      ClientCallback(ClientInstance, "PropertyUpdate", cbor.encode({ 1, "general", "caocao" }), false)
+      ClientCallback(ClientInstance, "PropertyUpdate", cbor.encode({ 2, "general", "liubei" }), false)
+    `)
+    // Mirror clientVm's __fkParseLog bridge.
+    await lua.doString(`
+      function __fkParseLog(msgJson)
+        local ok, msg = pcall(json.decode, msgJson)
+        if not ok or type(msg) ~= "table" then return "" end
+        local ok2, text = pcall(function() return ClientInstance:parseMsg(msg) end)
+        if not ok2 or type(text) ~= "string" then return "" end
+        return text
+      end
+    `)
+    const parseLog = lua.global.get('__fkParseLog') as (j: string) => string
+    // A #Damage log: "%from 对 %to 造成了 %arg 点 %arg2 伤害". parseMsg should produce
+    // localized HTML with the players' general names (曹操/刘备), not raw "from"/"to".
+    const html = parseLog(JSON.stringify({ type: '#Damage', from: 1, to: [2], arg: 1, arg2: 'normal_damage' }))
+    expect(typeof html).toBe('string')
+    expect(html.length).toBeGreaterThan(0)
+    // Prettified: contains HTML font markup + the translated general names, NOT the
+    // raw template key or raw json field names.
+    expect(html).toContain('<font')
+    expect(html).toContain('曹操') // self (caocao) general name resolved
+    expect(html).toContain('刘备') // target (liubei) general name resolved
+    expect(html).not.toContain('#Damage') // template key was expanded, not left raw
+    // Malformed input → "" (caller falls back to the raw string).
+    expect(parseLog('not json')).toBe('')
+    lua.global.close()
+  }, 30_000)
 })

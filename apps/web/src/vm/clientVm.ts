@@ -60,6 +60,7 @@ export class ClientVm {
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
   private fnChangeSelf: ((pid: number) => string) | null = null
+  private fnParseLog: ((msgJson: string) => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -330,6 +331,19 @@ export class ClientVm {
         end)
         return json.encode({ ok = ok })
       end
+      -- War-report replay prettify (clientbase.lua appendLog/parseMsg): the gateway
+      -- buffers the RAW LogMessage JSON of each GameLog (asio's reconnect resync omits
+      -- past log lines). On replay we run each through the SAME parseMsg the live path
+      -- uses (Client:parseMsg → localized HTML), so the rebuilt VM's mirror (players/
+      -- generals/seats) resolves names exactly as the original live line did. Returns
+      -- the HTML, or "" on failure (caller falls back to the raw string).
+      function __fkParseLog(msgJson)
+        local ok, msg = pcall(json.decode, msgJson)
+        if not ok or type(msg) ~= "table" then return "" end
+        local ok2, text = pcall(function() return ClientInstance:parseMsg(msg) end)
+        if not ok2 or type(text) ~= "string" then return "" end
+        return text
+      end
     `)
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
@@ -348,6 +362,7 @@ export class ClientVm {
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
     this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
     this.fnChangeSelf = lua.global.get('__fkChangeSelf') as typeof this.fnChangeSelf
+    this.fnParseLog = lua.global.get('__fkParseLog') as typeof this.fnParseLog
 
     return {
       mountFiles: mount.files,
@@ -419,6 +434,18 @@ export class ClientVm {
   changeSelf(pid: number): boolean {
     if (!this.fnChangeSelf) return false
     try { return !!(JSON.parse(this.fnChangeSelf(pid)) as { ok: boolean }).ok } catch { return false }
+  }
+
+  /** Prettify a raw GameLog LogMessage (JSON string) into the localized HTML the
+   *  live path produces (clientbase.lua appendLog → parseMsg). Used to render the
+   *  gateway-buffered war-report replay on reconnect. Returns null on failure so the
+   *  caller can fall back to the raw string. */
+  parseLog(msgJson: string): string | null {
+    if (!this.fnParseLog) return null
+    try {
+      const text = this.fnParseLog(msgJson)
+      return text ? text : null
+    } catch { return null }
   }
 
   /** Batch-read card faces (cid -> {name,number,suit,color,type,...}). */

@@ -34,7 +34,7 @@ export function RequestPopup() {
   useEffect(() => { setPickedStr([]); setPickedNum([]) }, [active])
 
   if (!active) return null
-  if (active.kind === 'ag') return <AgBox active={active} resolve={resolve} />
+  if (active.kind === 'ag') return <AgBox active={active} resolveAg={usePopupStore.getState().resolveAg} />
   if (active.kind === 'arrange') return <ArrangeBox active={active} resolve={resolve} />
 
   const min = active.min ?? 1
@@ -324,19 +324,25 @@ function MoveBoardBox({ active, resolve }: { active: PopupRequest; resolve: (v: 
   )
 }
 
-// AG: a shared pile; when it's your turn (prompt set) you click one card → reply
-// cid. Taken cards stay in place, greyed, with the taker's name (AG.qml takeAG).
-function AgBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+// AG: a shared pile; when it's your turn (AskForAG → agInteractive) you click one
+// card → reply cid. Before that the pile is shown but locked (RoomLogic.js:1462
+// manualBox.item.interactive). Taken cards stay in place, greyed, with the taker's
+// name (AG.qml takeAG).
+function AgBox({ active, resolveAg }: { active: PopupRequest; resolveAg: (cid: number) => void }) {
+  const interactive = active.agInteractive !== false
   return (
     <Modal prompt={active.prompt}>
       <div style={styles.cards}>
-        {(active.agCards ?? []).map(({ cid, takenBy }) => (
-          <button key={cid} style={{ ...styles.agCard, ...(takenBy ? styles.agTaken : {}) }}
-            disabled={!!takenBy} onClick={() => { if (!takenBy) resolve(cid) }}>
-            <CardFaceView cid={cid} faceUp width={56} height={80} />
-            {takenBy && <span style={styles.agFootnote}>{takenBy}</span>}
-          </button>
-        ))}
+        {(active.agCards ?? []).map(({ cid, takenBy }) => {
+          const locked = !!takenBy || !interactive
+          return (
+            <button key={cid} style={{ ...styles.agCard, ...(takenBy ? styles.agTaken : {}) }}
+              disabled={locked} onClick={() => { if (!locked) resolveAg(cid) }}>
+              <CardFaceView cid={cid} faceUp width={56} height={80} />
+              {takenBy && <span style={styles.agFootnote}>{takenBy}</span>}
+            </button>
+          )
+        })}
       </div>
     </Modal>
   )

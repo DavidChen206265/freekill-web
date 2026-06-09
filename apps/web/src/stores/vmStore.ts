@@ -205,8 +205,13 @@ export const useVmStore = create<VmState>((set, get) => ({
           useTimerStore.getState().deactivate()
         }
         else if (e.command === 'CancelRequest') {
-          // RoomLogic.js: state="notactive" (Room.qml:1221).
-          useInteractionStore.getState().clear(); usePopupStore.getState().clear(); useFocusStore.getState().clear()
+          // RoomLogic.js:1221: state="notactive" only. The VM emits CancelRequest
+          // before EVERY AskFor* command (client.lua:48-49), so this fires between
+          // FillAG (lays out the 五谷/AG pile) and the AskForAG that activates it.
+          // A blanket popup clear would wipe the AG box right before AskForAG only
+          // mutates it — leaving nothing to show. Keep the AG box (QML closes it only
+          // via CloseAG → manualBox.close(), RoomLogic.js:1476).
+          useInteractionStore.getState().clear(); usePopupStore.getState().clearExceptAg(); useFocusStore.getState().clear()
           useTimerStore.getState().deactivate()
         }
         else if (e.command === 'GetPlayerHandcards') {

@@ -45,7 +45,11 @@ export interface PopupRequest {
   groups?: CardGroup[]
   // ag (AskForAG): the pile of cards; taken ones stay (greyed) with the taker name
   // (AG.qml takeAG marks selectable=false + footnote, it does NOT remove the card).
+  // agInteractive mirrors manualBox.item.interactive (RoomLogic.js:1462): the pile is
+  // laid out by FillAG but only becomes clickable once AskForAG arrives for THIS
+  // player (otherwise watching others pick would reply with a stale requestId).
   agCards?: { cid: number; takenBy?: string }[]
+  agInteractive?: boolean
   // arrange (Guanxing/Exchange/ArrangeCards → ArrangeCardsBox/GuanxingBox.qml):
   // assign cards into ordered areas; reply [[cids per area]]. initialSlots pre-
   // places cards into their source areas (QML initializeCards), so "do nothing"
@@ -99,6 +103,10 @@ interface PopupState {
   /** Player resolved the popup → reply to server + close. */
   resolve: (value: unknown) => void
   clear: () => void
+  /** Close everything EXCEPT an active AG box (which only CloseAG closes). */
+  clearExceptAg: () => void
+  /** AG pick: reply cid, keep the box open + locked until CloseAG (AG.qml). */
+  resolveAg: (cid: number) => void
   setReplySender: (fn: (data: unknown) => void) => void
 }
 
@@ -206,15 +214,17 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         return true
       }
       case 'FillAG': {
-        // [cids] — lay out the AG pile (does not by itself prompt).
+        // [id_list, disable_ids] — lay out the AG pile (RoomLogic.js:1453 addIds).
+        // Does NOT by itself prompt; the box is non-interactive until AskForAG.
         if (!arr) return false
         const cids = (arr[0] as number[]) ?? []
-        set({ active: { kind: 'ag', prompt: '等待…', agCards: cids.map((cid) => ({ cid })) } })
+        set({ active: { kind: 'ag', prompt: '等待…', agCards: cids.map((cid) => ({ cid })), agInteractive: false } })
         return true
       }
       case 'AskForAG': {
-        // activate the existing AG pile for THIS player to pick one.
-        set((s) => ({ active: s.active?.kind === 'ag' ? { ...s.active, prompt: '请选择一张牌' } : s.active }))
+        // activate the existing AG pile for THIS player to pick one
+        // (RoomLogic.js:1460 roomScene.activate() + manualBox.item.interactive=true).
+        set((s) => ({ active: s.active?.kind === 'ag' ? { ...s.active, prompt: '请选择一张牌', agInteractive: true } : s.active }))
         return true
       }
       case 'TakeAG': {
@@ -375,6 +385,22 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   },
 
   clear: () => set({ active: null }),
+  // CancelRequest just sets state="notactive" (RoomLogic.js:1221); it does NOT close
+  // the AG box. AG lives in the separate persistent `manualBox`, closed only by
+  // CloseAG (RoomLogic.js:1476). The VM emits notifyUI("CancelRequest") before EVERY
+  // AskFor* command (client.lua:48-49) — including the AskForAG that follows FillAG —
+  // so a blanket clear() here would wipe the AG pile right before AskForAG only
+  // *mutates* it, leaving nothing to show. Preserve an active AG popup across cancel.
+  clearExceptAg: () => set((s) => (s.active?.kind === 'ag' ? {} : { active: null })),
+
+  resolveAg: (cid) => {
+    // AG pick (AG.qml onClicked:39-44): reply the cid, become non-interactive, but
+    // KEEP the box open — the subsequent TakeAG tags the taken card and the box only
+    // closes on CloseAG. resolve() (which nulls active) would hide the pile too early.
+    get().replySender?.(cid)
+    set((s) => (s.active?.kind === 'ag' ? { active: { ...s.active, agInteractive: false, prompt: '等待…' } } : {}))
+    useTimerStore.getState().deactivate()
+  },
   setReplySender: (fn) => set({ replySender: fn }),
   setActivePrompt: (prompt) => set((s) => (s.active ? { active: { ...s.active, prompt } } : {})),
 }))
