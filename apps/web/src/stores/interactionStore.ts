@@ -15,6 +15,30 @@ import { create } from 'zustand'
 
 export interface ItemState { enabled: boolean; selected?: boolean; state?: string }
 
+// A dynamic SkillInteraction subpanel (Room.qml:781-836). Arrives as a _new item
+// of type "Interaction" carrying { spec:{type,...}, skill_name }; removed via a
+// _delete item of type "Interaction". The player's pick is reported back through
+// the same ui_emu loop: updateRequestUI("Interaction","1","update",value).
+//   combo    : pick one of all_choices (value = chosen string)
+//   spin     : integer in [from,to]   (value = number)
+//   checkbox : pick min_num..max_num  (value = string[])
+//   cardname : pick a card name       (value = string)
+export interface InteractionSpec {
+  type: string
+  skill: string
+  // combo / checkbox
+  choices?: string[]
+  all_choices?: string[]
+  default?: string
+  detailed?: boolean
+  min_num?: number
+  max_num?: number
+  cancelable?: boolean
+  // spin
+  from?: number
+  to?: number
+}
+
 interface InteractionState {
   active: boolean
   prompt: string
@@ -23,6 +47,7 @@ interface InteractionState {
   buttons: Record<string, ItemState> // "OK" | "Cancel" | "End"
   skills: Record<string, ItemState>
   specialSkills: string[]
+  interaction: InteractionSpec | null
   applyChange: (change: unknown) => void
   /** Set just the prompt (e.g. AskForSkillInvoke pushes its prompt separately). */
   setPrompt: (prompt: string) => void
@@ -52,6 +77,7 @@ export const useInteractionStore = create<InteractionState>((set) => ({
   buttons: {},
   skills: {},
   specialSkills: [],
+  interaction: null,
 
   applyChange: (change) => {
     const c = change as Record<string, unknown>
@@ -61,9 +87,15 @@ export const useInteractionStore = create<InteractionState>((set) => ({
       const photos = { ...s.photos }
       const buttons = { ...s.buttons }
       const skills = { ...s.skills }
+      let interaction = s.interaction
       // _new items seed initial state (each carries {type, data}).
       if (Array.isArray(c._new)) {
-        for (const it of c._new as { type: string; data: ChangeItem }[]) {
+        for (const it of c._new as { type: string; data: ChangeItem & { spec?: InteractionSpec; skill_name?: string } }[]) {
+          // Interaction subpanel (Room.qml:781): data = { spec, skill_name }.
+          if (it?.type === 'Interaction' && it.data?.spec) {
+            interaction = { ...it.data.spec, skill: it.data.skill_name ?? it.data.spec.skill ?? '' }
+            continue
+          }
           if (!it?.data || it.data.id === undefined) continue
           const target = (it.type === 'CardItem' ? cards : it.type === 'Photo' ? photos : it.type === 'SkillButton' ? skills : it.type === 'Button' ? buttons : null) as Record<string | number, ItemState> | null
           if (target) target[it.data.id] = { enabled: !!it.data.enabled, selected: it.data.selected, state: it.data.state }
@@ -71,6 +103,8 @@ export const useInteractionStore = create<InteractionState>((set) => ({
       }
       if (Array.isArray(c._delete)) {
         for (const it of c._delete as { type: string; id: number | string }[]) {
+          // Interaction subpanel removed (Room.qml:774).
+          if (it?.type === 'Interaction') { interaction = null; continue }
           const target = (it.type === 'CardItem' ? cards : it.type === 'Photo' ? photos : it.type === 'SkillButton' ? skills : null) as Record<string | number, ItemState> | null
           if (target) delete target[it.id]
         }
@@ -84,17 +118,12 @@ export const useInteractionStore = create<InteractionState>((set) => ({
         const sk = (c.SpecialSkills[0] as { skills?: string[] }).skills
         specialSkills = Array.isArray(sk) ? sk : []
       }
-      // Prompt: only a NON-EMPTY _prompt updates the bar (RoomLogic.js:1567
-      // `if (uiUpdate["_prompt"]) …` — truthy guard). The ui_emu handler emits an
-      // empty _prompt for the no-explicit-prompt case (response_card.lua
-      // original_prompt = prompt or ""); dropping it lets the request command's
-      // default prompt (vmStore defaultPrompt) stand, exactly as in QML.
       const prompt = typeof c._prompt === 'string' && c._prompt ? c._prompt : s.prompt
-      return { active: true, prompt, cards, photos, buttons, skills, specialSkills }
+      return { active: true, prompt, cards, photos, buttons, skills, specialSkills, interaction }
     })
   },
 
   setPrompt: (prompt) => set({ active: true, prompt }),
 
-  clear: () => set({ active: false, prompt: '', cards: {}, photos: {}, buttons: {}, skills: {}, specialSkills: [] }),
+  clear: () => set({ active: false, prompt: '', cards: {}, photos: {}, buttons: {}, skills: {}, specialSkills: [], interaction: null }),
 }))

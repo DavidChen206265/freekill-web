@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react'
 import { useGameStore } from '../stores/gameStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
+import type { InteractionSpec } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { CountdownBar } from './CountdownBar.js'
 import { PromptText } from './PromptText.js'
@@ -21,6 +22,7 @@ export function Dashboard() {
   const buttons = useInteractionStore((s) => s.buttons)
   const skillStates = useInteractionStore((s) => s.skills)
   const specialSkills = useInteractionStore((s) => s.specialSkills)
+  const interaction = useInteractionStore((s) => s.interaction)
   const interact = useVmStore((s) => s.interact)
 
   // Which SpecialSkills radio is checked (Room.qml RadioButton: index 0 default).
@@ -98,6 +100,15 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* Dynamic SkillInteraction subpanel (Room.qml:781-836). Renders the active
+          combo/spin/checkbox/cardname widget; the pick routes back through the
+          ui_emu loop: interact("Interaction","1","update",value). */}
+      {active && interaction && (
+        <div style={styles.interaction}>
+          <InteractionPanel key={interaction.type} spec={interaction} onUpdate={(v) => void interact('Interaction', '1', 'update', v)} />
+        </div>
+      )}
+
       {/* skill buttons (bottom-right; hand cards are bottom-left via CardLayer).
           SkillArea.qml groups by classification: active (ActiveSkill/ViewAsSkill →
           clickable) vs notactive (locked-style, passive). limit/wake/quest skills
@@ -134,6 +145,66 @@ function freqLabel(f: string): string {
   return f === 'limit' ? '限' : f === 'wake' ? '觉' : f === 'quest' ? '任' : ''
 }
 
+// Dynamic SkillInteraction widget (SkillInteraction/*.qml). Each subtype reports
+// its value via onUpdate → interact("Interaction","1","update",value). Dispatched
+// to a dedicated sub-component so React hooks stay unconditional per subtype:
+//   combo/cardname : a button cycling all_choices (value = chosen string)
+//   spin           : −/value/+ stepper in [from,to] (value = number)
+//   checkbox       : toggle chips, min_num..max_num (value = string[])
+function InteractionPanel({ spec, onUpdate }: { spec: InteractionSpec; onUpdate: (v: unknown) => void }) {
+  if (spec.type === 'combo' || spec.type === 'cardname') return <ComboInteraction spec={spec} onUpdate={onUpdate} />
+  if (spec.type === 'spin') return <SpinInteraction spec={spec} onUpdate={onUpdate} />
+  if (spec.type === 'checkbox') return <CheckInteraction spec={spec} onUpdate={onUpdate} />
+  // custom (extension QML) — not supported in the web port; render nothing.
+  return null
+}
+
+function ComboInteraction({ spec, onUpdate }: { spec: InteractionSpec; onUpdate: (v: unknown) => void }) {
+  const all = spec.all_choices ?? spec.choices ?? []
+  const [val, setVal] = useState<string>(spec.default ?? all[0] ?? '')
+  useEffect(() => { onUpdate(val) }, [])  // report the initial default (QML clicked())
+  const cycle = () => {
+    if (all.length < 2) return
+    const next = all[(all.indexOf(val) + 1) % all.length] ?? val
+    setVal(next); onUpdate(next)
+  }
+  return <button style={styles.interactBtn} onClick={cycle}>{tr(val)}</button>
+}
+
+function SpinInteraction({ spec, onUpdate }: { spec: InteractionSpec; onUpdate: (v: unknown) => void }) {
+  const from = spec.from ?? 0
+  const to = spec.to ?? 0
+  const [val, setVal] = useState<number>(Number(spec.default) || from)
+  useEffect(() => { onUpdate(val) }, [])
+  const step = (d: number) => { const n = Math.min(to, Math.max(from, val + d)); if (n !== val) { setVal(n); onUpdate(n) } }
+  return (
+    <div style={styles.spin}>
+      <button style={styles.spinBtn} disabled={val <= from} onClick={() => step(-1)}>−</button>
+      <span style={styles.spinVal}>{val}</span>
+      <button style={styles.spinBtn} disabled={val >= to} onClick={() => step(1)}>+</button>
+    </div>
+  )
+}
+
+function CheckInteraction({ spec, onUpdate }: { spec: InteractionSpec; onUpdate: (v: unknown) => void }) {
+  const all = spec.all_choices ?? spec.choices ?? []
+  const max = spec.max_num ?? all.length
+  const [picked, setPicked] = useState<string[]>([])
+  const toggle = (c: string) => setPicked((cur) => {
+    const next = cur.includes(c) ? cur.filter((x) => x !== c) : (cur.length >= max ? cur : [...cur, c])
+    onUpdate(next)
+    return next
+  })
+  return (
+    <div style={styles.checkRow}>
+      {all.map((c) => (
+        <button key={c} onClick={() => toggle(c)}
+          style={{ ...styles.checkChip, ...(picked.includes(c) ? styles.specialOn : {}) }}>{tr(c)}</button>
+      ))}
+    </div>
+  )
+}
+
 function okBtn(id: string, label: string, st: { enabled: boolean } | undefined, onClick: () => void) {
   if (!st) return null
   return (
@@ -165,6 +236,15 @@ const styles: Record<string, React.CSSProperties> = {
   specialBtn: { display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: '1px solid #888', background: '#2a2723', color: '#e8d8a8', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' },
   specialOn: { background: '#d4af37', color: '#222', borderColor: '#f1c40f' },
   radioDot: { fontSize: 11 },
+  // Dynamic SkillInteraction subpanel — placed above the OK/Cancel row (like the
+  // QML skillInteraction Loader, which sits in the controls strip).
+  interaction: { position: 'absolute', left: '50%', bottom: 158, transform: 'translateX(-50%)', display: 'flex', gap: 6, background: 'rgba(238,238,238,.55)', borderRadius: 8, padding: '4px 6px', pointerEvents: 'auto' },
+  interactBtn: { padding: '6px 16px', borderRadius: 6, border: '1px solid #888', background: '#2a2723', color: '#e8d8a8', fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' },
+  spin: { display: 'flex', alignItems: 'center', gap: 8 },
+  spinBtn: { width: 28, height: 28, borderRadius: 6, border: '1px solid #888', background: '#2a2723', color: '#e8d8a8', fontSize: 16, cursor: 'pointer' },
+  spinVal: { color: '#fff', fontSize: 16, minWidth: 24, textAlign: 'center' },
+  checkRow: { display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 420 },
+  checkChip: { padding: '6px 12px', borderRadius: 6, border: '1px solid #888', background: '#2a2723', color: '#e8d8a8', fontSize: 13, cursor: 'pointer' },
   skills: { position: 'absolute', right: 195, bottom: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', maxHeight: 140, flexWrap: 'wrap', pointerEvents: 'auto' },
   skill: { padding: '6px 12px', borderRadius: 6, border: '1px solid #7a6a3b', background: '#3a3320', color: '#e8d8a8', fontSize: 13, cursor: 'pointer' },
   skillSelected: { background: '#d4af37', color: '#222', borderColor: '#f1c40f' },

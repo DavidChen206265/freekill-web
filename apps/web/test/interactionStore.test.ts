@@ -79,4 +79,23 @@ describe('interactionStore.applyChange', () => {
     expect(s.prompt).toBe('')
     expect(Object.keys(s.buttons)).toHaveLength(0)
   })
+
+  it('consumes the dynamic Interaction subpanel from _new and clears it on _delete', () => {
+    // M4 I-4: Room.qml:781 — a _new item of type "Interaction" carries
+    // { spec:{type,...}, skill_name }; _delete of type "Interaction" removes it.
+    const st = useInteractionStore.getState()
+    st.applyChange({ _new: [{ type: 'Interaction', data: { spec: { type: 'combo', choices: ['a', 'b'], all_choices: ['a', 'b'], default: 'a' }, skill_name: 'zhiheng' } }] })
+    let s = useInteractionStore.getState()
+    expect(s.interaction).not.toBeNull()
+    expect(s.interaction!.type).toBe('combo')
+    expect(s.interaction!.skill).toBe('zhiheng')
+    expect(s.interaction!.all_choices).toEqual(['a', 'b'])
+    // a later change without an Interaction _delete leaves it intact
+    st.applyChange({ CardItem: [{ id: 5, enabled: true }] })
+    expect(useInteractionStore.getState().interaction).not.toBeNull()
+    // _delete of type Interaction removes it
+    st.applyChange({ _delete: [{ type: 'Interaction', id: '1' }] })
+    s = useInteractionStore.getState()
+    expect(s.interaction).toBeNull()
+  })
 })
