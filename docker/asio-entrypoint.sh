@@ -6,9 +6,12 @@
 set -e
 cd /app
 
-# server/ (users.db, game.db, RSA keys) is a mounted volume; asio creates files on
-# first run. Ensure it exists.
+# server/ (users.db, game.db, RSA keys) is a mounted volume; asio creates the DBs
+# on first run from the init scripts, which must be present in server/. Seed them
+# from the image's staging dir if the volume doesn't have them yet (they're static).
 mkdir -p server
+[ -f server/init.sql ] || cp server-init/init.sql server/init.sql
+[ -f server/gamedb_init.sql ] || cp server-init/gamedb_init.sql server/gamedb_init.sql
 
 PIPE=/tmp/fk-asio.cmds
 rm -f "$PIPE"

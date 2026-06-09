@@ -17,13 +17,13 @@ RUN pnpm install --frozen-lockfile \
  && pnpm --filter @freekill-web/protocol build \
  && pnpm --filter @freekill-web/gateway build
 
-# ---- runtime: prune dev deps, keep the built workspace ----
+# ---- runtime: run from the built workspace ----
+# (We keep the full workspace node_modules rather than pruning — pnpm 10's --prod
+# prune wants a TTY/CI flag and the gateway is a single small service, so the size
+# saving isn't worth the fragility.)
 FROM node:22-slim AS runtime
-RUN corepack enable
 WORKDIR /repo/freekill-web
 COPY --from=build /repo/freekill-web ./
-# Drop devDependencies to slim the image (keeps workspace links intact).
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts || true
 WORKDIR /repo/freekill-web/apps/gateway
 EXPOSE 9528
 # ASIO_HOST etc. from the environment (docker-compose).

@@ -10,6 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Deps per memory asio-wsl-runtime: all find_package()'d, no network pulls at build.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git g++ cmake pkg-config make \
+      libboost-dev libboost-system-dev \
       libasio-dev libssl-dev libcbor-dev nlohmann-json3-dev libsqlite3-dev \
       libgit2-dev libreadline-dev libspdlog-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -27,6 +28,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # forks `lua5.4` to run the game logic).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libssl-dev libsqlite3-dev libgit2-dev libreadline-dev libspdlog-dev libcbor-dev \
+      libboost-system-dev \
       lua5.4 lua-socket lua-filesystem \
       ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -39,6 +41,12 @@ COPY FreeKill-release/packages/freekill-core ./packages/freekill-core
 COPY FreeKill-release/packages/packages.db ./packages/packages.db
 COPY FreeKill-release/packages/init.sql ./packages/init.sql
 COPY freekill-web/docker/freekill.server.config.json ./freekill.server.config.json
+# DB init scripts asio needs in server/ to create users.db (server/init.sql,
+# c-wrapper.h:13) and game.db (server/gamedb_init.sql, server.cpp:109). server/ is
+# a VOLUME (an empty mount would shadow image content), so stage these in a
+# non-volume dir; the entrypoint seeds them into server/ on first run.
+COPY FreeKill-release/server/init.sql ./server-init/init.sql
+COPY FreeKill-release/server/gamedb_init.sql ./server-init/gamedb_init.sql
 
 # server/ holds users.db, game.db and the RSA keypair — asio creates them on first
 # run and they MUST persist across restarts (accounts, stats, identity). Mount a
