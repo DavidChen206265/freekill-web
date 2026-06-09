@@ -59,6 +59,7 @@ export class ClientVm {
   private fnPlayerSkills: ((id: number) => string) | null = null
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
+  private fnChangeSelf: ((pid: number) => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -319,6 +320,16 @@ export class ClientVm {
         local cap = (ClientInstance and ClientInstance.capacity) or 0
         return json.encode({ capacity = cap })
       end
+      -- Observer perspective switch (RoomPage.qml:512 → client.lua changeSelf): rebind
+      -- the VM global Self to player pid and emit notifyUI("ChangeSelf", pid). Purely
+      -- client-side (no server round-trip); observers see everything. After this the
+      -- VM mirror's per-player isSelf flips, so a readPlayers re-sync re-rotates seats.
+      function __fkChangeSelf(pid)
+        local ok = pcall(function()
+          if ClientInstance and ClientInstance.changeSelf then ClientInstance:changeSelf(pid) end
+        end)
+        return json.encode({ ok = ok })
+      end
     `)
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
@@ -336,6 +347,7 @@ export class ClientVm {
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
     this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
+    this.fnChangeSelf = lua.global.get('__fkChangeSelf') as typeof this.fnChangeSelf
 
     return {
       mountFiles: mount.files,
@@ -399,6 +411,14 @@ export class ClientVm {
   resetClientLua(): { capacity: number } {
     if (!this.fnResetClient) return { capacity: 0 }
     try { return JSON.parse(this.fnResetClient()) as { capacity: number } } catch { return { capacity: 0 } }
+  }
+
+  /** Observer perspective switch: rebind VM Self to `pid` (client.lua changeSelf).
+   *  Emits notifyUI("ChangeSelf", pid); caller should re-sync players afterward so
+   *  seats re-rotate around the new viewpoint. */
+  changeSelf(pid: number): boolean {
+    if (!this.fnChangeSelf) return false
+    try { return !!(JSON.parse(this.fnChangeSelf(pid)) as { ok: boolean }).ok } catch { return false }
   }
 
   /** Batch-read card faces (cid -> {name,number,suit,color,type,...}). */

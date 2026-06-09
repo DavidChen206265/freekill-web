@@ -41,6 +41,10 @@ interface VmState {
   interact: (elemType: string, id: string | number, action: string, data: unknown) => Promise<void>
   setServerSender: (fn: (command: string, data: unknown) => void) => void
   setServerReply: (fn: (data: unknown) => void) => void
+  /** Re-read the VM player mirror into gameStore (re-rotates seats around Self). */
+  refreshPlayers: () => Promise<void>
+  /** Observer: switch viewpoint to player `pid` (VM changeSelf + re-sync). */
+  switchViewpoint: (pid: number) => Promise<void>
   reset: () => void
 }
 
@@ -140,6 +144,19 @@ export const useVmStore = create<VmState>((set, get) => ({
             if (get().vm && keys.length > 0) registerTranslations(get().vm!.translate(keys))
           }
           useInteractionStore.getState().applyChange(e.data)
+          // Expand-pile cards (active_skill expandPile, e.g. 遗计) arrive as _new
+          // CardItems with ui_data.reason="expand"; they're not in any cardStore area
+          // so feed()'s face fetch misses them. Fetch their faces now so CardLayer can
+          // render them face-up.
+          const change = e.data as { _new?: { type?: string; data?: { id?: number }; ui_data?: { reason?: string } }[] }
+          if (get().vm && Array.isArray(change?._new)) {
+            const expandCids = change._new
+              .filter((it) => it?.type === 'CardItem' && it.ui_data?.reason === 'expand' && it.data?.id !== undefined)
+              .map((it) => Number(it.data!.id))
+            const cached = useCardFaceStore.getState().faces
+            const need = expandCids.filter((c) => c > 0 && !cached[c])
+            if (need.length > 0) useCardFaceStore.getState().merge(get().vm!.readCards(need))
+          }
         }
         else if (e.command === 'AskForSkillInvoke') {
           // ui_emu request (ReqInvoke OK/Cancel via UpdateRequestUI; invoke.lua sets
@@ -200,6 +217,12 @@ export const useVmStore = create<VmState>((set, get) => ({
         }
         else if (e.command === 'GameLog') useLogStore.getState().push(String(e.data ?? ''))
         else if (e.command === 'ShowToast') useLogStore.getState().showToast(String(e.data ?? ''))
+        else if (e.command === 'ChangeSelf') {
+          // Observer switched viewpoint (client.lua changeSelf → notifyUI ChangeSelf).
+          // The VM's Self is already rebound; re-read the mirror so isSelf flips and
+          // gameStore re-rotates seats around the new viewpoint (RoomLogic.js:1550).
+          void get().refreshPlayers()
+        }
         else if (e.command === 'MoveFocus') {
           // [focuses[], command, timeout?]. Replaces the focus set (cancelAllFocus
           // then set). Photo shows a per-player thinking bar + "<command> thinking..".
@@ -374,6 +397,26 @@ export const useVmStore = create<VmState>((set, get) => ({
   },
 
   setServerReply: (fn) => set({ serverReply: fn }),
+
+  refreshPlayers: async () => {
+    const vm = get().vm
+    if (!vm) return
+    try {
+      const players = await vm.readPlayers()
+      useGameStore.getState().syncPlayers(players)
+      useGameStore.getState().setSelfSkills(vm.readSkills())
+    } catch (err) {
+      console.error('[vm] refreshPlayers threw:', err)
+    }
+  },
+
+  switchViewpoint: async (pid) => {
+    const vm = get().vm
+    if (!vm) return
+    // changeSelf rebinds VM Self + emits notifyUI("ChangeSelf") → the ChangeSelf
+    // branch calls refreshPlayers. Also refresh here in case the notify is swallowed.
+    if (vm.changeSelf(pid)) await get().refreshPlayers()
+  },
 
   reset: () => {
     get().vm?.close()

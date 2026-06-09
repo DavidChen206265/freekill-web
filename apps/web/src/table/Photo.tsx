@@ -6,6 +6,7 @@
 // block + name when a portrait isn't available. Data from gameStore (VM mirror).
 
 import type { GamePlayer } from '../stores/gameStore.js'
+import { useGameStore } from '../stores/gameStore.js'
 import { seatPosition, PHOTO_WIDTH, PHOTO_HEIGHT } from './seatLayout.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
@@ -34,12 +35,17 @@ export function Photo({ player, playerNum, isSelf }: {
   const generals = useCardFaceStore((s) => s.generals)
   const targetState = useInteractionStore((s) => s.photos[player.id])
   const interact = useVmStore((s) => s.interact)
+  const observing = useGameStore((s) => s.observing)
+  const switchViewpoint = useVmStore((s) => s.switchViewpoint)
 
   const ext = (name: string) => generals[name]?.extension
   const hasGeneral = !!player.general && player.general !== ''
   const selectable = !!targetState && (targetState.enabled || targetState.selected)
   const onClick = () => {
     if (lp.consumeFired()) return // a long-press just opened detail — skip selection
+    // Observer: clicking a photo switches the viewing perspective to that player
+    // (RoomPage.qml:512 observer changeSelf). Observers get no target requests.
+    if (observing) { void switchViewpoint(player.id); return }
     if (!selectable) return
     void interact('Photo', player.id, 'click', { selected: !targetState?.selected })
   }

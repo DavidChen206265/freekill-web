@@ -14,6 +14,7 @@ import { useVmStore } from '../stores/vmStore.js'
 import { resolveAreaBox, CARD_W, CARD_H } from './areas.js'
 import { CardFaceView } from './CardFaceView.js'
 import { chosenPic } from './skin.js'
+import { tr } from '../i18n/zh.js'
 
 const GO_BACK_MS = 500
 const EASE_OUT_QUAD = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -28,6 +29,7 @@ export function CardLayer() {
   const seatOrder = useGameStore((s) => s.seatOrder)
   const selfId = useGameStore((s) => s.selfId)
   const cardStates = useInteractionStore((s) => s.cards)
+  const expandCards = useInteractionStore((s) => s.expandCards)
   const interact = useVmStore((s) => s.interact)
 
   const nodeRefs = useRef(new Map<number, HTMLDivElement>())
@@ -41,6 +43,9 @@ export function CardLayer() {
   }
 
   const targets = new Map<number, Target>()
+  // Expand-pile cards (遗计 etc., active_skill.lua expandPile): not in any area, but
+  // QML injects them into the hand area with a footnote. Append them to self's hand.
+  const expandIds = Object.keys(expandCards).map(Number)
   for (const [key, ids] of Object.entries(areas) as [AreaKey, number[]][]) {
     // Equip/judge/special cards belong INSIDE the Photo (small icon strips), not
     // as full floating cards on the stage — they're rendered there in slice 6.
@@ -51,19 +56,36 @@ export function CardLayer() {
     if (key.startsWith('hand:') && Number(key.slice(5)) !== selfId) continue
     const box = resolveAreaBox(key, playerIndex, playerNum)
     if (!box) continue
-    const n = ids.length
+    // Append expand-pile cards after self's real hand cards (QML hand-area inject).
+    const isSelfHand = key.startsWith('hand:') && Number(key.slice(5)) === selfId
+    const layoutIds = isSelfHand && expandIds.length > 0 ? [...ids, ...expandIds.filter((c) => !ids.includes(c))] : ids
+    const n = layoutIds.length
     // ItemArea-style: lay out left→right, shrink spacing if overflow.
     const span = Math.max(0, box.w - CARD_W)
     const step = n > 1 ? Math.min(CARD_W + 6, span / (n - 1)) : 0
-    ids.forEach((cid, i) => {
+    layoutIds.forEach((cid, i) => {
       const sel = cardStates[cid]?.selected
       targets.set(cid, {
         x: box.x + step * i,
         // Selected hand cards rise 20px (ItemArea.updateCardPosition origY-=20).
         y: box.y - (sel ? 20 : 0),
-        faceUp: known[cid] ?? false,
+        faceUp: known[cid] ?? (expandCards[cid] ? true : false),
       })
     })
+  }
+  // If self has no hand area yet but there ARE expand cards, still render them in a
+  // fallback hand box so the request is completable.
+  if (expandIds.length > 0 && !expandIds.some((c) => targets.has(c))) {
+    const box = resolveAreaBox(`hand:${selfId}` as AreaKey, playerIndex, playerNum)
+    if (box) {
+      const n = expandIds.length
+      const span = Math.max(0, box.w - CARD_W)
+      const step = n > 1 ? Math.min(CARD_W + 6, span / (n - 1)) : 0
+      expandIds.forEach((cid, i) => {
+        const sel = cardStates[cid]?.selected
+        targets.set(cid, { x: box.x + step * i, y: box.y - (sel ? 20 : 0), faceUp: true })
+      })
+    }
   }
 
   // Animate every card from its last position to the new target on moveSeq change.
@@ -117,6 +139,8 @@ export function CardLayer() {
             }}
           >
             <CardFaceView cid={cid} faceUp={t.faceUp} width={CARD_W} height={CARD_H} />
+            {/* expand-pile footnote (active_skill expandPile, e.g. 遗计's drawn cards) */}
+            {expandCards[cid]?.footnote && <span style={styles.footnote}>{tr(expandCards[cid]!.footnote!)}</span>}
             {/* selected: chosen.png centered low (BasicCard chosen, y:90 scale 1.25). */}
             {st?.selected && <img src={chosenPic()} alt="" style={styles.chosen} draggable={false} />}
             {/* unselectable: a translucent black overlay (BasicCard disable rect, not
@@ -139,4 +163,6 @@ const styles: Record<string, React.CSSProperties> = {
   chosen: { position: 'absolute', left: '50%', top: `${(90 / 130) * 100}%`, transform: 'translateX(-50%) scale(1.25)', zIndex: 1, pointerEvents: 'none' },
   // BasicCard disable rect: translucent black over the whole card (z:2).
   disable: { position: 'absolute', inset: 0, borderRadius: 6, background: 'rgba(0,0,0,0.5)', opacity: 0.7, zIndex: 2, pointerEvents: 'none' },
+  // expand-pile footnote (CardItem.footnote): a label strip at the card bottom.
+  footnote: { position: 'absolute', left: 0, right: 0, bottom: 0, fontSize: 10, fontWeight: 700, color: '#E4D5A0', textAlign: 'center', background: 'rgba(0,0,0,.55)', borderRadius: '0 0 6px 6px', zIndex: 3, pointerEvents: 'none' },
 }

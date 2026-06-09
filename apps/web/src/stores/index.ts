@@ -7,6 +7,7 @@ import type { Envelope, NotifyEnvelope, RequestEnvelope } from '@freekill-web/pr
 import { GatewayClient, type GatewayStatus, type LoginCredentials } from '../net/gatewayClient.js'
 import { useVmStore } from './vmStore.js'
 import { usePopupStore } from './popupStore.js'
+import { useGameStore } from './gameStore.js'
 import { isRoomBootstrap } from './roomRouting.js'
 
 // ---- connection ----
@@ -79,6 +80,12 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
   }
 
   const doConnect = (url: string, creds: LoginCredentials) => {
+    // Guard against duplicate connections (React StrictMode double-invokes the
+    // mount effect in dev, and reconnect could overlap a manual connect): if a WS
+    // is already connecting or online, don't open a second one — that floods the
+    // gateway's per-IP login rate limit and gets us 4029'd on refresh.
+    const cur = get()
+    if (cur.client && (cur.status === 'connecting' || cur.status === 'logging-in' || cur.status === 'online')) return
     get().client?.disconnect()
     const client = new GatewayClient({
       url,
@@ -88,8 +95,12 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           reconnectTries = 0
           set({ reconnecting: false })
         }
-        // An unexpected close (not an explicit logout) triggers auto-reconnect.
-        if (status === 'closed' && !intentionalClose) scheduleReconnect()
+        // Rate-limited (4029) or auth-failed closes must NOT auto-reconnect — that
+        // perpetuates the flood. Only an UNEXPECTED transport close retries.
+        const limited = typeof detail === 'string' && (detail.includes('4029') || detail.includes('too many'))
+        if (status === 'failed' && limited) { set({ reconnecting: false }); return }
+        // An unexpected close (not an explicit logout, not rate-limit) reconnects.
+        if (status === 'closed' && !intentionalClose && !limited) scheduleReconnect()
       },
       onEnvelope: (env) => routeEnvelope(env),
     })
@@ -261,6 +272,10 @@ function routeEnvelope(env: Envelope): void {
   // players already in the room).
   if (env.kind === 'notify' && isRoomBootstrap((env as NotifyEnvelope).command)) {
     inRoom = true
+    // Observe = watching as an observer (can switch viewpoint, gets no requests).
+    // Reconnect/EnterRoom = playing. Track it so the table can offer perspective
+    // switching + skip player-only affordances.
+    useGameStore.getState().setObserving((env as NotifyEnvelope).command === 'Observe')
     useLobbyStore.setState({ enteredRoomId: -1 })
     feedChain = feedChain
       .then(() => useVmStore.getState().bootIfNeeded())

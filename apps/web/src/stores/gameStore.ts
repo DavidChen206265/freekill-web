@@ -49,6 +49,9 @@ interface GameState {
   started: boolean
   capacity: number
   selfId?: number
+  /** True when watching as an observer (entered via ObserveRoom). Observers can
+   *  switch viewpoint (changeSelf) and never receive interaction requests. */
+  observing: boolean
   /** Self's visible skills with classification (from VM GetMySkills+GetSkillData). */
   selfSkills: SkillInfo[]
   /** GameOver winner roles (+-joined), set when the game ends; '' = draw. */
@@ -57,6 +60,7 @@ interface GameState {
   /** Replace player state from the VM's authoritative mirror (includes Self). */
   syncPlayers: (players: VmPlayerLike[], started?: boolean) => void
   setSelfSkills: (skills: SkillInfo[]) => void
+  setObserving: (observing: boolean) => void
   resetGame: () => void
   /** Back-to-room after GameOver: clear game flags + winner but KEEP the roster,
    *  set the (post-ResetClientLua) capacity so WaitingRoom can render seats. */
@@ -112,6 +116,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   seatOrder: [],
   started: false,
   capacity: 0,
+  observing: false,
   selfSkills: [],
 
   // The ROSTER (players/seat/general/hp/...) is owned by syncPlayers, which reads
@@ -156,8 +161,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setSelfSkills: (skills) => set({ selfSkills: skills }),
+  setObserving: (observing) => set({ observing }),
 
-  resetGame: () => set({ players: {}, seatOrder: [], started: false, capacity: 0, selfSkills: [], winner: undefined, selfId: get().selfId }),
+  resetGame: () => set({ players: {}, seatOrder: [], started: false, capacity: 0, observing: false, selfSkills: [], winner: undefined, selfId: get().selfId }),
 
   // Back to waiting room: drop the game-over banner + started flag and reset the
   // in-game roster props, but DON'T wipe players (the caller re-syncs them from the

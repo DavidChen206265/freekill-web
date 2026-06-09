@@ -49,6 +49,12 @@ interface InteractionState {
   skills: Record<string, ItemState>
   specialSkills: string[]
   interaction: InteractionSpec | null
+  // Expand-pile cards (active_skill.lua expandPile → addItem reason="expand"): cards
+  // NOT in any normal area (the drawn-but-not-yet-owned cards of e.g. 遗计 yiji, or a
+  // private pile). They arrive as _new CardItems with ui_data.reason="expand" and
+  // must be rendered as clickable cards (QML Dashboard.qml injects them into the
+  // hand area with a footnote). Keyed by cid → footnote. Removed on _delete (retract).
+  expandCards: Record<number, { footnote?: string }>
   applyChange: (change: unknown) => void
   /** Set just the prompt (e.g. AskForSkillInvoke pushes its prompt separately). */
   setPrompt: (prompt: string) => void
@@ -56,6 +62,7 @@ interface InteractionState {
 }
 
 type ChangeItem = { id: number | string; enabled?: boolean; selected?: boolean; state?: string }
+type UiData = { reason?: string; footnote?: string }
 
 function mergeItems(into: Record<string | number, ItemState>, arr: unknown): void {
   if (!Array.isArray(arr)) return
@@ -79,6 +86,7 @@ export const useInteractionStore = create<InteractionState>((set) => ({
   skills: {},
   specialSkills: [],
   interaction: null,
+  expandCards: {},
 
   applyChange: (change) => {
     const c = change as Record<string, unknown>
@@ -88,10 +96,11 @@ export const useInteractionStore = create<InteractionState>((set) => ({
       const photos = { ...s.photos }
       const buttons = { ...s.buttons }
       const skills = { ...s.skills }
+      const expandCards = { ...s.expandCards }
       let interaction = s.interaction
-      // _new items seed initial state (each carries {type, data}).
+      // _new items seed initial state (each carries {type, data, ui_data}).
       if (Array.isArray(c._new)) {
-        for (const it of c._new as { type: string; data: ChangeItem & { spec?: InteractionSpec; skill_name?: string } }[]) {
+        for (const it of c._new as { type: string; data: ChangeItem & { spec?: InteractionSpec; skill_name?: string }; ui_data?: UiData }[]) {
           // Interaction subpanel (Room.qml:781): data = { spec, skill_name }.
           if (it?.type === 'Interaction' && it.data?.spec) {
             interaction = { ...it.data.spec, skill: it.data.skill_name ?? it.data.spec.skill ?? '' }
@@ -100,14 +109,22 @@ export const useInteractionStore = create<InteractionState>((set) => ({
           if (!it?.data || it.data.id === undefined) continue
           const target = (it.type === 'CardItem' ? cards : it.type === 'Photo' ? photos : it.type === 'SkillButton' ? skills : it.type === 'Button' ? buttons : null) as Record<string | number, ItemState> | null
           if (target) target[it.data.id] = { enabled: !!it.data.enabled, selected: it.data.selected, state: it.data.state }
+          // Expand-pile card (active_skill.lua expandPile, ui_data.reason="expand"):
+          // a selectable card with no normal area → render it (with footnote) so the
+          // player can pick it. Keyed by cid (CardItem id is the cid).
+          if (it.type === 'CardItem' && it.ui_data?.reason === 'expand') {
+            expandCards[Number(it.data.id)] = { footnote: it.ui_data.footnote }
+          }
         }
       }
       if (Array.isArray(c._delete)) {
-        for (const it of c._delete as { type: string; id: number | string }[]) {
+        for (const it of c._delete as { type: string; id: number | string; ui_data?: UiData }[]) {
           // Interaction subpanel removed (Room.qml:774).
           if (it?.type === 'Interaction') { interaction = null; continue }
           const target = (it.type === 'CardItem' ? cards : it.type === 'Photo' ? photos : it.type === 'SkillButton' ? skills : null) as Record<string | number, ItemState> | null
           if (target) delete target[it.id]
+          // Expand-pile retract (active_skill.lua retractPile): drop the expand card.
+          if (it.type === 'CardItem') delete expandCards[Number(it.id)]
         }
       }
       mergeItems(cards, c.CardItem)
@@ -120,11 +137,11 @@ export const useInteractionStore = create<InteractionState>((set) => ({
         specialSkills = Array.isArray(sk) ? sk : []
       }
       const prompt = typeof c._prompt === 'string' && c._prompt ? c._prompt : s.prompt
-      return { active: true, prompt, cards, photos, buttons, skills, specialSkills, interaction }
+      return { active: true, prompt, cards, photos, buttons, skills, specialSkills, interaction, expandCards }
     })
   },
 
   setPrompt: (prompt) => set({ active: true, prompt }),
 
-  clear: () => set({ active: false, prompt: '', cards: {}, photos: {}, buttons: {}, skills: {}, specialSkills: [], interaction: null }),
+  clear: () => set({ active: false, prompt: '', cards: {}, photos: {}, buttons: {}, skills: {}, specialSkills: [], interaction: null, expandCards: {} }),
 }))

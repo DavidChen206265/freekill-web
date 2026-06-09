@@ -98,4 +98,29 @@ describe('interactionStore.applyChange', () => {
     s = useInteractionStore.getState()
     expect(s.interaction).toBeNull()
   })
+
+  it('captures expand-pile cards from _new (reason=expand) and drops them on _delete', () => {
+    // M4 fix (遗计/yiji): expand_pile cards arrive as _new CardItems with
+    // ui_data.reason="expand" + a footnote; they need a renderable home. CardLayer
+    // reads expandCards to inject them into the hand area.
+    const st = useInteractionStore.getState()
+    st.applyChange({ _new: [
+      { type: 'CardItem', data: { id: 101, enabled: true }, ui_data: { reason: 'expand', footnote: 'yiji' } },
+      { type: 'CardItem', data: { id: 102, enabled: true }, ui_data: { reason: 'expand', footnote: 'yiji' } },
+      { type: 'CardItem', data: { id: 7, enabled: true } }, // a normal hand card, NOT expand
+    ] })
+    let s = useInteractionStore.getState()
+    expect(Object.keys(s.expandCards).map(Number).sort()).toEqual([101, 102])
+    expect(s.expandCards[101]!.footnote).toBe('yiji')
+    expect(s.cards[7]!.enabled).toBe(true) // normal card still tracked as selectable
+    expect(s.cards[101]!.enabled).toBe(true) // expand card also selectable
+    // retract (active_skill retractPile) removes the expand card
+    st.applyChange({ _delete: [{ type: 'CardItem', id: 101, ui_data: { reason: 'retract' } }] })
+    s = useInteractionStore.getState()
+    expect(s.expandCards[101]).toBeUndefined()
+    expect(s.expandCards[102]).toBeDefined()
+    // clear() wipes expandCards
+    st.clear()
+    expect(Object.keys(useInteractionStore.getState().expandCards)).toHaveLength(0)
+  })
 })
