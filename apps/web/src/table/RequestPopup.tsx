@@ -40,6 +40,7 @@ export function RequestPopup() {
   if (active.kind === 'general') return <GeneralBox active={active} resolve={resolve} />
   if (active.kind === 'poxi') return <PoxiBox active={active} resolve={resolve} />
   if (active.kind === 'cardsAndChoice') return <CardsAndChoiceBox active={active} resolve={resolve} />
+  if (active.kind === 'moveBoard') return <MoveBoardBox active={active} resolve={resolve} />
 
   if (active.kind === 'choice') {
     // ChoiceBox.qml: render ALL options (all_choices), enable only those in
@@ -258,6 +259,43 @@ function CardsAndChoiceBox({ active, resolve }: { active: PopupRequest; resolve:
             onClick={() => resolve({ cards: [], choice: opt })}>{tr(opt)}</button>
         ))}
       </div>
+    </Modal>
+  )
+}
+
+// MoveBoardBox (AskForMoveCardInBoard → MoveCardInBoardBox.qml): two sides
+// (sideNames[0]/[1]); each card sits on side positions[i]. Click a card to preview
+// moving it to the OTHER side (only one card movable at a time). OK enabled when a
+// card is picked. Reply { cardId, pos } where pos = the card's ORIGINAL position
+// (room.lua:2990 decides from/to by pos). Click again to deselect.
+function MoveBoardBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const [picked, setPicked] = useState<number | null>(null)
+  useEffect(() => { setPicked(null) }, [active])
+
+  const cards = active.mbCards ?? []
+  const positions = active.mbPositions ?? []
+  const sides = active.mbSideNames ?? ['', '']
+  const origPos = (cid: number) => positions[cards.indexOf(cid)] ?? 0
+  // The previewed side: the picked card shows on the opposite side; others stay.
+  const sideOf = (cid: number) => (picked === cid ? 1 - origPos(cid) : origPos(cid))
+
+  return (
+    <Modal prompt={active.prompt}>
+      {[0, 1].map((side) => (
+        <div key={side} style={styles.group}>
+          <div style={styles.groupName}>{tr(sides[side] ?? '')}</div>
+          <div style={styles.cards}>
+            {cards.filter((cid) => sideOf(cid) === side).map((cid) => (
+              <button key={cid} style={{ ...styles.agCard, ...(picked === cid ? styles.picked : {}) }}
+                onClick={() => setPicked((cur) => (cur === cid ? null : cid))}>
+                <CardFaceView cid={cid} faceUp width={56} height={80} />
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <button style={{ ...styles.ok, ...(picked !== null ? {} : styles.disabled) }} disabled={picked === null}
+        onClick={() => resolve({ cardId: picked, pos: origPos(picked!) })}>确定</button>
     </Modal>
   )
 }

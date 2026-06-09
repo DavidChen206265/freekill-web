@@ -18,7 +18,7 @@ function takerNameFor(pid: number): string {
   return p.general ? tr(p.general) : (p.name || `P${pid}`)
 }
 
-export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice'
+export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice' | 'moveBoard'
 
 export interface CardGroup { name: string; cards: { cid: number; known: boolean }[] }
 export interface ArrangeArea { name: string; capacity: number; limit: number }
@@ -66,6 +66,13 @@ export interface PopupRequest {
   ccCancelOptions?: string[]
   ccFilterSkel?: string
   ccExtra?: unknown
+  // moveBoard (AskForMoveCardInBoard → MoveCardInBoardBox.qml): two sides
+  // (generalNames[0]/[1]); each card sits on side cardsPosition[i] (0/1). Picking a
+  // card "moves" it to the other side; reply { cardId, pos } where pos is the card's
+  // ORIGINAL position (room.lua:2990 uses pos to decide from/to). Single selection.
+  mbCards?: number[]
+  mbPositions?: number[]
+  mbSideNames?: string[]
 }
 
 interface PopupState {
@@ -268,6 +275,20 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           ccExtra: obj.extra_data,
           min: Number(obj.min) || 1,
           max: Number(obj.max) || 1,
+        } })
+        return true
+      }
+      case 'AskForMoveCardInBoard': {
+        // { cards:[cid], cardsPosition:[0|1], generalNames:[s0,s1], playerIds:[id0,id1] }
+        // — MoveCardInBoardBox.qml. Pick one card to move to the opposite side; reply
+        // { cardId, pos } with pos = the card's ORIGINAL position (room.lua:2990).
+        if (!obj) return false
+        set({ active: {
+          kind: 'moveBoard',
+          prompt: '点击移动卡牌',
+          mbCards: (obj.cards as number[]) ?? [],
+          mbPositions: (obj.cardsPosition as number[]) ?? [],
+          mbSideNames: (obj.generalNames as string[]) ?? [],
         } })
         return true
       }

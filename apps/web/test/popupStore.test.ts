@@ -178,4 +178,22 @@ describe('popupStore', () => {
     expect(sent).toEqual([{ cards: [1], choice: '确定' }])
     expect(usePopupStore.getState().active).toBeNull()
   })
+
+  it('AskForMoveCardInBoard → moveBoard popup; resolve replies {cardId,pos}', () => {
+    const sent: unknown[] = []
+    usePopupStore.getState().setReplySender((d) => sent.push(d))
+    const handled = usePopupStore.getState().handle('AskForMoveCardInBoard', {
+      cards: [11, 22], cardsPosition: [0, 1], generalNames: ['caocao', 'liubei'], playerIds: [1, 2],
+    })
+    expect(handled).toBe(true)
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('moveBoard')
+    expect(a.mbCards).toEqual([11, 22])
+    expect(a.mbPositions).toEqual([0, 1])
+    expect(a.mbSideNames).toEqual(['caocao', 'liubei'])
+    // Reply carries the card's ORIGINAL position (pos), not the previewed side.
+    usePopupStore.getState().resolve({ cardId: 11, pos: 0 })
+    expect(sent).toEqual([{ cardId: 11, pos: 0 }])
+    expect(usePopupStore.getState().active).toBeNull()
+  })
 })
