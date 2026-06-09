@@ -19,6 +19,7 @@ import { useLogStore } from './logStore.js'
 import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
 import { registerTranslations, hasTranslation, tr } from '../i18n/zh.js'
+import { log, noteNotify } from '../diag/log.js'
 
 interface VmState {
   vm: ClientVm | null
@@ -122,6 +123,9 @@ export const useVmStore = create<VmState>((set, get) => ({
         // calls roomScene.activate() (RoomLogic.js), which restarts the bar. The
         // ui_emu click loop (UpdateRequestUI) and non-request notifies do NOT.
         if (ACTIVATE_COMMANDS.has(e.command)) useTimerStore.getState().activate()
+        // Whether a popup-style handler claimed this command (used by the unhandled-
+        // notifyUI detector below — a 五谷-class guard).
+        let popupHandled = false
         if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
         else if (e.command === 'DestroyTableCard') useCardStore.getState().destroyTableCards((e.data as number[]) ?? [])
         else if (e.command === 'DestroyTableCardByEvent') useCardStore.getState().destroyTableCardsByEvent(Number(e.data) || 0)
@@ -200,6 +204,7 @@ export const useVmStore = create<VmState>((set, get) => ({
           // The request finished in the VM; send the reply to asio. The gateway
           // stamps the correct requestId (see asio-client/ws-bridge). Leaving the
           // request → notactive (Room.qml finishRequestUI/reply path).
+          log.info('reply', 'ReplyToServer (VM)', e.data)
           get().serverReply?.(e.data)
           useInteractionStore.getState().clear()
           useTimerStore.getState().deactivate()
@@ -222,6 +227,15 @@ export const useVmStore = create<VmState>((set, get) => ({
         }
         else if (e.command === 'GameLog') useLogStore.getState().push(String(e.data ?? ''))
         else if (e.command === 'ShowToast') useLogStore.getState().showToast(String(e.data ?? ''))
+        else if (e.command === 'UpdateCard') {
+          // A card's data changed in place (transform / reveal / virtual filter) —
+          // QML re-fetches GetCardData and resets the face (RoomLogic.js:680-705).
+          // Our cardFaceStore caches faces per cid permanently and feed()'s fetch
+          // skips already-cached cids, so without this the transformed card keeps its
+          // stale face. Force a re-read + overwrite for this cid. data = the cid.
+          const cid = Number(Array.isArray(e.data) ? e.data[0] : e.data)
+          if (get().vm && cid > 0) useCardFaceStore.getState().merge(get().vm!.readCards([cid]))
+        }
         else if (e.command === 'ChangeSelf') {
           // Observer switched viewpoint (client.lua changeSelf → notifyUI ChangeSelf).
           // The VM's Self is already rebound; re-read the mirror so isSelf flips and
@@ -246,7 +260,7 @@ export const useVmStore = create<VmState>((set, get) => ({
           useFocusStore.getState().setFocus(ids, command, timeout)
         }
         // Popup-style requests (AskForGeneral/Choice/cards/AG/arrange) — not ui_emu.
-        else if (usePopupStore.getState().handle(e.command, e.data)) {
+        else if ((popupHandled = usePopupStore.getState().handle(e.command, e.data))) {
           const active = usePopupStore.getState().active
           if (active) {
             // Localize the popup prompt (RoomLogic.js processPrompt()s every box
@@ -291,6 +305,10 @@ export const useVmStore = create<VmState>((set, get) => ({
             }
           }
         }
+        // Detect 五谷-class gaps: any notifyUI no store consumed. popupHandled covers
+        // dynamically-added popup commands; HANDLED_EXPLICIT/MIRROR_DRIVEN cover the
+        // rest (see diag/log.ts). Also feeds the structured comms log.
+        noteNotify(e.command, e.data, popupHandled)
         set((s) => ({
           notifyCounts: { ...s.notifyCounts, [e.command]: (s.notifyCounts[e.command] ?? 0) + 1 },
           recent: [e, ...s.recent].slice(0, RECENT_CAP),
@@ -321,14 +339,17 @@ export const useVmStore = create<VmState>((set, get) => ({
     const raw = (env as NotifyEnvelope | RequestEnvelope).raw
     if (!raw) return
     const isRequest = env.kind === 'request'
+    const bytes = base64ToBytes(raw)
+    log.debug('vm-feed', `${env.command}${isRequest ? ' [req]' : ''} ${bytes.length}B`, env.command)
     // (The operation countdown is driven by CountdownBar off the active-request
     // edge with a fixed 30s window — no per-packet timer wiring here.)
     // A single bad packet must not break the feed chain (which would freeze all
     // subsequent packets). Log it and keep going; still re-sync the roster after.
     try {
-      await vm.feedPacket(env.command, base64ToBytes(raw), isRequest)
+      await vm.feedPacket(env.command, bytes, isRequest)
       set((s) => ({ totalFed: s.totalFed + 1 }))
     } catch (err) {
+      log.error('error', `feedPacket ${env.command} threw`, (err as Error).message)
       console.error(`[vm] feedPacket ${env.command} threw:`, err)
       set({ error: `feedPacket ${env.command}: ${(err as Error).message}` })
     }

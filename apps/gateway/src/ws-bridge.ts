@@ -18,6 +18,7 @@ import {
 } from '@freekill-web/protocol'
 import { AsioClient } from './asio-client.js'
 import type { GatewayConfig } from './config.js'
+import { log as slog } from './log.js'
 
 export interface BridgeHandle {
   wss: WebSocketServer
@@ -80,6 +81,7 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
   wss.on('connection', (ws: WebSocket, req) => {
     const peer = req.socket.remoteAddress ?? '?'
     log(`browser connected from ${peer}`)
+    slog.info('lifecycle', `browser connected from ${peer}`)
     let asio: AsioClient | null = null
     let alive = true
     let loginStarted = false
@@ -96,9 +98,11 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
         try {
           const env = packetToEnvelope(pkt)
           if (uuidForLog) recordLog(uuidForLog, env)
+          const reqId = (env as { requestId?: number }).requestId
+          slog.debug('net-out', `asio→browser ${env.kind} ${(env as { command?: string }).command}${reqId ? ` #${reqId}` : ''}`)
           ws.send(JSON.stringify(env))
         }
-        catch (e) { log('failed to forward packet', (e as Error).message) }
+        catch (e) { slog.error('error', 'failed to forward packet', (e as Error).message); log('failed to forward packet', (e as Error).message) }
       }
 
       // Session reuse: a reconnect with a known uuid means the browser came back
@@ -140,12 +144,13 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
         log(`asio closed: ${reason}`)
         if (alive) ws.close(1011, 'asio connection closed')
       })
-      asio.on('error', (err) => log('asio error', err.message))
+      asio.on('error', (err) => { slog.error('error', 'asio error', err.message); log('asio error', err.message) })
 
       asio
         .connectAndLogin()
         .then((res) => {
           log(`handshake: ok=${res.ok} reason=${res.reason} first=${res.firstLobbyCommand ?? '-'}`)
+          slog.info('lifecycle', `handshake ok=${res.ok} reason=${res.reason} first=${res.firstLobbyCommand ?? '-'}`)
           // Forgive this attempt on success so legit refresh/reconnect cycles don't
           // accumulate toward the per-IP limit (only failures count).
           if (res.ok) forgiveAttempt(peer, attemptStamp)
@@ -170,7 +175,10 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
             if (logs && logs.length > 0) {
               setTimeout(() => {
                 if (!alive || ws.readyState !== ws.OPEN) return
-                try { ws.send(JSON.stringify({ kind: 'notify', command: '__gateway_log_replay', data: logs })) }
+                try {
+                  ws.send(JSON.stringify({ kind: 'notify', command: '__gateway_log_replay', data: logs }))
+                  slog.info('lifecycle', `replayed ${logs.length} war-report lines to uuid=${uuid.slice(0, 8)}…`)
+                }
                 catch { /* ignore */ }
               }, 400)
             }
@@ -216,8 +224,11 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
         const stamped: Envelope = env.kind === 'reply'
           ? { ...env, requestId: env.requestId || asio.getLastRequestId() }
           : env
+        const sReqId = (stamped as { requestId?: number }).requestId
+        slog.debug('net-in', `browser→asio ${stamped.kind} ${(stamped as { command?: string }).command ?? ''}${sReqId ? ` #${sReqId}` : ''}`)
         asio.send(envelopeToPacket(stamped))
       } catch (e) {
+        slog.error('error', 'failed to send to asio', (e as Error).message)
         log('failed to send to asio', (e as Error).message)
       }
     })
@@ -242,10 +253,12 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
         const timer = setTimeout(() => { if (parked.get(uuid)?.asio === a) { parked.delete(uuid); a.close() } }, SESSION_GRACE_MS)
         parked.set(uuid, { asio: a, timer })
         log(`parked asio session uuid=${uuid.slice(0, 8)}… (grace ${SESSION_GRACE_MS}ms)`)
+        slog.info('lifecycle', `parked asio session uuid=${uuid.slice(0, 8)}… (grace ${SESSION_GRACE_MS}ms)`)
       } else {
         a?.close()
       }
       log('browser disconnected')
+      slog.info('lifecycle', 'browser disconnected')
     })
     ws.on('error', (err) => log('ws error', err.message))
 

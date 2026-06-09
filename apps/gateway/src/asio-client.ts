@@ -19,6 +19,7 @@ import {
   type FkPacket,
 } from '@freekill-web/protocol'
 import { encryptPassword } from './rsa.js'
+import { log as slog } from './log.js'
 import type { GatewayConfig } from './config.js'
 
 export interface HandshakeResult {
@@ -127,14 +128,17 @@ export class AsioClient extends EventEmitter {
 
     // Pre-handshake routing.
     if (pkt.command === 'NetworkDelayTest') {
+      slog.debug('lifecycle', 'handshake: got NetworkDelayTest (server pubkey) → sending Setup')
       this.sendSetup(pkt)
       return
     }
     if (LOGIN_FAIL_COMMANDS.has(pkt.command)) {
+      slog.warn('lifecycle', `handshake: login rejected (${pkt.command})`)
       finish({ ok: false, reason: `${pkt.command}` })
       return
     }
     if (LOBBY_OK_COMMANDS.has(pkt.command)) {
+      slog.debug('lifecycle', `handshake: accepted via ${pkt.command}`)
       // Login accepted. Mark done, replay any buffered pre-handshake packets in
       // order, then re-emit this packet as the first real one.
       this.handshakeDone = true

@@ -91,6 +91,23 @@ describe('client VM packet feed', () => {
     expect(Array.isArray(sampleMove.ids)).toBe(true)
     expect(typeof sampleMove.fromArea).toBe('number')
     expect(typeof sampleMove.toArea).toBe('number')
+
+    // 五谷-class coverage gate: EVERY notifyUI command the VM emits while replaying a
+    // real game MUST be classified as consumed (explicit branch / VM-mirror) or known-
+    // deferred (M4 slice V visuals) — never "unhandled". This mirrors the web detector
+    // (apps/web/src/diag/notifyCommands.ts); keep the sets in sync. A new command that
+    // falls through every category is exactly the 五谷 bug class and fails here.
+    const HANDLED_EXPLICIT = new Set(['MoveCards', 'DestroyTableCard', 'DestroyTableCardByEvent', 'UpdateRequestUI', 'AskForSkillInvoke', 'PlayCard', 'AskForUseCard', 'AskForResponseCard', 'AskForUseActiveSkill', 'ReplyToServer', 'CancelRequest', 'GetPlayerHandcards', 'GameLog', 'ShowToast', 'ChangeSelf', 'MoveFocus', 'UpdateCard', 'AskForGeneral', 'AskForChoice', 'AskForChoices', 'AskForCardChosen', 'AskForCardsChosen', 'FillAG', 'AskForAG', 'TakeAG', 'CloseAG', 'AskForGuanxing', 'AskForExchange', 'AskForMoveCardInBoard', 'AskForPoxi', 'AskForCardsAndChoice', 'CustomDialog', 'MiniGame', 'EmptyRequest', 'AskForArrangeCards', 'Setup', 'EnterRoom', 'SetPlayerMark', 'StartGame', 'GameOver'])
+    const MIRROR_DRIVEN = new Set(['PropertyUpdate', 'ArrangeSeats', 'MaxCard', 'AddPlayer', 'RemovePlayer', 'AddNpc', 'AddSkill', 'LoseSkill', 'UpdateSkill', 'UpdateHandcard', 'AddTotalGameTime', 'PlayerRunned', 'EnterLobby', 'Reconnect', 'Observe', 'AddObserver', 'RemoveObserver', 'SetCardMark', 'SetCurrent'])
+    const KNOWN_DEFERRED = new Set(['Animate', 'LogEvent', 'SetBanner', 'SetCardFootnote', 'ShowVirtualCard', 'UpdateLimitSkill', 'ChangeSkin', 'UpdateDrawPile', 'UpdateRoundNum', 'UpdateGameData', 'UpdateMarkArea', 'UpdateMiniGame', 'ServerMessage', 'Chat'])
+    const emitted = [...new Set(feed.map((e) => e.command))]
+    const unclassified = emitted.filter((c) => !HANDLED_EXPLICIT.has(c) && !MIRROR_DRIVEN.has(c) && !KNOWN_DEFERRED.has(c))
+    // Surface the exact offenders if any (so the failure names them).
+    expect(unclassified, `notifyUI commands with no classification (五谷-class gap): ${unclassified.join(', ')}`).toEqual([])
+    // And none should be genuinely unhandled (handled-explicit ∪ mirror covers the
+    // functional ones; deferred is visual-only).
+    const unhandled = emitted.filter((c) => !HANDLED_EXPLICIT.has(c) && !MIRROR_DRIVEN.has(c) && !KNOWN_DEFERRED.has(c))
+    expect(unhandled).toEqual([])
     lua.global.close()
   }, 30_000)
 
@@ -586,6 +603,40 @@ describe('client VM packet feed', () => {
     expect(html).not.toContain('#Damage') // template key was expanded, not left raw
     // Malformed input → "" (caller falls back to the raw string).
     expect(parseLog('not json')).toBe('')
+    lua.global.close()
+  }, 30_000)
+
+  it.skipIf(!ready)('UpdateCard path: readCards re-reads current VM card data (mark) for a cid', async () => {
+    // UpdateCard (client.lua:851) fires when a card's data changes in place (here via
+    // setCardMark). The web fix re-reads readCards([cid]) and OVERWRITES the cached
+    // face. This verifies the VM read reflects the mutated card data, so the overwrite
+    // carries fresh data (not the stale cached face).
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    await lua.doString(`
+      function __fkReadCards(cidsJson) local out={} local ok,cids=pcall(json.decode,cidsJson) if ok then for _,cid in ipairs(cids) do local d=GetCardData(cid) out[tostring(cid)]={name=d.name,number=d.number,suit=d.suit,mark=d.mark or {}} end end return json.encode(out) end
+    `)
+    const readCards = lua.global.get('__fkReadCards') as (j: string) => string
+    await lua.doString(`ClientCallback(ClientInstance,"Setup",cbor.encode({1,"me","caocao",0}),false)`)
+    const cid = await lua.doString(`for _,c in ipairs(Fk.cards) do if c.name=="slash" then return c.id end end`) as number
+    // GetCardData returns mark as an ARRAY of {k,v} for @-prefixed non-zero marks
+    // (client_util.lua:95-102). Before: empty.
+    type Mark = { k: string; v: number }
+    const before = JSON.parse(readCards(JSON.stringify([cid]))) as Record<string, { mark: Mark[] }>
+    expect(before[String(cid)]!.mark.find((m) => m.k === '@test')).toBeUndefined()
+    // Drive the real setCardMark path (what UpdateCard reacts to), then re-read.
+    await lua.doString(`ClientCallback(ClientInstance,"SetCardMark",cbor.encode({${cid},"@test",7}),false)`)
+    const after = JSON.parse(readCards(JSON.stringify([cid]))) as Record<string, { mark: Mark[] }>
+    expect(after[String(cid)]!.mark.find((m) => m.k === '@test')?.v).toBe(7)
     lua.global.close()
   }, 30_000)
 })

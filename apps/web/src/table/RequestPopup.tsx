@@ -33,9 +33,17 @@ export function RequestPopup() {
   // Reset selection whenever a new request appears.
   useEffect(() => { setPickedStr([]); setPickedNum([]) }, [active])
 
+  // Remount the box on each NEW request so a child box can't carry internal state
+  // across two back-to-back requests of the same kind (handle() makes a fresh active
+  // object per request, so its identity is the request boundary). React's async
+  // re-render could otherwise leave a stale box mounted for a frame.
+  const epochRef = useRef({ active: null as unknown, n: 0 })
+  if (epochRef.current.active !== active) { epochRef.current = { active, n: epochRef.current.n + 1 } }
+  const epoch = epochRef.current.n
+
   if (!active) return null
-  if (active.kind === 'ag') return <AgBox active={active} resolveAg={usePopupStore.getState().resolveAg} />
-  if (active.kind === 'arrange') return <ArrangeBox active={active} resolve={resolve} />
+  if (active.kind === 'ag') return <AgBox key={epoch} active={active} resolveAg={usePopupStore.getState().resolveAg} />
+  if (active.kind === 'arrange') return <ArrangeBox key={epoch} active={active} resolve={resolve} />
 
   const min = active.min ?? 1
   const max = active.max ?? 1
@@ -45,10 +53,10 @@ export function RequestPopup() {
   const toggleNum = (c: number) => setPickedNum((cur) =>
     cur.includes(c) ? cur.filter((x) => x !== c) : (max === 1 ? [c] : cur.length >= max ? [...cur.slice(1), c] : [...cur, c]))
 
-  if (active.kind === 'general') return <GeneralBox active={active} resolve={resolve} />
-  if (active.kind === 'poxi') return <PoxiBox active={active} resolve={resolve} />
-  if (active.kind === 'cardsAndChoice') return <CardsAndChoiceBox active={active} resolve={resolve} />
-  if (active.kind === 'moveBoard') return <MoveBoardBox active={active} resolve={resolve} />
+  if (active.kind === 'general') return <GeneralBox key={epoch} active={active} resolve={resolve} />
+  if (active.kind === 'poxi') return <PoxiBox key={epoch} active={active} resolve={resolve} />
+  if (active.kind === 'cardsAndChoice') return <CardsAndChoiceBox key={epoch} active={active} resolve={resolve} />
+  if (active.kind === 'moveBoard') return <MoveBoardBox key={epoch} active={active} resolve={resolve} />
   if (active.kind === 'unsupported') return (
     // CustomDialog/MiniGame fallback: extension QML can't run in the web port, so
     // we don't stall the timer — show the notice and cancel (reply __cancel) so the

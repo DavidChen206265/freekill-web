@@ -6,6 +6,7 @@
 // never touches CBOR — the gateway already decoded inner data to JSON.
 
 import type { Envelope, NotifyEnvelope, ReplyEnvelope } from '@freekill-web/protocol'
+import { log } from '../diag/log.js'
 
 export interface LoginCredentials {
   user: string
@@ -30,6 +31,7 @@ export class GatewayClient {
 
   private setStatus(s: GatewayStatus, detail?: string) {
     this.status = s
+    log.info('lifecycle', `gateway status → ${s}${detail ? ` (${detail})` : ''}`)
     this.opts.onStatus?.(s, detail)
   }
 
@@ -54,6 +56,8 @@ export class GatewayClient {
       let env: Envelope
       try { env = JSON.parse(ev.data as string) as Envelope } catch { return }
       const command = (env as NotifyEnvelope).command
+      const reqId = (env as { requestId?: number }).requestId
+      log.debug('net-in', `${env.kind} ${command}${reqId ? ` #${reqId}` : ''}`, (env as NotifyEnvelope).data)
       if (command === '__gateway_login_ok') { this.setStatus('online'); return }
       if (command === '__gateway_log_replay') {
         // War-report replay after a reconnect (gateway buffered GameLog lines; the
@@ -76,11 +80,13 @@ export class GatewayClient {
 
   /** Send a notify to the server (e.g. RefreshRoomList, Chat, CreateRoom). */
   notify(command: string, data: unknown): void {
+    log.debug('net-out', `notify ${command}`, data)
     this.send({ kind: 'notify', command, data })
   }
 
   /** Send a reply to a server request. */
   reply(requestId: number, data: unknown, command = ''): void {
+    log.info('net-out', `reply #${requestId}${command ? ` ${command}` : ''}`, data)
     this.send({ kind: 'reply', requestId, command, data } as ReplyEnvelope)
   }
 

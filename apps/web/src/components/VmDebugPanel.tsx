@@ -8,6 +8,8 @@ import { useTimerStore } from '../stores/timerStore.js'
 import { useFocusStore } from '../stores/focusStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
 import { sampleMemory, type MemSample } from '../diag/memStats.js'
+import { log, setLogLevel, unhandledCommands } from '../diag/log.js'
+import type { LogLevel } from '@freekill-web/shared'
 
 export function VmDebugPanel() {
   const { booting, booted, error, stats, notifyCounts, recent, totalFed } = useVmStore()
@@ -16,9 +18,19 @@ export function VmDebugPanel() {
   const detailPid = useDetailStore((s) => s.pid)
   const [mem, setMem] = useState<MemSample | null>(null)
   const [sampling, setSampling] = useState(false)
+  const [logLevel, setLevelState] = useState<LogLevel>(log.getLevel())
+  const [logTick, setLogTick] = useState(0) // force re-render to refresh the log view
   const readMem = async () => {
     setSampling(true)
     try { setMem(await sampleMemory()) } finally { setSampling(false) }
+  }
+  const changeLevel = (lvl: LogLevel) => { setLogLevel(lvl); setLevelState(lvl) }
+  const exportLog = () => {
+    const blob = new Blob([log.export()], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `fk-log-${Date.now()}.json`; a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -63,6 +75,35 @@ export function VmDebugPanel() {
         {Object.keys(notifyCounts).length === 0 && <span style={styles.dim}>(暂无)</span>}
       </div>
 
+      <h4 style={styles.h4}>通信日志(net / vm / reply)</h4>
+      {(() => { void logTick; return null })()}
+      <div style={styles.logCtl}>
+        <span style={styles.dim}>console:</span>
+        {(['silent', 'warn', 'info', 'debug'] as LogLevel[]).map((lvl) => (
+          <button key={lvl} onClick={() => changeLevel(lvl)}
+            style={{ ...styles.lvlBtn, ...(logLevel === lvl ? styles.lvlActive : {}) }}>{lvl}</button>
+        ))}
+        <button style={styles.btn} onClick={() => setLogTick((t) => t + 1)}>刷新</button>
+        <button style={styles.btn} onClick={exportLog}>导出 JSON</button>
+        <button style={styles.btn} onClick={() => { log.clear(); setLogTick((t) => t + 1) }}>清空</button>
+      </div>
+      {unhandledCommands().length > 0 ? (
+        <div style={styles.unhandled}>
+          ⚠ 未消费命令(五谷类隐患): {unhandledCommands().join(', ')}
+        </div>
+      ) : (
+        <div style={styles.okBadge}>✓ 无未消费 notifyUI 命令(计 {log.counts['unhandled'] ?? 0})</div>
+      )}
+      <div style={styles.feed}>
+        {log.recent(60).slice().reverse().map((e) => (
+          <div key={e.seq} style={styles.line}>
+            <span style={{ ...styles.catTag, ...(catStyle[e.cat] ?? {}) }}>{e.cat}</span>{' '}
+            <span style={styles.dim}>{e.msg}</span>
+          </div>
+        ))}
+        {log.recent(1).length === 0 && <span style={styles.dim}>(暂无)</span>}
+      </div>
+
       <h4 style={styles.h4}>最近 notifyUI</h4>
       <div style={styles.feed}>
         {recent.map((e, i) => (
@@ -94,4 +135,21 @@ const styles: Record<string, React.CSSProperties> = {
   line: { padding: '2px 0', borderBottom: '1px solid #262630', wordBreak: 'break-all' },
   cmd: { color: '#4ec9b0', fontWeight: 600 },
   btn: { padding: '4px 12px', borderRadius: 5, border: '1px solid #555', background: '#0e639c', color: '#fff', fontSize: 12, cursor: 'pointer', marginBottom: 6 },
+  logCtl: { display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', marginBottom: 6 },
+  lvlBtn: { padding: '2px 8px', borderRadius: 4, border: '1px solid #444', background: '#2a2a30', color: '#bbb', fontSize: 11, cursor: 'pointer' },
+  lvlActive: { background: '#0e639c', color: '#fff', borderColor: '#0e639c' },
+  unhandled: { background: '#5a1d1d', color: '#ffb4a0', borderRadius: 4, padding: '4px 8px', fontSize: 12, marginBottom: 6 },
+  okBadge: { background: '#1d3a24', color: '#9fe0a8', borderRadius: 4, padding: '4px 8px', fontSize: 12, marginBottom: 6 },
+  catTag: { display: 'inline-block', minWidth: 64, color: '#7aa2c8', fontWeight: 600 },
+}
+
+const catStyle: Record<string, React.CSSProperties> = {
+  'net-in': { color: '#6fb3d9' },
+  'net-out': { color: '#d9b36f' },
+  'vm-feed': { color: '#9b8fd9' },
+  'vm-notify': { color: '#4ec9b0' },
+  reply: { color: '#d98fc8' },
+  unhandled: { color: '#f48771' },
+  lifecycle: { color: '#888' },
+  error: { color: '#f44' },
 }

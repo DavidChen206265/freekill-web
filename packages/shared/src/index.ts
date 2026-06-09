@@ -1,5 +1,4 @@
-// @freekill-web/shared — types shared between gateway and web.
-// Placeholder: populated as cross-cutting types emerge (auth, room, lobby state).
+// @freekill-web/shared — types + utilities shared between gateway and web.
 
 /** Compatible client version reported to asio at Setup (see assets manifest). */
 export interface ServerInfo {
@@ -7,4 +6,5 @@ export interface ServerInfo {
   serverVersion: string
 }
 
-export {}
+export { Logger } from './logger.js'
+export type { LogLevel, LogCategory, LogEntry, LoggerOptions } from './logger.js'
