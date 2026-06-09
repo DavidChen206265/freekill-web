@@ -131,15 +131,27 @@ export function chainPic(): string {
 
 // ---- emotion / animation sprites (image/anim/<emotion>/<frame>.png) ---------
 // Mirrors SkinBank.pixAnimDir (built-in image/anim/) + package image/anim/. A frame
-// is a PNG numbered 0..n-1 in the emotion's folder. Built-in first, then the art
-// packages (matching setEmotion's fallback search). The frame COUNT comes from the
+// is a PNG numbered 0..n-1 in the emotion's folder. The frame COUNT comes from the
 // synced anim-manifest (anim.json) since the browser can't list a directory.
-export function animFrameUrl(emotion: string, frame: number, pkg?: string): string {
-  if (pkg) return `${FK}/packages/${pkg}/image/anim/${emotion}/${frame}.png`
-  return `${FK}/image/anim/${emotion}/${frame}.png`
+//
+// An emotion is EITHER a bare name (built-in, e.g. "damage"/"judgebad"/"slash") OR a
+// full path the server built (usecard.lua:20 "./packages/<pkg>/image/anim/<card>";
+// crossbow.lua "./packages/standard_cards/image/anim/crossbow"). resolveAnim() turns
+// either form into { key, base }: `key` indexes anim.json (frame count), `base` is
+// the URL directory whose frames are base/0.png … base/(n-1).png.
+export function resolveAnim(emotion: string): { key: string; base: string } {
+  const m = emotion.match(/packages\/([^/]+)\/image\/anim\/(.+)$/)
+  if (m) {
+    const pkg = m[1]!, name = m[2]!.replace(/\/$/, '')
+    return { key: `${pkg}/${name}`, base: `${FK}/packages/${pkg}/image/anim/${name}` }
+  }
+  // Bare name → built-in image/anim. QML setEmotion only checks pixAnimDir + AppPath,
+  // never packages, so a bare name is always built-in.
+  return { key: emotion, base: `${FK}/image/anim/${emotion}` }
 }
-export function animBuiltinDir(emotion: string): string {
-  return `${FK}/image/anim/${emotion}`
+/** Sprite frame URL for a resolved base dir (resolveAnim().base) + frame index. */
+export function animFrameUrl(base: string, frame: number): string {
+  return `${base}/${frame}.png`
 }
 
 /** Handcard-count background. */

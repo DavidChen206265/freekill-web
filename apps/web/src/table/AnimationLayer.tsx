@@ -13,11 +13,15 @@ import { seatPosition, PHOTO_WIDTH, PHOTO_HEIGHT } from './seatLayout.js'
 import { STAGE_W, STAGE_H } from './Stage.js'
 
 // Logical-coord centre of a player's photo (id → {x,y}). Uses the same seatPosition
-// the Photo component uses, so the line endpoints land on the rendered photos.
+// the Photo component uses, so the line endpoints land on the rendered photos. For
+// SELF, QML's getPhotoOrDashboard returns the DASHBOARD (Room.qml:725-727), not the
+// seat photo — so indicate lines from/to self originate at the dashboard centre
+// (bottom band, full width, height 150 → centre at STAGE_W/2, STAGE_H-75).
 function playerCenter(pid: number): { x: number; y: number } | null {
   const st = useGameStore.getState()
   const p = st.players[pid]
   if (!p) return null
+  if (pid === st.selfId) return { x: STAGE_W / 2, y: STAGE_H - 75 }
   const playerNum = (st.seatOrder.length > 0 ? st.seatOrder.length : Object.keys(st.players).length) || 1
   const pos = seatPosition(p.index, playerNum)
   return { x: pos.x + (PHOTO_WIDTH * pos.scale) / 2, y: pos.y + (PHOTO_HEIGHT * pos.scale) / 2 }

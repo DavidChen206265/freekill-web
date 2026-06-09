@@ -112,12 +112,11 @@ fs.copyFileSync(PRELUDE_SRC, path.join(WEB, 'public', 'fk', 'fkprelude.lua'))
 function copyAnimDir(srcAnim, destAnim, manifest, keyPrefix) {
   if (!fs.existsSync(srcAnim)) return { dirs: 0, files: 0, bytes: 0 }
   let dirs = 0, files = 0, bytes = 0
-  for (const emotion of fs.readdirSync(srcAnim)) {
-    const srcDir = path.join(srcAnim, emotion)
-    if (!fs.statSync(srcDir).isDirectory()) continue
+  // Copy one sprite folder (PNG frames numbered 0..n-1) → dest, recording its frame
+  // count under `key`. Returns whether it was a real sprite (had frames).
+  const copyOneSprite = (srcDir, destDir, key) => {
     const frames = fs.readdirSync(srcDir).filter((f) => IMG_EXTS.has(path.extname(f).toLowerCase()))
-    if (frames.length === 0) continue
-    const destDir = path.join(destAnim, emotion)
+    if (frames.length === 0) return false
     fs.mkdirSync(destDir, { recursive: true })
     for (const f of frames) {
       const st = fs.statSync(path.join(srcDir, f))
@@ -127,9 +126,23 @@ function copyAnimDir(srcAnim, destAnim, manifest, keyPrefix) {
     // Frame count = highest numeric basename + 1 (frames are 0..n-1). Fall back to
     // count if non-numeric. PixmapAnimation loads source/0, source/1, ...
     const nums = frames.map((f) => parseInt(path.basename(f, path.extname(f)), 10)).filter((n) => !Number.isNaN(n))
-    const count = nums.length > 0 ? Math.max(...nums) + 1 : frames.length
-    manifest[keyPrefix + emotion] = count
+    manifest[key] = nums.length > 0 ? Math.max(...nums) + 1 : frames.length
     dirs++
+    return true
+  }
+  for (const entry of fs.readdirSync(srcAnim)) {
+    const srcDir = path.join(srcAnim, entry)
+    if (!fs.statSync(srcDir).isDirectory()) continue
+    // Flat sprite (e.g. damage/0.png) — copy directly. Else a NESTED dir of sprites
+    // (e.g. skillInvoke/<type>/0.png) — recurse one level, keyed "<entry>/<sub>".
+    if (!copyOneSprite(srcDir, path.join(destAnim, entry), keyPrefix + entry)) {
+      for (const sub of fs.readdirSync(srcDir)) {
+        const subDir = path.join(srcDir, sub)
+        if (fs.statSync(subDir).isDirectory()) {
+          copyOneSprite(subDir, path.join(destAnim, entry, sub), `${keyPrefix}${entry}/${sub}`)
+        }
+      }
+    }
   }
   return { dirs, files, bytes }
 }

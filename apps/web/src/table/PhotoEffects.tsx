@@ -9,12 +9,12 @@
 
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useAnimationStore, type PlayerEffect } from '../stores/animationStore.js'
-import { animFrameUrl } from './skin.js'
+import { resolveAnim, animFrameUrl } from './skin.js'
 
-// Lazy-loaded sprite frame-count manifest ("<emotion>" or "<pkg>/<emotion>" → n).
+// Lazy-loaded sprite frame-count manifest ("<emotion>" or "<pkg>/<name>" → n).
 let animManifest: Record<string, number> | null = null
 let animManifestPromise: Promise<Record<string, number>> | null = null
-function loadAnimManifest(): Promise<Record<string, number>> {
+export function loadAnimManifest(): Promise<Record<string, number>> {
   if (animManifest) return Promise.resolve(animManifest)
   if (!animManifestPromise) {
     animManifestPromise = fetch('/fk/anim.json')
@@ -55,28 +55,20 @@ function TrembleDriver({ effect, boxRef }: { effect: PlayerEffect | undefined; b
 }
 
 // Emotion sprite: cycle numbered PNG frames at 50ms each, one-shot, centred, 0.75
-// scale (PixmapAnimation.qml). Resolves frame count from anim.json; if unknown or 0,
-// renders nothing (no invented art).
-function EmotionSprite({ emotion }: { emotion: string }) {
+// scale (PixmapAnimation.qml interval 50, loop false, scale 0.75). The emotion is
+// either a bare built-in name ("damage") or a path-form ("./packages/.../anim/slash")
+// — resolveAnim() handles both. Frame count from anim.json; unknown/0 → nothing
+// (never invented art). Exported so CardLayer can play setCardEmotion on a table card.
+export function EmotionSprite({ emotion, scale = 0.75 }: { emotion: string; scale?: number }) {
   const [frames, setFrames] = useState<number | null>(null)
-  const [pkg, setPkg] = useState<string | undefined>(undefined)
   const [frame, setFrame] = useState(0)
+  const { key, base } = resolveAnim(emotion)
 
   useEffect(() => {
     let alive = true
-    loadAnimManifest().then((m) => {
-      if (!alive) return
-      // Built-in first, then known art packages (mirrors setEmotion's search).
-      const builtin = m[emotion] ?? 0
-      if (builtin > 0) { setFrames(builtin); setPkg(undefined); return }
-      for (const p of ['standard_cards', 'maneuvering', 'standard']) {
-        const n = m[`${p}/${emotion}`] ?? 0
-        if (n > 0) { setFrames(n); setPkg(p); return }
-      }
-      setFrames(0)
-    })
+    loadAnimManifest().then((m) => { if (alive) setFrames(m[key] ?? 0) })
     return () => { alive = false }
-  }, [emotion])
+  }, [key])
 
   useEffect(() => {
     if (!frames || frames <= 0) return
@@ -93,8 +85,8 @@ function EmotionSprite({ emotion }: { emotion: string }) {
   if (!frames || frames <= 0 || frame < 0) return null
   return (
     <div style={styles.center}>
-      <img src={animFrameUrl(emotion, frame, pkg)} alt="" draggable={false}
-        style={{ transform: 'scale(0.75)', maxWidth: '160%', pointerEvents: 'none' }}
+      <img src={animFrameUrl(base, frame)} alt="" draggable={false}
+        style={{ transform: `scale(${scale})`, maxWidth: '160%', pointerEvents: 'none' }}
         onError={(e) => { (e.currentTarget.style.visibility = 'hidden') }} />
     </div>
   )
@@ -125,6 +117,9 @@ function SkillBanner({ name, skillType }: { name: string; skillType: string }) {
   const size = Math.max(14, 22 - Math.max(0, name.length - 2) * 2) // scaled down for the photo box
   return (
     <div ref={ref} style={styles.center}>
+      {/* skillInvoke/<skill_type> sprite behind the name (SkillInvokeAnimation.qml
+          :12-18 PixmapAnimation, scale 0.75). One-shot; absent sprite → just text. */}
+      <div style={styles.skillSprite}><EmotionSprite emotion={`skillInvoke/${skillType}`} scale={0.6} /></div>
       <div style={{ ...styles.banner, color: SKILL_TYPE_COLOR[skillType] ?? '#E4D5A0', fontSize: size }}>{name}</div>
     </div>
   )
@@ -134,4 +129,5 @@ const styles: Record<string, React.CSSProperties> = {
   layer: { position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 9, overflow: 'visible' },
   center: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', overflow: 'visible' },
   banner: { fontWeight: 900, whiteSpace: 'nowrap', textShadow: '0 0 3px #000, 0 1px 2px #000, 0 0 6px #a50330', letterSpacing: 1 },
+  skillSprite: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', opacity: 0.9 },
 }

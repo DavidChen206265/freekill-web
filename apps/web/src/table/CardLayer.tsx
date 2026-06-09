@@ -11,6 +11,8 @@ import { useCardStore, type AreaKey } from '../stores/cardStore.js'
 import { useGameStore } from '../stores/gameStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { useCardNoteStore } from '../stores/cardNoteStore.js'
+import { useAnimationStore } from '../stores/animationStore.js'
+import { EmotionSprite } from './PhotoEffects.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { resolveAreaBox, CARD_W, CARD_H } from './areas.js'
 import { CardFaceView } from './CardFaceView.js'
@@ -32,6 +34,7 @@ export function CardLayer() {
   const cardStates = useInteractionStore((s) => s.cards)
   const expandCards = useInteractionStore((s) => s.expandCards)
   const cardNotes = useCardNoteStore((s) => s.notes)
+  const cardEmotions = useAnimationStore((s) => s.cards)
   const interact = useVmStore((s) => s.interact)
 
   const nodeRefs = useRef(new Map<number, HTMLDivElement>())
@@ -141,6 +144,10 @@ export function CardLayer() {
             }}
           >
             <CardFaceView cid={cid} faceUp={t.faceUp} width={CARD_W} height={CARD_H} />
+            {/* is_card emotion (setCardEmotion, e.g. judgebad/judgegood on a judge
+                card): play the sprite ON this table card (RoomLogic.js setEmotion
+                isCardId branch). Keyed by nonce so a repeat replays. */}
+            {cardEmotions[cid] && <EmotionSprite key={`c${cardEmotions[cid]!.nonce}`} emotion={cardEmotions[cid]!.emotion!} scale={0.6} />}
             {/* table-card virtual name (SetCardVirtName): snow box over the face. */}
             {cardNotes[cid]?.virtName && <span style={styles.virtName}>{tr(cardNotes[cid]!.virtName!)}</span>}
             {/* footnote: SetCardFootnote (table cards, already localized) wins; else
