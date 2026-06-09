@@ -38,6 +38,7 @@ export function RequestPopup() {
     cur.includes(c) ? cur.filter((x) => x !== c) : (max === 1 ? [c] : cur.length >= max ? [...cur.slice(1), c] : [...cur, c]))
 
   if (active.kind === 'general') return <GeneralBox active={active} resolve={resolve} />
+  if (active.kind === 'poxi') return <PoxiBox active={active} resolve={resolve} />
 
   if (active.kind === 'choice') {
     // ChoiceBox.qml: render ALL options (all_choices), enable only those in
@@ -148,6 +149,57 @@ function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
         ))}
       </div>
       <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
+    </Modal>
+  )
+}
+
+// PoxiBox (AskForPoxi → PoxiBox.qml): card selection whose legality comes from the
+// VM's Fk.poxi_methods[poxiType]. Selectable = already-chosen OR poxiFilter allows
+// it (PoxiBox.qml `selectable`); OK enabled = poxiFeasible (PoxiBox.qml OK button);
+// title = poxiPrompt. Reply = the selected cid array (RoomLogic.js:1099
+// replyToServer(ids)). This replaces the old min0..maxAll downgrade that could
+// permit illegal selections.
+function PoxiBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const vm = useVmStore((s) => s.vm)
+  const [picked, setPicked] = useState<number[]>([])
+  useEffect(() => { setPicked([]) }, [active])
+
+  const ptype = active.poxiType ?? ''
+  const data = active.poxiData
+  const extra = active.poxiExtra
+  const vmPrompt = vm?.poxiPrompt(ptype, data, extra) || ''
+  const prompt = vmPrompt || active.prompt
+
+  // Selectable = already chosen OR the method's card_filter allows it given the
+  // current selection (PoxiBox.qml: chosenInBox || Ltk.poxiFilter(...)).
+  const selectable = (cid: number) => picked.includes(cid) || (vm?.poxiFilter(ptype, cid, picked, data, extra) ?? true)
+  const toggle = (cid: number) => setPicked((cur) => cur.includes(cid) ? cur.filter((x) => x !== cid) : [...cur, cid])
+  // OK enabled = the method's feasible(selected) (PoxiBox.qml OK.enabled).
+  const ok = vm ? vm.poxiFeasible(ptype, picked, data, extra) : picked.length > 0
+
+  return (
+    <Modal prompt={prompt}>
+      {(active.groups ?? []).map((grp) => (
+        <div key={grp.name} style={styles.group}>
+          <div style={styles.groupName}>{tr(grp.name)}</div>
+          <div style={styles.cards}>
+            {grp.cards.map((c) => {
+              const sel = picked.includes(c.cid)
+              const can = sel || selectable(c.cid)
+              return (
+                <button key={c.cid} style={{ ...styles.agCard, ...(sel ? styles.picked : {}), ...(can ? {} : styles.disabled) }}
+                  disabled={!can} onClick={() => { if (can) toggle(c.cid) }}>
+                  <CardFaceView cid={c.cid} faceUp={c.known} width={56} height={80} />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      <div style={styles.row}>
+        <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
+        {active.cancelable && <button style={styles.ghost} onClick={() => resolve('__cancel')}>取消</button>}
+      </div>
     </Modal>
   )
 }

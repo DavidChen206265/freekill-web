@@ -18,7 +18,7 @@ function takerNameFor(pid: number): string {
   return p.general ? tr(p.general) : (p.name || `P${pid}`)
 }
 
-export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange'
+export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi'
 
 export interface CardGroup { name: string; cards: { cid: number; known: boolean }[] }
 export interface ArrangeArea { name: string; capacity: number; limit: number }
@@ -49,6 +49,13 @@ export interface PopupRequest {
   // arrange (Guanxing/Exchange/ArrangeCards): assign cards into areas; reply [[cids]]
   arrangeCards?: number[]
   areas?: ArrangeArea[]
+  // poxi (AskForPoxi → PoxiBox.qml): real selection rules live in the VM's
+  // Fk.poxi_methods[poxiType] (card_filter/feasible/prompt). The component drives
+  // selectability + OK through vm.poxi{Filter,Feasible,Prompt} instead of a
+  // min..max downgrade. cardData/poxiExtra are the raw request payload passed back.
+  poxiType?: string
+  poxiData?: unknown
+  poxiExtra?: unknown
 }
 
 interface PopupState {
@@ -216,12 +223,22 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         return true
       }
       case 'AskForPoxi': {
-        // { type, data:[[name,[cids]]], extra_data, cancelable } — selection (poxi
-        // rules computed server-side); downgrade to a min0..maxAll card pick.
+        // { type, data:[[name,[cids]]], extra_data, cancelable } — PoxiBox.qml.
+        // Real selection rules come from the VM's Fk.poxi_methods[type]; the PoxiBox
+        // component calls vm.poxi{Filter,Feasible,Prompt} per RoomLogic.js:1077 +
+        // PoxiBox.qml (selectable = poxiFilter, OK = poxiFeasible). We keep the raw
+        // data/extra_data so those bridge calls match the QML signatures exactly.
         if (!obj) return false
-        const groups = parseGroups(obj.data, (obj.visible_data as Record<string, unknown>) ?? {})
-        const total = groups.reduce((n, g) => n + g.cards.length, 0)
-        set({ active: { kind: 'cards', prompt: '请选择牌(拼点/破袭)', groups, min: 0, max: total, cancelable: !!obj.cancelable } })
+        const groups = parseGroups(obj.data, (obj.extra_data as { visible_data?: Record<string, unknown> })?.visible_data ?? {})
+        set({ active: {
+          kind: 'poxi',
+          prompt: '请选择牌',
+          groups,
+          poxiType: String(obj.type ?? ''),
+          poxiData: obj.data,
+          poxiExtra: obj.extra_data,
+          cancelable: !!obj.cancelable,
+        } })
         return true
       }
       case 'EmptyRequest':

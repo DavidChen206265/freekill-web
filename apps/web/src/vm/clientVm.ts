@@ -52,6 +52,7 @@ export class ClientVm {
   private fnReadSkills: (() => string) | null = null
   private fnReadGenerals: ((namesJson: string) => string) | null = null
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
+  private fnPoxi: ((kind: string, argsJson: string) => string) | null = null
   private fnPlayerSkills: ((id: number) => string) | null = null
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
@@ -216,7 +217,26 @@ export class ClientVm {
         end
         return json.encode({ r = res })
       end
-      -- Player detail (PlayerDetail.qml right-click): visible skills [{name,description}]
+      -- PoxiBox rules (PoxiBox.qml → client_util.lua Poxi{Prompt,Filter,Feasible}).
+      -- poxi_type selects a Fk.poxi_methods entry whose card_filter/feasible/prompt
+      -- enforce the real selection rules. Without this the web downgraded poxi to a
+      -- min0..maxAll pick that could permit illegal selections.
+      --   prompt   → localized prompt string for (data, extra)
+      --   filter   → is a given card selectable for the current selection
+      --   feasible → is OK enabled for the current selection
+      function __fkPoxi(kind, argsJson)
+        local ok, a = pcall(json.decode, argsJson)
+        if not ok or type(a) ~= "table" then return json.encode({ r = false }) end
+        local res
+        if kind == "prompt" then
+          res = PoxiPrompt(a.poxi_type, a.data, a.extra)
+        elseif kind == "filter" then
+          res = PoxiFilter(a.poxi_type, a.to_select, a.selected or {}, a.data, a.extra)
+        elseif kind == "feasible" then
+          res = PoxiFeasible(a.poxi_type, a.selected or {}, a.data, a.extra)
+        end
+        return json.encode({ r = res })
+      end
       -- via GetPlayerSkills(id) (client_util.lua:399). Self sees all visible skills;
       -- others hide equip/& skills. Returns [] when the player is unknown.
       function __fkPlayerSkills(id)
@@ -265,6 +285,7 @@ export class ClientVm {
     this.fnReadSkills = lua.global.get('__fkReadSkills') as typeof this.fnReadSkills
     this.fnReadGenerals = lua.global.get('__fkReadGenerals') as typeof this.fnReadGenerals
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
+    this.fnPoxi = lua.global.get('__fkPoxi') as typeof this.fnPoxi
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
     this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
@@ -372,6 +393,23 @@ export class ClientVm {
   private callChooseGeneral(kind: string, args: unknown): unknown {
     if (!this.fnChooseGeneral) return undefined
     try { return (JSON.parse(this.fnChooseGeneral(kind, JSON.stringify(args))) as { r: unknown }).r } catch { return undefined }
+  }
+
+  /** PoxiBox rule helpers (PoxiBox.qml → client_util.lua Poxi{Prompt,Filter,Feasible}).
+   *  prompt → localized prompt; filter → is `cid` selectable given `selected`;
+   *  feasible → is OK enabled for `selected`. data/extra are the request payload. */
+  poxiPrompt(poxiType: string, data: unknown, extra: unknown): string {
+    return String(this.callPoxi('prompt', { poxi_type: poxiType, data, extra }) ?? '')
+  }
+  poxiFilter(poxiType: string, toSelect: number, selected: number[], data: unknown, extra: unknown): boolean {
+    return !!this.callPoxi('filter', { poxi_type: poxiType, to_select: toSelect, selected, data, extra })
+  }
+  poxiFeasible(poxiType: string, selected: number[], data: unknown, extra: unknown): boolean {
+    return !!this.callPoxi('feasible', { poxi_type: poxiType, selected, data, extra })
+  }
+  private callPoxi(kind: string, args: unknown): unknown {
+    if (!this.fnPoxi) return undefined
+    try { return (JSON.parse(this.fnPoxi(kind, JSON.stringify(args))) as { r: unknown }).r } catch { return undefined }
   }
 
   /** Visible skills [{name, description}] of a player, for the right-click detail

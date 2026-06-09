@@ -442,4 +442,46 @@ describe('client VM packet feed', () => {
     expect(jianxiong.freq).toBe('notactive')
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!ready)('VM poxi bridge: feasible respects min/max (M4 anti-illegal-selection)', async () => {
+    // M4 切片 I: AskForPoxi was downgraded to a min0..maxAll pick that could permit
+    // illegal selections. The fix routes selection rules through the VM's
+    // Fk.poxi_methods (PoxiFilter/Feasible/Prompt). Verify the __fkPoxi bridge
+    // against the real "AskForCardsChosen" poxi method (standard/aux_poxi.lua):
+    // feasible = (#selected in [min,max]).
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    // Mirror clientVm's __fkPoxi bridge.
+    await lua.doString(`
+      function __fkPoxi(kind, argsJson)
+        local ok, a = pcall(json.decode, argsJson)
+        if not ok or type(a) ~= "table" then return json.encode({ r = false }) end
+        local res
+        if kind == "prompt" then res = PoxiPrompt(a.poxi_type, a.data, a.extra)
+        elseif kind == "filter" then res = PoxiFilter(a.poxi_type, a.to_select, a.selected or {}, a.data, a.extra)
+        elseif kind == "feasible" then res = PoxiFeasible(a.poxi_type, a.selected or {}, a.data, a.extra) end
+        return json.encode({ r = res })
+      end
+    `)
+    const poxi = lua.global.get('__fkPoxi') as (kind: string, args: string) => string
+    const call = (kind: string, args: unknown) => (JSON.parse(poxi(kind, JSON.stringify(args))) as { r: unknown }).r
+    // AskForCardsChosen feasible: needs min<=#selected<=max. extra_data min=1,max=2.
+    const extra = { min: 1, max: 2, to: 1 }
+    const data: [string, number[]][] = [['$Hand', [1, 2, 3]]]
+    const args = (kind: string, sel: number[]) => ({ poxi_type: 'AskForCardsChosen', to_select: sel[0] ?? 1, selected: sel, data, extra })
+    expect(call('feasible', args('feasible', []))).toBe(false)        // 0 < min
+    expect(call('feasible', args('feasible', [1]))).toBe(true)        // within range
+    expect(call('feasible', args('feasible', [1, 2]))).toBe(true)     // at max
+    expect(call('feasible', args('feasible', [1, 2, 3]))).toBe(false) // > max → illegal
+    lua.global.close()
+  }, 30_000)
 })
