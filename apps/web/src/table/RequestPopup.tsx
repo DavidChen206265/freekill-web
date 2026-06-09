@@ -7,9 +7,10 @@
 //   AskForAG         → single cid
 // (AskForSkillInvoke is ui_emu — OK/Cancel via InteractionBar, not here.)
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { usePopupStore, shuffleInvisibleOutput, type PopupRequest } from '../stores/popupStore.js'
 import { useVmStore } from '../stores/vmStore.js'
+import { arrangeDrop, arrangeValid, type ArrangeState } from './arrangeDrop.js'
 import { CardFaceView } from './CardFaceView.js'
 import { GeneralCard } from './GeneralCard.js'
 import { PromptText } from './PromptText.js'
@@ -330,49 +331,72 @@ function AgBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown
 
 // Arrange (Guanxing/Exchange/ArrangeCards): assign each card into an area to meet
 // each area's capacity. Downgrade of the QML drag box — click a card, then an
-// area button. Reply = [[cids per area]] (GuanxingBox.getResult shape).
+// Arrange (Guanxing/Exchange/ArrangeCards → GuanxingBox/ArrangeCardsBox.qml):
+// assign cards into ordered areas. Reply = [[cids per area, IN ORDER]]
+// (ArrangeCardsBox.getResult:414). Order within an area matters (e.g. Guanxing =
+// top-of-draw-pile sequence), so this is a real pointer-drag with reorder, not just
+// grouping. Drag a card onto a target area to insert it at the nearest gap; an
+// over-capacity area bumps its tail card back to the unplaced tray. Click still
+// works as a fallback (tap card then tap area header appends).
 function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
   const areas = active.areas ?? []
   const allCards = active.arrangeCards ?? []
-  // placement[cid] = area index (or undefined = unplaced)
-  const [placement, setPlacement] = useState<Record<number, number>>({})
-  const [sel, setSel] = useState<number | null>(null)
-  useEffect(() => { setPlacement({}); setSel(null) }, [active])
+  // Single atomic state: slots[areaIdx] = ordered cids; tray = unplaced cids.
+  const [st, setSt] = useState<ArrangeState>(() => ({ slots: areas.map(() => []), tray: [...allCards] }))
+  const [drag, setDrag] = useState<{ cid: number; x: number; y: number } | null>(null)
+  const areaRefs = useRef<(HTMLDivElement | null)[]>([])
+  useEffect(() => { setSt({ slots: areas.map(() => []), tray: [...allCards] }); setDrag(null) }, [active])
 
-  const place = (areaIdx: number) => {
-    if (sel == null) return
-    setPlacement((p) => ({ ...p, [sel]: areaIdx }))
-    setSel(null)
+  const caps = areas.map((a) => a.capacity)
+  const lims = areas.map((a) => a.limit)
+  // Drop cid into area `ai` at insertion index `idx` (ai<0 = back to tray) — pure
+  // reducer in arrangeDrop.ts (atomic move + over-capacity bump).
+  const drop = (cid: number, ai: number, idx: number) => setSt((prev) => arrangeDrop(prev, caps, cid, ai, idx))
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (!drag) return
+    // Find which area the pointer is over (else tray), and the insertion index.
+    let targetArea = -1
+    let insertIdx = 0
+    for (let i = 0; i < areas.length; i++) {
+      const el = areaRefs.current[i]
+      if (!el) continue
+      const r = el.getBoundingClientRect()
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        targetArea = i
+        const cardEls = Array.from(el.querySelectorAll('[data-cid]')) as HTMLElement[]
+        insertIdx = cardEls.filter((c) => { const cr = c.getBoundingClientRect(); return (cr.left + cr.right) / 2 < e.clientX }).length
+        break
+      }
+    }
+    drop(drag.cid, targetArea, insertIdx)
+    setDrag(null)
   }
-  const unplaced = allCards.filter((c) => placement[c] === undefined)
-  const inArea = (i: number) => allCards.filter((c) => placement[c] === i)
-  // Valid when every area is within [limit, capacity] and all cards placed.
-  const valid = unplaced.length === 0 && areas.every((a, i) => {
-    const n = inArea(i).length
-    return n >= a.limit && n <= a.capacity
-  })
-  const confirm = () => resolve(areas.map((_, i) => inArea(i)))
+
+  const valid = arrangeValid(st, caps, lims)
+  const confirm = () => resolve(st.slots.map((a) => [...a]))
+
+  const cardBtn = (cid: number) => (
+    <div key={cid} data-cid={cid} style={{ ...styles.agCard, ...(drag?.cid === cid ? styles.dragging : {}), touchAction: 'none' }}
+      onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); setDrag({ cid, x: e.clientX, y: e.clientY }) }}
+      onPointerMove={(e) => { if (drag?.cid === cid) setDrag({ cid, x: e.clientX, y: e.clientY }) }}
+      onPointerUp={onPointerUp}>
+      <CardFaceView cid={cid} faceUp width={56} height={80} />
+    </div>
+  )
 
   return (
     <Modal prompt={active.prompt}>
-      <div style={styles.groupName}>待分配(点选后再点区域)</div>
-      <div style={styles.cards}>
-        {unplaced.map((cid) => (
-          <button key={cid} style={{ ...styles.agCard, ...(sel === cid ? styles.picked : {}) }} onClick={() => setSel(cid)}>
-            <CardFaceView cid={cid} faceUp width={56} height={80} />
-          </button>
-        ))}
-        {unplaced.length === 0 && <span style={{ color: '#888' }}>(全部已分配)</span>}
+      <div style={styles.groupName}>待分配(拖拽到下方区域,可在区域内拖动排序)</div>
+      <div ref={(el) => { areaRefs.current[areas.length] = el }} style={styles.cards} onPointerUp={onPointerUp}>
+        {st.tray.map(cardBtn)}
+        {st.tray.length === 0 && <span style={{ color: '#888' }}>(全部已分配)</span>}
       </div>
       {areas.map((a, i) => (
         <div key={i} style={styles.group}>
-          <button style={styles.areaHeader} onClick={() => place(i)}>{tr(a.name)} [{inArea(i).length}/{a.capacity}]</button>
-          <div style={styles.cards}>
-            {inArea(i).map((cid) => (
-              <button key={cid} style={styles.agCard} onClick={() => setPlacement((p) => { const n = { ...p }; delete n[cid]; return n })}>
-                <CardFaceView cid={cid} faceUp width={56} height={80} />
-              </button>
-            ))}
+          <div style={styles.areaHeader}>{tr(a.name)} [{st.slots[i]?.length ?? 0}/{a.capacity}]</div>
+          <div ref={(el) => { areaRefs.current[i] = el }} style={{ ...styles.cards, minHeight: 84 }} onPointerUp={onPointerUp}>
+            {(st.slots[i] ?? []).map(cardBtn)}
           </div>
         </div>
       ))}
@@ -420,6 +444,7 @@ const styles: Record<string, React.CSSProperties> = {
   cards: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   cardBtn: { width: 56, height: 80, borderRadius: 6, border: '2px solid #444', background: '#f5f0e1', color: '#222', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   agCard: { position: 'relative', padding: 0, borderRadius: 6, border: '2px solid transparent', background: 'transparent', cursor: 'pointer' },
+  dragging: { opacity: 0.5, border: '2px dashed #f1c40f' },
   agTaken: { filter: 'grayscale(1) brightness(0.55)', cursor: 'default' },
   agFootnote: { position: 'absolute', left: 0, right: 0, bottom: 2, fontSize: 11, fontWeight: 700, color: '#E4D5A0', textAlign: 'center', textShadow: '0 0 2px #000, 0 0 2px #000', pointerEvents: 'none' },
   row: { display: 'flex', gap: 10 },
