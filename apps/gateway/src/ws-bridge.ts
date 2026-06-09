@@ -67,13 +67,20 @@ export function startWsBridge(config: GatewayConfig): BridgeHandle {
   // them here so a reconnecting browser can have its war report replayed. Capped to
   // bound memory; cleared when the player leaves the room (EnterLobby) or game ends.
   const GAMELOG_CAP = 200
+  // We buffer the RAW inner CBOR (base64), NOT the JSON-decoded env.data. A GameLog
+  // LogMessage's fields (type/arg/card/from/to) are CBOR BYTE STRINGS; JSON.stringify
+  // of env.data turns those Uint8Arrays into lossy {"0":..} / Buffer junk that the
+  // VM's parseMsg can't read (it expects cbor-decoded Lua strings). Replaying the raw
+  // CBOR lets the rebuilt VM cbor.decode + parseMsg it exactly like a live GameLog.
   const gameLogs = new Map<string, string[]>()
   const recordLog = (uuid: string, env: ReturnType<typeof packetToEnvelope>) => {
     // Leaving the room / lobby resets the war report (a new game logs fresh).
     if (env.command === 'EnterLobby') { gameLogs.delete(uuid); return }
     if (env.command !== 'GameLog') return
+    const raw = (env as { raw?: string }).raw
+    if (!raw) return
     const arr = gameLogs.get(uuid) ?? []
-    arr.push(typeof env.data === 'string' ? env.data : JSON.stringify(env.data))
+    arr.push(raw)
     if (arr.length > GAMELOG_CAP) arr.splice(0, arr.length - GAMELOG_CAP)
     gameLogs.set(uuid, arr)
   }

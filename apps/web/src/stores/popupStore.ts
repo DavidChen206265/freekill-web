@@ -222,9 +222,24 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         return true
       }
       case 'AskForAG': {
-        // activate the existing AG pile for THIS player to pick one
-        // (RoomLogic.js:1460 roomScene.activate() + manualBox.item.interactive=true).
-        set((s) => ({ active: s.active?.kind === 'ag' ? { ...s.active, prompt: '请选择一张牌', agInteractive: true } : s.active }))
+        // [id_list, cancelable, reason] (room.lua askToAG:2738). Activate the AG pile
+        // for THIS player to pick (RoomLogic.js:1460 manualBox.interactive=true).
+        // ROBUSTNESS: AskForAG carries its OWN id_list, so if no AG box exists yet
+        // (FillAG was dropped/lost, or the box got replaced), BUILD it from this data
+        // instead of silently doing nothing — that "do nothing" path was why 五谷
+        // sometimes showed no box at all. When an AG box IS present (normal case),
+        // keep its taken-card tags and just make it interactive.
+        const askIds = (arr?.[0] as number[]) ?? []
+        set((s) => {
+          if (s.active?.kind === 'ag') {
+            return { active: { ...s.active, prompt: '请选择一张牌', agInteractive: true } }
+          }
+          // No pre-existing AG box → reconstruct from AskForAG's own id_list.
+          if (askIds.length > 0) {
+            return { active: { kind: 'ag', prompt: '请选择一张牌', agCards: askIds.map((cid) => ({ cid })), agInteractive: true } }
+          }
+          return {}
+        })
         return true
       }
       case 'TakeAG': {

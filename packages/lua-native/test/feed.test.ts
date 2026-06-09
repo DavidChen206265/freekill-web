@@ -579,20 +579,31 @@ describe('client VM packet feed', () => {
       ClientCallback(ClientInstance, "PropertyUpdate", cbor.encode({ 1, "general", "caocao" }), false)
       ClientCallback(ClientInstance, "PropertyUpdate", cbor.encode({ 2, "general", "liubei" }), false)
     `)
-    // Mirror clientVm's __fkParseLog bridge.
+    // Mirror clientVm's __fkParseLog bridge: it takes the RAW inner CBOR (hex), NOT
+    // JSON — a GameLog LogMessage's fields (type/arg/arg2) are CBOR byte strings that
+    // JSON would mangle. This is the bug the JSON version had: live logs feed raw CBOR
+    // via ClientCallback, so the replay must too.
     await lua.doString(`
-      function __fkParseLog(msgJson)
-        local ok, msg = pcall(json.decode, msgJson)
+      function __fkParseLog(hex)
+        local function fromHex(h) return (h:gsub("..", function(cc) return string.char(tonumber(cc,16)) end)) end
+        local ok, msg = pcall(function() return cbor.decode(fromHex(hex or "")) end)
         if not ok or type(msg) ~= "table" then return "" end
         local ok2, text = pcall(function() return ClientInstance:parseMsg(msg) end)
         if not ok2 or type(text) ~= "string" then return "" end
         return text
       end
+      -- Encode a #Damage LogMessage to raw CBOR hex (as asio's doNotify does), so the
+      -- bridge decodes byte-string fields exactly like the live GameLog path.
+      function __encodeLogHex()
+        local bytes = cbor.encode({ type = "#Damage", from = 1, to = { 2 }, arg = 1, arg2 = "normal_damage" })
+        return (bytes:gsub(".", function(c) return ("%02x"):format(c:byte()) end))
+      end
     `)
     const parseLog = lua.global.get('__fkParseLog') as (j: string) => string
+    const encodeLogHex = lua.global.get('__encodeLogHex') as () => string
     // A #Damage log: "%from 对 %to 造成了 %arg 点 %arg2 伤害". parseMsg should produce
     // localized HTML with the players' general names (曹操/刘备), not raw "from"/"to".
-    const html = parseLog(JSON.stringify({ type: '#Damage', from: 1, to: [2], arg: 1, arg2: 'normal_damage' }))
+    const html = parseLog(encodeLogHex())
     expect(typeof html).toBe('string')
     expect(html.length).toBeGreaterThan(0)
     // Prettified: contains HTML font markup + the translated general names, NOT the
@@ -602,7 +613,7 @@ describe('client VM packet feed', () => {
     expect(html).toContain('刘备') // target (liubei) general name resolved
     expect(html).not.toContain('#Damage') // template key was expanded, not left raw
     // Malformed input → "" (caller falls back to the raw string).
-    expect(parseLog('not json')).toBe('')
+    expect(parseLog('zzzz')).toBe('')
     lua.global.close()
   }, 30_000)
 

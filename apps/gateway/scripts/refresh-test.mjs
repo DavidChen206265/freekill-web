@@ -12,6 +12,7 @@ function client(user, uuid, label) {
   const ws = new WebSocket(URL); const seen=[]; const api={ws,seen,roomId:null}
   ws.on('open',()=>ws.send(JSON.stringify({kind:'notify',command:'__gateway_login',data:creds(user,uuid)})))
   ws.on('message',(r)=>{let e;try{e=JSON.parse(r.toString())}catch{return}; seen.push(e.command)
+    if(e.command==='__gateway_log_replay') api.replay=e.data
     if(label) console.log(`  [${label}] <- ${e.command}${e.data&&e.command==='__gateway_login_ok'?' '+JSON.stringify(e.data):''}`)
     if(e.command==='UpdateRoomList'&&Array.isArray(e.data)){const rm=e.data.find(x=>Array.isArray(x)&&x[1]===roomName); if(rm)api.roomId=rm[0]}})
   api.send=(c,d)=>ws.send(JSON.stringify({kind:'notify',command:c,data:d}))
@@ -44,5 +45,17 @@ await wait(2500)
 const gotReplay=A2.seen.includes('__gateway_log_replay')
 console.log('A2 reattached? login_ok=',ok,' commands:',[...new Set(A2.seen)].join(','))
 console.log('A2 got war-report replay (__gateway_log_replay)?',gotReplay)
+// Bug #2 verification: the replay payload must be RAW base64 CBOR (not lossy JSON of
+// the LogMessage). base64 of CBOR is compact base64 chars; lossy JSON would contain
+// '{' / '[' / '"type"'. Assert the shape so a regression to JSON is caught here.
+if (gotReplay && Array.isArray(A2.replay) && A2.replay.length > 0) {
+  const sample = String(A2.replay[0])
+  const looksB64 = /^[A-Za-z0-9+/=]+$/.test(sample)
+  const looksJson = sample.includes('{') || sample.includes('[') || sample.includes('"')
+  console.log(`replay line[0] len=${sample.length} base64=${looksB64} json=${looksJson} :: ${sample.slice(0,48)}…`)
+  console.log(looksB64 && !looksJson ? 'PASS: replay is raw base64 CBOR (bug #2 fix)' : 'FAIL: replay is NOT raw CBOR (still lossy)')
+} else {
+  console.log('NOTE: no replay lines to inspect (game may not have logged yet)')
+}
 try{A2.ws.close();B.ws.close()}catch{}
 bridge.close().then(()=>process.exit(0))

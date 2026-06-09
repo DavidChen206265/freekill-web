@@ -4,6 +4,7 @@
 
 import { create } from 'zustand'
 import type { Envelope, NotifyEnvelope, RequestEnvelope } from '@freekill-web/protocol'
+import { base64ToBytes } from '@freekill-web/protocol'
 import { GatewayClient, type GatewayStatus, type LoginCredentials } from '../net/gatewayClient.js'
 import { useVmStore } from './vmStore.js'
 import { usePopupStore } from './popupStore.js'
@@ -251,24 +252,25 @@ function onVmError(where: string, err: unknown): void {
 }
 
 function routeEnvelope(env: Envelope): void {
-  // War-report replay after a reconnect: the gateway buffered the RAW GameLog
-  // LogMessages (asio's resync omits past log lines). The live path runs each through
-  // the VM's parseMsg → localized HTML (clientbase.lua appendLog); the buffered JSON
-  // would render as raw text. Prettify each through the rebuilt VM and prepend them
-  // (before the VM rebuild's own fresh lines). Chain onto feedChain so the VM is
-  // booted AND the Reconnect state resync (player/seat/general mirror parseMsg reads)
-  // has been applied first — otherwise names wouldn't resolve. Fall back to the raw
-  // string per-line if parseMsg fails. Handled here (not the VM) since it's a gateway
-  // control notify.
+  // War-report replay after a reconnect: the gateway buffered the RAW inner CBOR of
+  // each GameLog (asio's resync omits past log lines). The live path cbor-decodes +
+  // runs each through the VM's parseMsg → localized HTML (clientbase.lua appendLog);
+  // the LogMessage fields are CBOR BYTE STRINGS so we MUST feed the raw bytes (JSON is
+  // lossy). Prettify each through the rebuilt VM and prepend them (before the VM
+  // rebuild's own fresh lines). Chain onto feedChain so the VM is booted AND the
+  // Reconnect state resync (player/seat/general mirror parseMsg reads) has been applied
+  // first. Fall back to the raw string per-line if parseMsg fails.
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === '__gateway_log_replay') {
     const lines = (env as NotifyEnvelope).data
     if (Array.isArray(lines)) {
-      const raw = lines.map(String)
+      const rawB64 = lines.map(String)
       feedChain = feedChain
         .then(() => {
           const vm = useVmStore.getState().vm
-          const html = raw.map((line) => (vm?.parseLog(line) ?? null) || line)
-          useLogStore.getState().prepend(html)
+          const html = rawB64.map((b64) => {
+            try { return (vm?.parseLog(base64ToBytes(b64)) ?? null) || '' } catch { return '' }
+          }).filter((s) => s.length > 0)
+          if (html.length > 0) useLogStore.getState().prepend(html)
         })
         .catch((err) => onVmError('log replay', err))
     }

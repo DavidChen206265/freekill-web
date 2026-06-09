@@ -60,7 +60,7 @@ export class ClientVm {
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
   private fnChangeSelf: ((pid: number) => string) | null = null
-  private fnParseLog: ((msgJson: string) => string) | null = null
+  private fnParseLog: ((hex: string) => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -332,13 +332,15 @@ export class ClientVm {
         return json.encode({ ok = ok })
       end
       -- War-report replay prettify (clientbase.lua appendLog/parseMsg): the gateway
-      -- buffers the RAW LogMessage JSON of each GameLog (asio's reconnect resync omits
-      -- past log lines). On replay we run each through the SAME parseMsg the live path
-      -- uses (Client:parseMsg → localized HTML), so the rebuilt VM's mirror (players/
-      -- generals/seats) resolves names exactly as the original live line did. Returns
-      -- the HTML, or "" on failure (caller falls back to the raw string).
-      function __fkParseLog(msgJson)
-        local ok, msg = pcall(json.decode, msgJson)
+      -- buffers the RAW inner CBOR (hex) of each GameLog (asio's reconnect resync omits
+      -- past log lines). A GameLog LogMessage's fields are CBOR BYTE STRINGS, so we MUST
+      -- cbor.decode the raw bytes (NOT json.decode — JSON loses the byte strings) to get
+      -- the same Lua table the live path feeds parseMsg. Then run the SAME parseMsg
+      -- (Client:parseMsg → localized HTML) so the rebuilt VM's mirror (players/generals/
+      -- seats) resolves names exactly like the original live line. Returns HTML or "".
+      function __fkParseLog(hex)
+        local function fromHex(h) return (h:gsub("..", function(cc) return string.char(tonumber(cc,16)) end)) end
+        local ok, msg = pcall(function() return cbor.decode(fromHex(hex or "")) end)
         if not ok or type(msg) ~= "table" then return "" end
         local ok2, text = pcall(function() return ClientInstance:parseMsg(msg) end)
         if not ok2 or type(text) ~= "string" then return "" end
@@ -436,14 +438,16 @@ export class ClientVm {
     try { return !!(JSON.parse(this.fnChangeSelf(pid)) as { ok: boolean }).ok } catch { return false }
   }
 
-  /** Prettify a raw GameLog LogMessage (JSON string) into the localized HTML the
-   *  live path produces (clientbase.lua appendLog → parseMsg). Used to render the
-   *  gateway-buffered war-report replay on reconnect. Returns null on failure so the
-   *  caller can fall back to the raw string. */
-  parseLog(msgJson: string): string | null {
+  /** Prettify a raw GameLog inner-CBOR packet into the localized HTML the live path
+   *  produces (clientbase.lua appendLog → parseMsg). `rawData` is the original inner
+   *  CBOR bytes (from the envelope's `raw`), which we cbor.decode + parseMsg exactly
+   *  like a live GameLog — JSON is lossy for the byte-string fields. Used to render
+   *  the gateway-buffered war-report replay on reconnect. Returns null on failure so
+   *  the caller can fall back. */
+  parseLog(rawData: Uint8Array): string | null {
     if (!this.fnParseLog) return null
     try {
-      const text = this.fnParseLog(msgJson)
+      const text = this.fnParseLog(toHex(rawData))
       return text ? text : null
     } catch { return null }
   }
