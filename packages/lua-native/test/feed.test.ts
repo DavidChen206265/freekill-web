@@ -482,6 +482,24 @@ describe('client VM packet feed', () => {
     expect(call('feasible', args('feasible', [1]))).toBe(true)        // within range
     expect(call('feasible', args('feasible', [1, 2]))).toBe(true)     // at max
     expect(call('feasible', args('feasible', [1, 2, 3]))).toBe(false) // > max → illegal
+    // M4 I-2: __fkChoiceFilter — with no filter_skel the bridge allows the option
+    // (ChooseCardsAndChoiceBox enables all OK options when no skel). Proves the
+    // bridge target is sound (no skill_skels.choiceFilter in the basic packages).
+    await lua.doString(`
+      function __fkChoiceFilter(argsJson)
+        local ok, a = pcall(json.decode, argsJson)
+        if not ok or type(a) ~= "table" then return json.encode({ r = false }) end
+        local skel = a.filter_skel and Fk.skill_skels and Fk.skill_skels[a.filter_skel]
+        if not skel or not skel.extra or not skel.extra.choiceFilter then return json.encode({ r = true }) end
+        local fok, res = pcall(skel.extra.choiceFilter, a.cards or {}, a.choice, a.extra)
+        return json.encode({ r = fok and (res ~= false) })
+      end
+    `)
+    const cf = lua.global.get('__fkChoiceFilter') as (j: string) => string
+    const cfRes = (JSON.parse(cf(JSON.stringify({ filter_skel: '', cards: [1], choice: '确定', extra: {} }))) as { r: unknown }).r
+    expect(cfRes).toBe(true)
+    const cfMissing = (JSON.parse(cf(JSON.stringify({ filter_skel: 'no_such_skel', cards: [], choice: 'x', extra: {} }))) as { r: unknown }).r
+    expect(cfMissing).toBe(true)
     lua.global.close()
   }, 30_000)
 })

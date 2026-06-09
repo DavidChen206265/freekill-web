@@ -39,6 +39,7 @@ export function RequestPopup() {
 
   if (active.kind === 'general') return <GeneralBox active={active} resolve={resolve} />
   if (active.kind === 'poxi') return <PoxiBox active={active} resolve={resolve} />
+  if (active.kind === 'cardsAndChoice') return <CardsAndChoiceBox active={active} resolve={resolve} />
 
   if (active.kind === 'choice') {
     // ChoiceBox.qml: render ALL options (all_choices), enable only those in
@@ -199,6 +200,63 @@ function PoxiBox({ active, resolve }: { active: PopupRequest; resolve: (v: unkno
       <div style={styles.row}>
         <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
         {active.cancelable && <button style={styles.ghost} onClick={() => resolve('__cancel')}>取消</button>}
+      </div>
+    </Modal>
+  )
+}
+
+// CardsAndChoiceBox (AskForCardsAndChoice → ChooseCardsAndChoiceBox.qml): select
+// min..max cards (disabled ones unselectable), then pick an OK option. OK option i
+// is enabled when card count in [min,max] AND (i===0 OR vm.choiceFilter passes,
+// QML:120-130). Cancel options always reply with empty cards (QML:154-161).
+// Reply = { cards:[cid], choice }.
+function CardsAndChoiceBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const vm = useVmStore((s) => s.vm)
+  const [picked, setPicked] = useState<number[]>([])
+  useEffect(() => { setPicked([]) }, [active])
+
+  const cards = active.ccCards ?? []
+  const disabled = active.ccDisabled ?? []
+  const okOptions = active.ccOkOptions ?? []
+  const cancelOptions = active.ccCancelOptions ?? []
+  const skel = active.ccFilterSkel ?? ''
+  const extra = active.ccExtra
+  const min = active.min ?? 1
+  const max = active.max ?? 1
+
+  const countOk = picked.length >= min && picked.length <= max
+  const toggle = (cid: number) => {
+    if (disabled.includes(cid)) return
+    setPicked((cur) => cur.includes(cid) ? cur.filter((x) => x !== cid) : (max === 1 ? [cid] : cur.length >= max ? [...cur.slice(1), cid] : [...cur, cid]))
+  }
+  // OK option enabled: count in range AND (index 0 always, else choiceFilter).
+  const okEnabled = (opt: string, i: number) =>
+    countOk && (i === 0 || !skel || (vm?.choiceFilter(skel, picked, opt, extra) ?? true))
+
+  return (
+    <Modal prompt={active.prompt}>
+      <div style={styles.cards}>
+        {cards.map((cid) => {
+          const sel = picked.includes(cid)
+          const dis = disabled.includes(cid)
+          return (
+            <button key={cid} style={{ ...styles.agCard, ...(sel ? styles.picked : {}), ...(dis ? styles.disabled : {}) }}
+              disabled={dis} onClick={() => toggle(cid)}>
+              <CardFaceView cid={cid} faceUp width={56} height={80} />
+            </button>
+          )
+        })}
+      </div>
+      <div style={styles.row}>
+        {okOptions.map((opt, i) => {
+          const on = okEnabled(opt, i)
+          return <button key={`ok-${i}`} style={{ ...styles.ok, ...(on ? {} : styles.disabled) }} disabled={!on}
+            onClick={() => resolve({ cards: picked, choice: opt })}>{tr(opt)}</button>
+        })}
+        {cancelOptions.map((opt, i) => (
+          <button key={`cancel-${i}`} style={styles.ghost}
+            onClick={() => resolve({ cards: [], choice: opt })}>{tr(opt)}</button>
+        ))}
       </div>
     </Modal>
   )

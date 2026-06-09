@@ -18,7 +18,7 @@ function takerNameFor(pid: number): string {
   return p.general ? tr(p.general) : (p.name || `P${pid}`)
 }
 
-export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi'
+export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice'
 
 export interface CardGroup { name: string; cards: { cid: number; known: boolean }[] }
 export interface ArrangeArea { name: string; capacity: number; limit: number }
@@ -56,6 +56,16 @@ export interface PopupRequest {
   poxiType?: string
   poxiData?: unknown
   poxiExtra?: unknown
+  // cardsAndChoice (AskForCardsAndChoice → ChooseCardsAndChoiceBox.qml): pick
+  // min..max cards (some disabled), then choose an OK option. ok option `i>0` is
+  // gated by the VM's filter_skel.choiceFilter(cards, choice, extra). cancel options
+  // always reply with empty cards. Reply = { cards:[cid], choice }.
+  ccCards?: number[]
+  ccDisabled?: number[]
+  ccOkOptions?: string[]
+  ccCancelOptions?: string[]
+  ccFilterSkel?: string
+  ccExtra?: unknown
 }
 
 interface PopupState {
@@ -238,6 +248,26 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           poxiData: obj.data,
           poxiExtra: obj.extra_data,
           cancelable: !!obj.cancelable,
+        } })
+        return true
+      }
+      case 'AskForCardsAndChoice': {
+        // { cards:[cid], choices:[ok], prompt, cancel_choices:[cancel], min, max,
+        //   filter_skel, disabled:[cid], extra_data } — ChooseCardsAndChoiceBox.qml.
+        // Reply { cards:[cid], choice }. Per-choice gating via VM choiceFilter.
+        if (!obj) return false
+        const cards = (obj.cards as number[]) ?? []
+        set({ active: {
+          kind: 'cardsAndChoice',
+          prompt: String(obj.prompt || '请选择牌与选项'),
+          ccCards: cards,
+          ccDisabled: (obj.disabled as number[]) ?? [],
+          ccOkOptions: (obj.choices as string[]) ?? [],
+          ccCancelOptions: (obj.cancel_choices as string[]) ?? [],
+          ccFilterSkel: String(obj.filter_skel || ''),
+          ccExtra: obj.extra_data,
+          min: Number(obj.min) || 1,
+          max: Number(obj.max) || 1,
         } })
         return true
       }

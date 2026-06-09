@@ -243,6 +243,7 @@ export const useVmStore = create<VmState>((set, get) => ({
             const cardCids = [
               ...(active.agCards ?? []).map((c) => c.cid),
               ...(active.arrangeCards ?? []),
+              ...(active.ccCards ?? []),
               ...((active.groups ?? []).flatMap((g) => g.cards.map((c) => c.cid))),
             ]
             const cached = useCardFaceStore.getState().faces

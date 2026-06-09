@@ -53,6 +53,7 @@ export class ClientVm {
   private fnReadGenerals: ((namesJson: string) => string) | null = null
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
   private fnPoxi: ((kind: string, argsJson: string) => string) | null = null
+  private fnChoiceFilter: ((argsJson: string) => string) | null = null
   private fnPlayerSkills: ((id: number) => string) | null = null
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
@@ -237,6 +238,19 @@ export class ClientVm {
         end
         return json.encode({ r = res })
       end
+      -- ChooseCardsAndChoiceBox per-choice filter (ChooseCardsAndChoiceBox.qml:124):
+      -- Fk.skill_skels[filter_skel].extra.choiceFilter(cards, choice, extra_data).
+      -- Returns whether an OK option is enabled for the current card selection.
+      -- (index-0 option is always enabled and handled on the JS side.)
+      function __fkChoiceFilter(argsJson)
+        local ok, a = pcall(json.decode, argsJson)
+        if not ok or type(a) ~= "table" then return json.encode({ r = false }) end
+        local skel = a.filter_skel and Fk.skill_skels and Fk.skill_skels[a.filter_skel]
+        if not skel or not skel.extra or not skel.extra.choiceFilter then return json.encode({ r = true }) end
+        local fok, res = pcall(skel.extra.choiceFilter, a.cards or {}, a.choice, a.extra)
+        return json.encode({ r = fok and (res ~= false) })
+      end
+      -- Player detail (PlayerDetail.qml right-click): visible skills [{name,description}]
       -- via GetPlayerSkills(id) (client_util.lua:399). Self sees all visible skills;
       -- others hide equip/& skills. Returns [] when the player is unknown.
       function __fkPlayerSkills(id)
@@ -286,6 +300,7 @@ export class ClientVm {
     this.fnReadGenerals = lua.global.get('__fkReadGenerals') as typeof this.fnReadGenerals
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
     this.fnPoxi = lua.global.get('__fkPoxi') as typeof this.fnPoxi
+    this.fnChoiceFilter = lua.global.get('__fkChoiceFilter') as typeof this.fnChoiceFilter
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
     this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
@@ -410,6 +425,15 @@ export class ClientVm {
   private callPoxi(kind: string, args: unknown): unknown {
     if (!this.fnPoxi) return undefined
     try { return (JSON.parse(this.fnPoxi(kind, JSON.stringify(args))) as { r: unknown }).r } catch { return undefined }
+  }
+
+  /** ChooseCardsAndChoiceBox per-choice filter (ChooseCardsAndChoiceBox.qml:124):
+   *  is OK option `choice` enabled for the selected `cards`? Returns true when no
+   *  filter_skel (all options allowed). The index-0 option is always allowed by the
+   *  caller; this covers the rest. */
+  choiceFilter(filterSkel: string, cards: number[], choice: string, extra: unknown): boolean {
+    if (!this.fnChoiceFilter || !filterSkel) return true
+    try { return !!(JSON.parse(this.fnChoiceFilter(JSON.stringify({ filter_skel: filterSkel, cards, choice, extra }))) as { r: unknown }).r } catch { return true }
   }
 
   /** Visible skills [{name, description}] of a player, for the right-click detail

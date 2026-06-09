@@ -136,4 +136,46 @@ describe('popupStore', () => {
   it('EmptyRequest is handled (no popup)', () => {
     expect(usePopupStore.getState().handle('EmptyRequest', null)).toBe(true)
   })
+
+  it('AskForPoxi → poxi popup with real rule payload (not min0..maxAll downgrade)', () => {
+    // M4 I-1: keep poxi_type/data/extra_data so PoxiBox can call vm.poxi{Filter,
+    // Feasible,Prompt}; do NOT collapse to a generic min..max card pick.
+    const handled = usePopupStore.getState().handle('AskForPoxi', {
+      type: 'AskForCardsChosen',
+      data: [['$Hand', [1, 2, 3]]],
+      extra_data: { min: 1, max: 2, visible_data: { '2': false } },
+      cancelable: true,
+    })
+    expect(handled).toBe(true)
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('poxi')
+    expect(a.poxiType).toBe('AskForCardsChosen')
+    expect(a.poxiData).toEqual([['$Hand', [1, 2, 3]]])
+    expect(a.cancelable).toBe(true)
+    // groups parsed for rendering; card 2 is face-down (visible_data false).
+    const grp = a.groups![0]!
+    expect(grp.cards.find((c) => c.cid === 2)!.known).toBe(false)
+    expect(grp.cards.find((c) => c.cid === 1)!.known).toBe(true)
+  })
+
+  it('AskForCardsAndChoice → cardsAndChoice popup; resolve replies {cards,choice}', () => {
+    const sent: unknown[] = []
+    usePopupStore.getState().setReplySender((d) => sent.push(d))
+    const handled = usePopupStore.getState().handle('AskForCardsAndChoice', {
+      cards: [1, 2, 3], choices: ['确定'], cancel_choices: ['取消'],
+      prompt: '弃牌', min: 1, max: 2, disabled: [3], filter_skel: '', extra_data: {},
+    })
+    expect(handled).toBe(true)
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('cardsAndChoice')
+    expect(a.ccCards).toEqual([1, 2, 3])
+    expect(a.ccDisabled).toEqual([3])
+    expect(a.ccOkOptions).toEqual(['确定'])
+    expect(a.ccCancelOptions).toEqual(['取消'])
+    expect(a.min).toBe(1)
+    expect(a.max).toBe(2)
+    usePopupStore.getState().resolve({ cards: [1], choice: '确定' })
+    expect(sent).toEqual([{ cards: [1], choice: '确定' }])
+    expect(usePopupStore.getState().active).toBeNull()
+  })
 })
