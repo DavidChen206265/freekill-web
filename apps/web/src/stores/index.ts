@@ -15,19 +15,82 @@ interface ConnectionState {
   status: GatewayStatus
   detail?: string
   serverUrl: string
+  reconnecting: boolean
   connect: (url: string, creds: LoginCredentials) => void
   disconnect: () => void
+  tryAutoLogin: () => boolean
 }
 
-export const useConnectionStore = create<ConnectionState>((set, get) => ({
-  client: null,
-  status: 'idle',
-  serverUrl: '',
-  connect: (url, creds) => {
+// Persisted credentials (R2 reconnect). User chose localStorage persistence for
+// fully-seamless reconnect across WS drops AND hard page refresh / browser restart
+// (decision 2026-06-08, see plan §R2 + risk R-CRED). SECURITY DEBT: this stores
+// the plaintext password in localStorage (XSS/same-origin readable). Acceptable
+// for the MVP's seamless-reconnect UX; production (M6) must replace it with a
+// short-lived session token / server session. Isolated here so that swap is local.
+const CRED_KEY = 'fk-creds'
+interface StoredCreds { url: string; user: string; password: string; uuid: string }
+function loadCreds(): StoredCreds | null {
+  try {
+    const raw = localStorage.getItem(CRED_KEY)
+    if (!raw) return null
+    const c = JSON.parse(raw) as StoredCreds
+    return c.url && c.user && c.password ? c : null
+  } catch { return null }
+}
+function saveCreds(c: StoredCreds): void {
+  try { localStorage.setItem(CRED_KEY, JSON.stringify(c)) } catch { /* ignore quota/denied */ }
+}
+function clearCreds(): void {
+  try { localStorage.removeItem(CRED_KEY) } catch { /* ignore */ }
+}
+
+// Auto-reconnect tuning: a dropped WS (not an explicit logout) retries with the
+// stored credentials. asio detects the in-game player on re-login and resends the
+// room as a Reconnect packet (verified against real asio 2026-06-08). Capped
+// backoff; cleared on success or explicit disconnect.
+const RECONNECT_BASE_MS = 1000
+const RECONNECT_MAX_MS = 8000
+const RECONNECT_MAX_TRIES = 10
+
+export const useConnectionStore = create<ConnectionState>((set, get) => {
+  let intentionalClose = false
+  let reconnectTries = 0
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let lastCreds: StoredCreds | null = null
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+  }
+
+  const scheduleReconnect = () => {
+    if (intentionalClose || !lastCreds) return
+    if (reconnectTries >= RECONNECT_MAX_TRIES) { set({ reconnecting: false }); return }
+    const delay = Math.min(RECONNECT_BASE_MS * 2 ** reconnectTries, RECONNECT_MAX_MS)
+    reconnectTries++
+    set({ reconnecting: true })
+    clearReconnectTimer()
+    reconnectTimer = setTimeout(() => {
+      const c = lastCreds!
+      // Reset VM + routing so asio's resent Setup/Reconnect rebuilds a clean state.
+      useVmStore.getState().reset()
+      resetRoutingState()
+      doConnect(c.url, c)
+    }, delay)
+  }
+
+  const doConnect = (url: string, creds: LoginCredentials) => {
     get().client?.disconnect()
     const client = new GatewayClient({
       url,
-      onStatus: (status, detail) => set({ status, detail }),
+      onStatus: (status, detail) => {
+        set({ status, detail })
+        if (status === 'online') {
+          reconnectTries = 0
+          set({ reconnecting: false })
+        }
+        // An unexpected close (not an explicit logout) triggers auto-reconnect.
+        if (status === 'closed' && !intentionalClose) scheduleReconnect()
+      },
       onEnvelope: (env) => routeEnvelope(env),
     })
     set({ client, serverUrl: url, status: 'connecting', detail: undefined })
@@ -44,12 +107,45 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     // Popup requests (AskForGeneral/Choice/...) reply the same way.
     usePopupStore.getState().setReplySender((data) => client.reply(currentRequestId, data))
     client.connect(creds)
-  },
-  disconnect: () => {
-    get().client?.disconnect()
-    set({ client: null, status: 'idle' })
-  },
-}))
+  }
+
+  return {
+    client: null,
+    status: 'idle',
+    serverUrl: '',
+    reconnecting: false,
+    connect: (url, creds) => {
+      intentionalClose = false
+      reconnectTries = 0
+      clearReconnectTimer()
+      const uuid = creds.uuid ?? `web-${crypto.randomUUID()}`
+      lastCreds = { url, user: creds.user, password: creds.password, uuid }
+      saveCreds(lastCreds)
+      doConnect(url, { ...creds, uuid })
+    },
+    disconnect: () => {
+      intentionalClose = true
+      clearReconnectTimer()
+      lastCreds = null
+      clearCreds()
+      get().client?.disconnect()
+      useVmStore.getState().reset()
+      resetRoutingState()
+      set({ client: null, status: 'idle', reconnecting: false })
+    },
+    // Called on app mount: if we have stored credentials, reconnect automatically
+    // (survives hard refresh / browser restart). Returns true if a login started.
+    tryAutoLogin: () => {
+      const c = loadCreds()
+      if (!c) return false
+      intentionalClose = false
+      reconnectTries = 0
+      lastCreds = c
+      doConnect(c.url, c)
+      return true
+    },
+  }
+})
 
 // ---- auth ----
 interface AuthState {
@@ -112,6 +208,20 @@ let loginSetup: Envelope | null = null
 // senders fire from React/VM callbacks that don't carry the id; capturing it at the
 // exact request that opened the prompt avoids the gateway's stale-guess race.
 let currentRequestId = 0
+
+// Reset the routing module state for a fresh (re)connection. On reconnect the
+// gateway opens a brand-new asio TCP and asio resends the whole room (Setup +
+// Reconnect/EnterRoom + full state), so we must clear inRoom/loginSetup and the
+// feed chain — otherwise the stale `inRoom=true` would route the resent Setup/
+// Reconnect packets straight into a not-yet-rebooted VM. The VM itself is reset
+// separately (vmStore.reset) so the Reconnect rebuild (clientbase loadRoomSummary)
+// starts from a clean ClientInstance.
+function resetRoutingState(): void {
+  inRoom = false
+  loginSetup = null
+  feedChain = Promise.resolve()
+  currentRequestId = 0
+}
 
 function feedVmOrdered(env: Envelope): void {
   // Serialize VM feeds so packets are applied in arrival order despite async.

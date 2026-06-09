@@ -14,6 +14,8 @@ export function LoginPage() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     // uuid: stable per browser so asio's ban-by-uuid + device limits behave.
+    // The connection store persists {url,user,password,uuid} for seamless reconnect
+    // (R2; see store CRED_KEY + risk R-CRED for the plaintext-storage tradeoff).
     let uuid = localStorage.getItem('fk-uuid')
     if (!uuid) { uuid = `web-${crypto.randomUUID()}`; localStorage.setItem('fk-uuid', uuid) }
     connect(url, { user, password, uuid })
