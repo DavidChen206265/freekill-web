@@ -30,6 +30,7 @@ export interface InteractionSpec {
   choices?: string[]
   all_choices?: string[]
   default?: string
+  default_choice?: string
   detailed?: boolean
   min_num?: number
   max_num?: number

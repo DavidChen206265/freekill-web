@@ -46,9 +46,19 @@ export interface PopupRequest {
   // ag (AskForAG): the pile of cards; taken ones stay (greyed) with the taker name
   // (AG.qml takeAG marks selectable=false + footnote, it does NOT remove the card).
   agCards?: { cid: number; takenBy?: string }[]
-  // arrange (Guanxing/Exchange/ArrangeCards): assign cards into areas; reply [[cids]]
+  // arrange (Guanxing/Exchange/ArrangeCards → ArrangeCardsBox/GuanxingBox.qml):
+  // assign cards into ordered areas; reply [[cids per area]]. initialSlots pre-
+  // places cards into their source areas (QML initializeCards), so "do nothing"
+  // keeps the dealt order (critical for Guanxing). isFree=false locks area-0's
+  // original cards' relative order; pattern restricts which cards may enter a
+  // pattern-gated area (here: only cards matching the pattern are draggable at all,
+  // mirroring GuanxingBox cardFitPattern). arrangeCancelable shows a Cancel button.
   arrangeCards?: number[]
   areas?: ArrangeArea[]
+  initialSlots?: number[][]
+  isFree?: boolean
+  arrangeCancelable?: boolean
+  arrangePattern?: string
   // poxi (AskForPoxi → PoxiBox.qml): real selection rules live in the VM's
   // Fk.poxi_methods[poxiType] (card_filter/feasible/prompt). The component drives
   // selectability + OK through vm.poxi{Filter,Feasible,Prompt} instead of a
@@ -73,6 +83,8 @@ export interface PopupRequest {
   mbCards?: number[]
   mbPositions?: number[]
   mbSideNames?: string[]
+  mbPlayerIds?: number[]
+  mbVirtNames?: Record<string, string>
 }
 
 interface PopupState {
@@ -106,13 +118,9 @@ function parseGroups(cardData: unknown, visibleData: Record<string, unknown>): C
   })
 }
 
-// Flatten cards:[[cid]] (array of piles) into a single cid list.
-function flattenCards(cards: unknown): number[] {
-  if (!Array.isArray(cards)) return []
-  const out: number[] = []
-  for (const pile of cards) if (Array.isArray(pile)) for (const cid of pile) out.push(Number(cid))
-  return out
-}
+// Initial-slot reply for arrange popups is built per-area; no flattening helper
+// is needed now that the 2D card_map is preserved (initialSlots).
+
 
 // PlayerCardBox.qml shuffleInvisibleOutput (anti-cheat, single pick only): when
 // the clicked card is face-down (invisible) you must not reveal WHICH back you
@@ -128,6 +136,28 @@ export function shuffleInvisibleOutput(groups: CardGroup[], cid: number, rng: ()
     }
   }
   return cid
+}
+
+// PoxiBox.qml shuffleInvisibleOutput (lines 206-233): the MULTI-select variant.
+// For each area, count how many SELECTED cids are invisible there, then replace
+// them with that many DISTINCT random invisible cids from the same area (splice =
+// no repeats). Visible selections pass through unchanged. Preserves position in the
+// output array (only the value at each chosen-invisible slot is randomized).
+export function shuffleInvisiblePoxi(groups: CardGroup[], selected: number[], rng: () => number = Math.random): number[] {
+  const output = selected.slice()
+  for (const g of groups) {
+    const invisible = g.cards.filter((c) => !c.known).map((c) => c.cid)
+    // indices in `output` that point at an invisible card of THIS area
+    const chosenSlots = output.map((cid, i) => (invisible.includes(cid) ? i : -1)).filter((i) => i >= 0)
+    if (chosenSlots.length === 0) continue
+    const pool = [...invisible]
+    for (const slot of chosenSlots) {
+      const k = Math.floor(rng() * pool.length)
+      const newCid = pool.splice(k, 1)[0]
+      if (newCid !== undefined) output[slot] = newCid
+    }
+  }
+  return output
 }
 
 export const usePopupStore = create<PopupState>((set, get) => ({
@@ -204,39 +234,61 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         return true
       }
       case 'AskForGuanxing': {
-        // { cards:[[cid]], min/max_top_cards, min/max_bottom_cards, top/bottom_area_name, is_free, prompt }
+        // { cards:[[top],[bottom]], min/max_top_cards, min/max_bottom_cards,
+        //   top/bottom_area_name, is_free, prompt } — cards is a 2D card_map already
+        //   split into top/bottom (room.lua:1811-1817). Pre-place per that map.
         if (!obj) return false
-        const cards = flattenCards(obj.cards)
+        const map = (Array.isArray(obj.cards) ? obj.cards : []) as number[][]
         const maxTop = Number(obj.max_top_cards) || 0
         const maxBottom = Number(obj.max_bottom_cards) || 0
         const areas: ArrangeArea[] = []
         if (maxTop > 0) areas.push({ name: String(obj.top_area_name || '顶部'), capacity: maxTop, limit: Number(obj.min_top_cards) || 0 })
         if (maxBottom > 0) areas.push({ name: String(obj.bottom_area_name || '底部'), capacity: maxBottom, limit: Number(obj.min_bottom_cards) || 0 })
-        set({ active: { kind: 'arrange', prompt: String(obj.prompt || '请安排牌'), arrangeCards: cards, areas } })
+        // card_map row i → area i. Guard against extra rows (shouldn't happen).
+        const initialSlots = areas.map((_, i) => (Array.isArray(map[i]) ? map[i]!.map(Number) : []))
+        set({ active: {
+          kind: 'arrange', prompt: String(obj.prompt || '请安排牌'),
+          arrangeCards: initialSlots.flat(), areas, initialSlots,
+          isFree: obj.is_free !== false, arrangeCancelable: !!obj.cancelable,
+        } })
         return true
       }
       case 'AskForExchange': {
-        // { piles:[[cids]], piles_name:[names] } — each non-empty pile is an area.
+        // { piles:[[cids]], piles_name:[names] } — each non-empty pile is an area;
+        // cards start pre-placed in their pile (initializeCards).
         if (!obj) return false
         const piles = (obj.piles as number[][]) ?? []
-        const names = (obj.piles_name as string[]) ?? []
-        const cards: number[] = []
         const areas: ArrangeArea[] = []
+        const initialSlots: number[][] = []
         piles.forEach((ids, i) => {
-          if (ids.length > 0) { ids.forEach((id) => cards.push(id)); areas.push({ name: String(names[i] || `区${i}`), capacity: ids.length, limit: 0 }) }
+          if (ids.length > 0) {
+            areas.push({ name: String((obj.piles_name as string[])?.[i] || `区${i}`), capacity: ids.length, limit: 0 })
+            initialSlots.push(ids.map(Number))
+          }
         })
-        set({ active: { kind: 'arrange', prompt: '请交换/安排牌', arrangeCards: cards, areas } })
+        set({ active: {
+          kind: 'arrange', prompt: '请交换/安排牌',
+          arrangeCards: initialSlots.flat(), areas, initialSlots,
+          isFree: obj.is_free !== false, arrangeCancelable: !!obj.cancelable,
+        } })
         return true
       }
       case 'AskForArrangeCards': {
-        // { cards:[[cid]], prompt, capacities, limits, names, ... }
+        // { cards:[[cid per area]], prompt, capacities, limits, names, is_free, ... }
+        // cards is a 2D cardMap pre-grouped by area (room.lua:1714); pre-place it.
         if (!obj) return false
-        const cards = flattenCards(obj.cards)
+        const map = (Array.isArray(obj.cards) ? obj.cards : []) as number[][]
         const caps = (obj.capacities as number[]) ?? []
         const lims = (obj.limits as number[]) ?? []
         const names = (obj.names as string[]) ?? []
         const areas: ArrangeArea[] = caps.map((c, i) => ({ name: String(names[i] || `区${i}`), capacity: c, limit: lims[i] ?? 0 }))
-        set({ active: { kind: 'arrange', prompt: String(obj.prompt || '请安排牌'), arrangeCards: cards, areas } })
+        const initialSlots = areas.map((_, i) => (Array.isArray(map[i]) ? map[i]!.map(Number) : []))
+        set({ active: {
+          kind: 'arrange', prompt: String(obj.prompt || '请安排牌'),
+          arrangeCards: initialSlots.flat(), areas, initialSlots,
+          isFree: obj.is_free !== false, arrangeCancelable: !!obj.cancelable,
+          arrangePattern: typeof obj.pattern === 'string' ? obj.pattern : undefined,
+        } })
         return true
       }
       case 'AskForPoxi': {
@@ -289,6 +341,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           mbCards: (obj.cards as number[]) ?? [],
           mbPositions: (obj.cardsPosition as number[]) ?? [],
           mbSideNames: (obj.generalNames as string[]) ?? [],
+          mbPlayerIds: (obj.playerIds as number[]) ?? [],
         } })
         return true
       }

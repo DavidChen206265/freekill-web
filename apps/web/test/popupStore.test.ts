@@ -2,7 +2,7 @@
 // SkillInvoke). Verifies the notify→state and resolve→reply shapes.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { usePopupStore, shuffleInvisibleOutput } from '../src/stores/popupStore.js'
+import { usePopupStore, shuffleInvisibleOutput, shuffleInvisiblePoxi } from '../src/stores/popupStore.js'
 
 beforeEach(() => { usePopupStore.getState().clear(); usePopupStore.setState({ replySender: undefined }) })
 
@@ -113,24 +113,38 @@ describe('popupStore', () => {
     expect(usePopupStore.getState().active).toBeNull()
   })
 
-  it('AskForGuanxing → arrange areas (top/bottom) with capacities', () => {
+  it('AskForGuanxing → arrange areas (top/bottom), cards pre-placed per card_map', () => {
+    // cards is a 2D card_map [top, bottom] (room.lua:1811-1817); rows pre-place.
     usePopupStore.getState().handle('AskForGuanxing', {
-      cards: [[1, 2, 3]], max_top_cards: 3, min_top_cards: 0, max_bottom_cards: 3, min_bottom_cards: 0,
-      top_area_name: '牌堆顶', bottom_area_name: '牌堆底', prompt: '观星',
+      cards: [[1, 2], [3]], max_top_cards: 2, min_top_cards: 0, max_bottom_cards: 3, min_bottom_cards: 0,
+      top_area_name: '牌堆顶', bottom_area_name: '牌堆底', prompt: '观星', is_free: true,
     })
     const a = usePopupStore.getState().active!
     expect(a.kind).toBe('arrange')
-    expect(a.arrangeCards).toEqual([1, 2, 3])
     expect(a.areas).toHaveLength(2)
-    expect(a.areas![0]!.capacity).toBe(3)
+    expect(a.areas![0]!.capacity).toBe(2)
+    // Pre-placed: top=[1,2], bottom=[3] — "do nothing → 确定" keeps the dealt order.
+    expect(a.initialSlots).toEqual([[1, 2], [3]])
+    expect(a.arrangeCards).toEqual([1, 2, 3])
   })
 
-  it('AskForExchange → one area per non-empty pile', () => {
+  it('AskForExchange → one area per non-empty pile, pre-placed', () => {
     usePopupStore.getState().handle('AskForExchange', { piles: [[1, 2], [], [3]], piles_name: ['手牌', '空', '装备'] })
     const a = usePopupStore.getState().active!
     expect(a.kind).toBe('arrange')
-    expect(a.arrangeCards).toEqual([1, 2, 3])
     expect(a.areas).toHaveLength(2) // empty pile skipped
+    expect(a.initialSlots).toEqual([[1, 2], [3]])
+  })
+
+  it('AskForArrangeCards → pre-placed by area; is_free=false locks area-0 cards', () => {
+    usePopupStore.getState().handle('AskForArrangeCards', {
+      cards: [[1, 2], [3, 4]], capacities: [2, 2], limits: [0, 0], names: ['A', 'B'],
+      is_free: false, prompt: '排列',
+    })
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('arrange')
+    expect(a.initialSlots).toEqual([[1, 2], [3, 4]])
+    expect(a.isFree).toBe(false) // ArrangeBox will lock area-0 cards [1,2]
   })
 
   it('EmptyRequest is handled (no popup)', () => {
@@ -211,5 +225,23 @@ describe('popupStore', () => {
       expect(sent).toEqual(['__cancel'])
       expect(usePopupStore.getState().active).toBeNull()
     }
+  })
+
+  it('shuffleInvisiblePoxi: visible picks pass through, invisible picks randomized within area', () => {
+    // group A: 1,2 visible; 3,4 invisible. group B: 5 visible.
+    const groups = [
+      { name: 'A', cards: [{ cid: 1, known: true }, { cid: 2, known: true }, { cid: 3, known: false }, { cid: 4, known: false }] },
+      { name: 'B', cards: [{ cid: 5, known: true }] },
+    ]
+    // Pick a visible (1) and an invisible (3). rng→0 picks the first invisible in pool.
+    const out = shuffleInvisiblePoxi(groups, [1, 3], () => 0)
+    expect(out[0]).toBe(1)            // visible passes through unchanged, same slot
+    expect([3, 4]).toContain(out[1])  // invisible replaced by SOME invisible from area A
+    // All-visible selection is identity.
+    expect(shuffleInvisiblePoxi(groups, [1, 5], () => 0.99)).toEqual([1, 5])
+    // Two invisible picks from the same area get DISTINCT outputs (splice, no repeat).
+    const both = shuffleInvisiblePoxi(groups, [3, 4], () => 0)
+    expect(new Set(both).size).toBe(2)
+    expect(both.every((c) => [3, 4].includes(c))).toBe(true)
   })
 })

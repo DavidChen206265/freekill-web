@@ -250,6 +250,17 @@ export const useVmStore = create<VmState>((set, get) => ({
             const cached = useCardFaceStore.getState().faces
             const need = cardCids.filter((c) => c > 0 && !cached[c])
             if (need.length > 0) useCardFaceStore.getState().merge(get().vm!.readCards(need))
+            // MoveCardInBoard: resolve virtual-equip display names per owning player
+            // (RoomLogic.js:1114 getVirtualEquipData). Board equips may be "virtual"
+            // (equipped-as another card); readCards alone can't know the owner.
+            if (active.kind === 'moveBoard' && active.mbCards && active.mbCards.length > 0) {
+              const cards = active.mbCards
+              const positions = active.mbPositions ?? []
+              const playerIds = active.mbPlayerIds ?? []
+              const pairs = cards.map((cid, i) => [playerIds[positions[i] ?? 0] ?? 0, cid] as [number, number])
+              const virt = get().vm!.virtualEquipNames(pairs)
+              if (Object.keys(virt).length > 0) usePopupStore.setState((s) => (s.active?.kind === 'moveBoard' ? { active: { ...s.active, mbVirtNames: virt } } : {}))
+            }
           }
         }
         set((s) => ({

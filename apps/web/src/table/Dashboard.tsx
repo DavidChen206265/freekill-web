@@ -159,13 +159,23 @@ function InteractionPanel({ spec, onUpdate }: { spec: InteractionSpec; onUpdate:
   return null
 }
 
+// combo (SkillCombo.qml) / cardname (SkillCardName.qml): cycle through the choices.
+// QML shows ALL options (all_choices) but only `choices` are ENABLED/selectable;
+// cycling must land only on enabled options (the web previously cycled all_choices,
+// which could report a disabled choice — audit #6). cardname's default lives in
+// `default_choice` (extra_data), combo's in `default` (audit #8).
 function ComboInteraction({ spec, onUpdate }: { spec: InteractionSpec; onUpdate: (v: unknown) => void }) {
   const all = spec.all_choices ?? spec.choices ?? []
-  const [val, setVal] = useState<string>(spec.default ?? all[0] ?? '')
+  // Enabled subset to cycle through (SkillCombo box.options = choices). Fall back to
+  // all when no explicit subset is given (choices === all_choices case).
+  const enabled = (spec.choices && spec.choices.length > 0) ? spec.choices : all
+  const initial = (spec.type === 'cardname' ? spec.default_choice : spec.default) ?? enabled[0] ?? all[0] ?? ''
+  const [val, setVal] = useState<string>(initial)
   useEffect(() => { onUpdate(val) }, [])  // report the initial default (QML clicked())
   const cycle = () => {
-    if (all.length < 2) return
-    const next = all[(all.indexOf(val) + 1) % all.length] ?? val
+    if (enabled.length < 2) return
+    const idx = enabled.indexOf(val)
+    const next = enabled[(idx + 1) % enabled.length] ?? val  // only enabled options
     setVal(next); onUpdate(next)
   }
   return <button style={styles.interactBtn} onClick={cycle}>{tr(val)}</button>
@@ -186,21 +196,29 @@ function SpinInteraction({ spec, onUpdate }: { spec: InteractionSpec; onUpdate: 
   )
 }
 
+// checkbox (SkillCheckBox.qml): toggle chips, min_num..max_num. QML reports [] on
+// creation (clicked() at Room.qml:829) and provides a Cancel that reports [] — the
+// web reports the initial [] too (audit #7) and offers a 清空 (clear→[]) action when
+// cancelable. min_num is gated by the VM's OK feasibility (ui_emu); max_num is
+// enforced inline.
 function CheckInteraction({ spec, onUpdate }: { spec: InteractionSpec; onUpdate: (v: unknown) => void }) {
   const all = spec.all_choices ?? spec.choices ?? []
   const max = spec.max_num ?? all.length
   const [picked, setPicked] = useState<string[]>([])
+  useEffect(() => { onUpdate([]) }, [])  // QML SkillCheckBox.clicked() seeds [] on creation
   const toggle = (c: string) => setPicked((cur) => {
     const next = cur.includes(c) ? cur.filter((x) => x !== c) : (cur.length >= max ? cur : [...cur, c])
     onUpdate(next)
     return next
   })
+  const clear = () => { setPicked([]); onUpdate([]) }
   return (
     <div style={styles.checkRow}>
       {all.map((c) => (
         <button key={c} onClick={() => toggle(c)}
           style={{ ...styles.checkChip, ...(picked.includes(c) ? styles.specialOn : {}) }}>{tr(c)}</button>
       ))}
+      {spec.cancelable && <button style={styles.checkChip} onClick={clear}>清空</button>}
     </div>
   )
 }

@@ -500,6 +500,39 @@ describe('client VM packet feed', () => {
     expect(cfRes).toBe(true)
     const cfMissing = (JSON.parse(cf(JSON.stringify({ filter_skel: 'no_such_skel', cards: [], choice: 'x', extra: {} }))) as { r: unknown }).r
     expect(cfMissing).toBe(true)
+    // M4 I-6 fix: __fkCardFitPattern over a real card. A slash card matches the
+    // "slash" name pattern and not a "jink" pattern (Exppattern name match).
+    await lua.doString(`
+      function __fkCardFitPattern(argsJson)
+        local out = {}
+        local ok, a = pcall(json.decode, argsJson)
+        if ok and type(a)=="table" and a.pattern and a.cids then
+          for _, cid in ipairs(a.cids) do local fok,r = pcall(CardFitPattern, cid, a.pattern); out[tostring(cid)] = fok and (r and true or false) end
+        end
+        return json.encode({ r = out })
+      end
+    `)
+    const fitFn = lua.global.get('__fkCardFitPattern') as (j: string) => string
+    const slashId = await lua.doString(`for _,c in ipairs(Fk.cards) do if c.name=="slash" then return c.id end end`) as number
+    const fit = (JSON.parse(fitFn(JSON.stringify({ cids: [slashId], pattern: 'slash' }))) as { r: Record<string, boolean> }).r
+    expect(fit[String(slashId)]).toBe(true)
+    const noFit = (JSON.parse(fitFn(JSON.stringify({ cids: [slashId], pattern: 'jink' }))) as { r: Record<string, boolean> }).r
+    expect(noFit[String(slashId)]).toBe(false)
+    // M4 I-5 fix: __fkVirtualEquipNames returns {} for a non-virtual real card
+    // (GetVirtualEquipData → nil when the card isn't a virtual equip).
+    await lua.doString(`
+      function __fkVirtualEquipNames(argsJson)
+        local out = {}
+        local ok, a = pcall(json.decode, argsJson)
+        if ok and type(a)=="table" and a.pairs then
+          for _, pr in ipairs(a.pairs) do local vok,v = pcall(GetVirtualEquipData, pr[1], pr[2]); if vok and type(v)=="table" and v.name then out[tostring(pr[2])] = v.name end end
+        end
+        return json.encode({ r = out })
+      end
+    `)
+    const veFn = lua.global.get('__fkVirtualEquipNames') as (j: string) => string
+    const ve = (JSON.parse(veFn(JSON.stringify({ pairs: [[1, slashId]] }))) as { r: Record<string, string> }).r
+    expect(ve[String(slashId)]).toBeUndefined() // plain slash is not a virtual equip
     lua.global.close()
   }, 30_000)
 })

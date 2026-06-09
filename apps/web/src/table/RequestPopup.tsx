@@ -7,14 +7,21 @@
 //   AskForAG         → single cid
 // (AskForSkillInvoke is ui_emu — OK/Cancel via InteractionBar, not here.)
 
-import { useEffect, useState, useRef } from 'react'
-import { usePopupStore, shuffleInvisibleOutput, type PopupRequest } from '../stores/popupStore.js'
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { usePopupStore, shuffleInvisibleOutput, shuffleInvisiblePoxi, type PopupRequest } from '../stores/popupStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { arrangeDrop, arrangeValid, type ArrangeState } from './arrangeDrop.js'
 import { CardFaceView } from './CardFaceView.js'
 import { GeneralCard } from './GeneralCard.js'
 import { PromptText } from './PromptText.js'
 import { tr } from '../i18n/zh.js'
+
+// Translate a (possibly dual) general name. RoomLogic.js:1125-1131 splits a
+// "general/deputyGeneral" string on '/', translates EACH segment, and rejoins —
+// a single tr() of the joined string misses the dict and shows raw pinyin.
+function trGeneral(name: string): string {
+  return name.split('/').map((p) => tr(p)).join('/')
+}
 
 export function RequestPopup() {
   const active = usePopupStore((s) => s.active)
@@ -210,7 +217,8 @@ function PoxiBox({ active, resolve }: { active: PopupRequest; resolve: (v: unkno
         </div>
       ))}
       <div style={styles.row}>
-        <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
+        <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok}
+          onClick={() => resolve(shuffleInvisiblePoxi(active.groups ?? [], picked))}>确定</button>
         {active.cancelable && <button style={styles.ghost} onClick={() => resolve('__cancel')}>取消</button>}
       </div>
     </Modal>
@@ -294,14 +302,19 @@ function MoveBoardBox({ active, resolve }: { active: PopupRequest; resolve: (v: 
     <Modal prompt={active.prompt}>
       {[0, 1].map((side) => (
         <div key={side} style={styles.group}>
-          <div style={styles.groupName}>{tr(sides[side] ?? '')}</div>
+          <div style={styles.groupName}>{trGeneral(sides[side] ?? '')}</div>
           <div style={styles.cards}>
-            {cards.filter((cid) => sideOf(cid) === side).map((cid) => (
-              <button key={cid} style={{ ...styles.agCard, ...(picked === cid ? styles.picked : {}) }}
-                onClick={() => setPicked((cur) => (cur === cid ? null : cid))}>
-                <CardFaceView cid={cid} faceUp width={56} height={80} />
-              </button>
-            ))}
+            {cards.filter((cid) => sideOf(cid) === side).map((cid) => {
+              const virt = active.mbVirtNames?.[String(cid)]
+              return (
+                <button key={cid} style={{ ...styles.agCard, ...(picked === cid ? styles.picked : {}) }}
+                  onClick={() => setPicked((cur) => (cur === cid ? null : cid))}>
+                  <CardFaceView cid={cid} faceUp width={56} height={80} />
+                  {/* virtual-equip name overlay (e.g. equipped "as" another card) */}
+                  {virt && <span style={styles.virtTag}>{tr(virt)}</span>}
+                </button>
+              )
+            })}
           </div>
         </div>
       ))}
@@ -330,32 +343,49 @@ function AgBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown
 }
 
 // Arrange (Guanxing/Exchange/ArrangeCards): assign each card into an area to meet
-// each area's capacity. Downgrade of the QML drag box — click a card, then an
 // Arrange (Guanxing/Exchange/ArrangeCards → GuanxingBox/ArrangeCardsBox.qml):
 // assign cards into ordered areas. Reply = [[cids per area, IN ORDER]]
-// (ArrangeCardsBox.getResult:414). Order within an area matters (e.g. Guanxing =
-// top-of-draw-pile sequence), so this is a real pointer-drag with reorder, not just
-// grouping. Drag a card onto a target area to insert it at the nearest gap; an
-// over-capacity area bumps its tail card back to the unplaced tray. Click still
-// works as a fallback (tap card then tap area header appends).
+// (ArrangeCardsBox.getResult:414). Cards START pre-placed in their source areas
+// (QML initializeCards), so "do nothing → 确定" keeps the dealt order — critical
+// for Guanxing. Order within an area matters; drag reorders. isFree=false locks the
+// relative order of area-0's original cards (those cards can't be reordered/moved —
+// ArrangeCardsBox.qml:206 keeps org_cards[0] in place). An over-capacity area bumps
+// its oldest non-just-placed card to the tray. Cancel (when cancelable) replies [].
 function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
   const areas = active.areas ?? []
-  const allCards = active.arrangeCards ?? []
-  // Single atomic state: slots[areaIdx] = ordered cids; tray = unplaced cids.
-  const [st, setSt] = useState<ArrangeState>(() => ({ slots: areas.map(() => []), tray: [...allCards] }))
+  // Pre-place cards into their source areas (initialSlots); tray is empty unless a
+  // request actually leaves cards unplaced. Falls back to flat tray if no slots.
+  const initial = active.initialSlots
+  const mkInit = (): ArrangeState => initial
+    ? { slots: areas.map((_, i) => [...(initial[i] ?? [])]), tray: [] }
+    : { slots: areas.map(() => []), tray: [...(active.arrangeCards ?? [])] }
+  const [st, setSt] = useState<ArrangeState>(mkInit)
   const [drag, setDrag] = useState<{ cid: number; x: number; y: number } | null>(null)
   const areaRefs = useRef<(HTMLDivElement | null)[]>([])
-  useEffect(() => { setSt({ slots: areas.map(() => []), tray: [...allCards] }); setDrag(null) }, [active])
+  useEffect(() => { setSt(mkInit()); setDrag(null) }, [active])
 
   const caps = areas.map((a) => a.capacity)
   const lims = areas.map((a) => a.limit)
-  // Drop cid into area `ai` at insertion index `idx` (ai<0 = back to tray) — pure
-  // reducer in arrangeDrop.ts (atomic move + over-capacity bump).
+  const vm = useVmStore((s) => s.vm)
+  // When !isFree, area-0's original cards are locked (can't be dragged): QML keeps
+  // org_cards[0] in their original relative order (ArrangeCardsBox.qml:206-238).
+  // When a pattern is set, cards NOT matching it are locked too (GuanxingBox.qml:361
+  // selectable: cardFitPattern). Empty/"." pattern matches all.
+  const locked = useMemo(() => {
+    const s = new Set<number>(active.isFree === false ? (initial?.[0] ?? []) : [])
+    const pat = active.arrangePattern
+    if (vm && pat && pat !== '.') {
+      const all = (initial ?? []).flat().concat(active.arrangeCards ?? [])
+      const fit = vm.cardFitPattern(all, pat)
+      for (const cid of all) if (fit[String(cid)] === false) s.add(cid)
+    }
+    return s
+  }, [active, initial, vm])
+
   const drop = (cid: number, ai: number, idx: number) => setSt((prev) => arrangeDrop(prev, caps, cid, ai, idx))
 
   const onPointerUp = (e: React.PointerEvent) => {
     if (!drag) return
-    // Find which area the pointer is over (else tray), and the insertion index.
     let targetArea = -1
     let insertIdx = 0
     for (let i = 0; i < areas.length; i++) {
@@ -376,22 +406,26 @@ function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
   const valid = arrangeValid(st, caps, lims)
   const confirm = () => resolve(st.slots.map((a) => [...a]))
 
-  const cardBtn = (cid: number) => (
-    <div key={cid} data-cid={cid} style={{ ...styles.agCard, ...(drag?.cid === cid ? styles.dragging : {}), touchAction: 'none' }}
-      onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); setDrag({ cid, x: e.clientX, y: e.clientY }) }}
-      onPointerMove={(e) => { if (drag?.cid === cid) setDrag({ cid, x: e.clientX, y: e.clientY }) }}
-      onPointerUp={onPointerUp}>
-      <CardFaceView cid={cid} faceUp width={56} height={80} />
-    </div>
-  )
+  const cardBtn = (cid: number) => {
+    const isLocked = locked.has(cid)
+    return (
+      <div key={cid} data-cid={cid} style={{ ...styles.agCard, ...(drag?.cid === cid ? styles.dragging : {}), ...(isLocked ? styles.lockedCard : {}), touchAction: 'none' }}
+        onPointerDown={isLocked ? undefined : (e) => { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); setDrag({ cid, x: e.clientX, y: e.clientY }) }}
+        onPointerMove={isLocked ? undefined : (e) => { if (drag?.cid === cid) setDrag({ cid, x: e.clientX, y: e.clientY }) }}
+        onPointerUp={onPointerUp}>
+        <CardFaceView cid={cid} faceUp width={56} height={80} />
+      </div>
+    )
+  }
 
   return (
     <Modal prompt={active.prompt}>
-      <div style={styles.groupName}>待分配(拖拽到下方区域,可在区域内拖动排序)</div>
-      <div ref={(el) => { areaRefs.current[areas.length] = el }} style={styles.cards} onPointerUp={onPointerUp}>
-        {st.tray.map(cardBtn)}
-        {st.tray.length === 0 && <span style={{ color: '#888' }}>(全部已分配)</span>}
-      </div>
+      <div style={styles.groupName}>拖拽卡牌调整区域与顺序{active.isFree === false ? '(锁定牌不可移动)' : ''}</div>
+      {st.tray.length > 0 && (
+        <div ref={(el) => { areaRefs.current[areas.length] = el }} style={styles.cards} onPointerUp={onPointerUp}>
+          {st.tray.map(cardBtn)}
+        </div>
+      )}
       {areas.map((a, i) => (
         <div key={i} style={styles.group}>
           <div style={styles.areaHeader}>{tr(a.name)} [{st.slots[i]?.length ?? 0}/{a.capacity}]</div>
@@ -400,7 +434,10 @@ function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
           </div>
         </div>
       ))}
-      <button style={{ ...styles.ok, ...(valid ? {} : styles.disabled) }} disabled={!valid} onClick={confirm}>确定</button>
+      <div style={styles.row}>
+        <button style={{ ...styles.ok, ...(valid ? {} : styles.disabled) }} disabled={!valid} onClick={confirm}>确定</button>
+        {active.arrangeCancelable && <button style={styles.ghost} onClick={() => resolve('__cancel')}>取消</button>}
+      </div>
     </Modal>
   )
 }
@@ -445,8 +482,10 @@ const styles: Record<string, React.CSSProperties> = {
   cardBtn: { width: 56, height: 80, borderRadius: 6, border: '2px solid #444', background: '#f5f0e1', color: '#222', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   agCard: { position: 'relative', padding: 0, borderRadius: 6, border: '2px solid transparent', background: 'transparent', cursor: 'pointer' },
   dragging: { opacity: 0.5, border: '2px dashed #f1c40f' },
+  lockedCard: { opacity: 0.7, border: '2px solid #555', cursor: 'not-allowed' },
   agTaken: { filter: 'grayscale(1) brightness(0.55)', cursor: 'default' },
   agFootnote: { position: 'absolute', left: 0, right: 0, bottom: 2, fontSize: 11, fontWeight: 700, color: '#E4D5A0', textAlign: 'center', textShadow: '0 0 2px #000, 0 0 2px #000', pointerEvents: 'none' },
+  virtTag: { position: 'absolute', left: 0, right: 0, top: 2, fontSize: 10, fontWeight: 700, color: '#9fe6ff', textAlign: 'center', textShadow: '0 0 2px #000, 0 0 2px #000', pointerEvents: 'none' },
   row: { display: 'flex', gap: 10 },
   ok: { padding: '10px 28px', border: 'none', borderRadius: 6, background: '#0e639c', color: '#fff', fontSize: 16, cursor: 'pointer' },
   ghost: { padding: '10px 24px', border: '1px solid #555', borderRadius: 6, background: 'transparent', color: '#ccc', fontSize: 15, cursor: 'pointer' },

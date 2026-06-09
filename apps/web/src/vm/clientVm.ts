@@ -54,6 +54,8 @@ export class ClientVm {
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
   private fnPoxi: ((kind: string, argsJson: string) => string) | null = null
   private fnChoiceFilter: ((argsJson: string) => string) | null = null
+  private fnCardFitPattern: ((argsJson: string) => string) | null = null
+  private fnVirtualEquipNames: ((argsJson: string) => string) | null = null
   private fnPlayerSkills: ((id: number) => string) | null = null
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
@@ -257,6 +259,34 @@ export class ClientVm {
         local ok, sk = pcall(GetPlayerSkills, id)
         return json.encode((ok and sk) or {})
       end
+      -- Card-pattern match (ArrangeCardsBox/GuanxingBox selectable: cardFitPattern).
+      -- argsJson = {cids:[..], pattern:".."}; returns { r: { "<cid>": bool } }. A
+      -- pattern of "" or "." matches everything (handled on the JS side too).
+      function __fkCardFitPattern(argsJson)
+        local out = {}
+        local ok, a = pcall(json.decode, argsJson)
+        if ok and type(a) == "table" and a.pattern and a.cids then
+          for _, cid in ipairs(a.cids) do
+            local fok, r = pcall(CardFitPattern, cid, a.pattern)
+            out[tostring(cid)] = fok and (r and true or false)
+          end
+        end
+        return json.encode({ r = out })
+      end
+      -- Virtual-equip names for MoveCardInBoardBox (RoomLogic.js:1114
+      -- getVirtualEquipData(playerId, cid).name). argsJson = {pairs:[[playerId,cid]..]}
+      -- → { r: { "<cid>": "<virtName>" } } only for cids that ARE virtual equips.
+      function __fkVirtualEquipNames(argsJson)
+        local out = {}
+        local ok, a = pcall(json.decode, argsJson)
+        if ok and type(a) == "table" and a.pairs then
+          for _, pr in ipairs(a.pairs) do
+            local vok, v = pcall(GetVirtualEquipData, pr[1], pr[2])
+            if vok and type(v) == "table" and v.name then out[tostring(pr[2])] = v.name end
+          end
+        end
+        return json.encode({ r = out })
+      end
       -- GameOver summary (GameOverBox.qml): the server's GameSummary banner joined
       -- with each player's general/deputy/role from the VM mirror. Per seat:
       -- {turn,recover,damage,damaged,kill,scname} + general/deputy/role/id.
@@ -301,6 +331,8 @@ export class ClientVm {
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
     this.fnPoxi = lua.global.get('__fkPoxi') as typeof this.fnPoxi
     this.fnChoiceFilter = lua.global.get('__fkChoiceFilter') as typeof this.fnChoiceFilter
+    this.fnCardFitPattern = lua.global.get('__fkCardFitPattern') as typeof this.fnCardFitPattern
+    this.fnVirtualEquipNames = lua.global.get('__fkVirtualEquipNames') as typeof this.fnVirtualEquipNames
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
     this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
@@ -434,6 +466,20 @@ export class ClientVm {
   choiceFilter(filterSkel: string, cards: number[], choice: string, extra: unknown): boolean {
     if (!this.fnChoiceFilter || !filterSkel) return true
     try { return !!(JSON.parse(this.fnChoiceFilter(JSON.stringify({ filter_skel: filterSkel, cards, choice, extra }))) as { r: unknown }).r } catch { return true }
+  }
+
+  /** Which of `cids` match the card `pattern` (ArrangeCardsBox/GuanxingBox
+   *  cardFitPattern). Returns a cid→bool map. Empty / "." pattern matches all. */
+  cardFitPattern(cids: number[], pattern: string): Record<string, boolean> {
+    if (!this.fnCardFitPattern || !pattern || pattern === '.' || cids.length === 0) return {}
+    try { return (JSON.parse(this.fnCardFitPattern(JSON.stringify({ cids, pattern }))) as { r: Record<string, boolean> }).r ?? {} } catch { return {} }
+  }
+
+  /** Virtual-equip display names for MoveCardInBoardBox (getVirtualEquipData.name).
+   *  pairs = [[playerId, cid], ...]; returns cid→virtName only for virtual equips. */
+  virtualEquipNames(pairs: [number, number][]): Record<string, string> {
+    if (!this.fnVirtualEquipNames || pairs.length === 0) return {}
+    try { return (JSON.parse(this.fnVirtualEquipNames(JSON.stringify({ pairs }))) as { r: Record<string, string> }).r ?? {} } catch { return {} }
   }
 
   /** Visible skills [{name, description}] of a player, for the right-click detail
