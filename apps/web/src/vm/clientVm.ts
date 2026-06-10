@@ -122,15 +122,29 @@ export class ClientVm {
             -- like RoomLogic.js SetPlayerMark (1291) + the two areas' setMark:
             --   "@!" / "@!!"  -> PICTURE mark (icon by getMarkPic), special_value =
             --                    array→count / "1"→"" / else tr(value); @!! adds desc.
+            --   "@["type"]"   -> QmlMark: render GetQmlMark(type,name,pid).text (a
+            --                    Lua-computed string; M5-b 阶段A). Shown as text.
             --   "@@"          -> text mark with value HIDDEN.
             --   other "@"     -> text mark, shown as "name value" where value is
             --                    array→joined tr / else tr(value).
             -- value 0 / nil is not shown (removeMark). @$/@& pile marks shown as count
-            -- (click-to-view-pile deferred to M5-b).
+            -- (click-to-view-pile deferred).
             local textMarks, picMarks = {}, {}
             if type(p.mark) == "table" then
               for k, v in pairs(p.mark) do
-                if type(k) == "string" and k:startsWith("@") then
+                if type(k) == "string" and k:startsWith("@[") then
+                  -- QmlMark (@[type]name): GetQmlMark text (MarkArea.qml setMark @[
+                  -- branch). The text is the whole label; value may be non-numeric, so
+                  -- this is handled BEFORE the numeric gate below.
+                  local close = k:find("]", 1, true)
+                  if close then
+                    local mtype = k:sub(3, close - 1)
+                    local ok, qm = pcall(GetQmlMark, mtype, k, p.id)
+                    if ok and type(qm) == "table" and type(qm.text) == "string" and qm.text ~= "" then
+                      textMarks[#textMarks+1] = { name = qm.text, value = "" }
+                    end
+                  end
+                elseif type(k) == "string" and k:startsWith("@") then
                   -- numeric value, or array length for non-cbor table values
                   local isArr = (type(v) == "table" and not Util.isCborObject(v))
                   local num = (type(v) == "number") and v or (isArr and #v) or nil
