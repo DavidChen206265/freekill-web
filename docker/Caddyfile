@@ -16,13 +16,28 @@
 		reverse_proxy gateway:9528
 	}
 
+	# Static game assets (art / audio / lua, synced into /srv/fk by sync-fk-assets).
+	# These MUST 404 when missing — the client probes candidate URLs and relies on a
+	# real 404 to fire <img>/<audio> onerror and fall through to the next candidate
+	# (skin.ts cardPicCandidates, audio.ts playCandidates, EmotionSprite, ...). The
+	# SPA fallback below would turn every miss into "200 index.html", which the client
+	# can't decode as png/mp3 and never retries — so audio/animations silently break
+	# on Linux (case-sensitive FS) even when they work on a Windows dev server, whose
+	# vite returns a true 404. Keep this handle separate from the SPA handle: file_server
+	# alone, no try_files, so a missing /fk/* path returns 404 (not index.html).
+	handle /fk/* {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
 	# Everything else: the built React app (static). SPA fallback to index.html so
 	# client-side routing works on refresh.
 	handle {
 		root * /srv
 
-		# Long cache for hashed assets; the html itself is revalidated.
-		@assets path /assets/* /fk/*
+		# Long cache for hashed (content-addressed) JS/CSS bundles.
+		@assets path /assets/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
 
 		try_files {path} /index.html
