@@ -84,7 +84,10 @@ function IndicateLines({ effect }: { effect: SceneEffect }) {
       { duration: DUR, easing: 'linear' },
     )
     anim.onfinish = () => remove(effect.id)
-    anim.oncancel = () => remove(effect.id)
+    // NOTE: do NOT remove on cancel. Under React 18 StrictMode (dev) effects run
+    // mount→cleanup→mount; if cancel removed the scene effect, the cleanup of the
+    // throwaway first mount would unmount the element before it ever animated (the
+    // reported "看不见" bug). Cancel only stops the discarded first-mount animation.
     return () => anim.cancel()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effect.id])
@@ -131,7 +134,10 @@ function UltSkillBanner({ effect }: { effect: SceneEffect }) {
       { duration: 2000, easing: 'ease-out' },
     )
     anim.onfinish = () => remove(effect.id)
-    anim.oncancel = () => remove(effect.id)
+    // NOTE: do NOT remove on cancel. Under React 18 StrictMode (dev) effects run
+    // mount→cleanup→mount; if cancel removed the scene effect, the cleanup of the
+    // throwaway first mount would unmount the element before it ever animated (the
+    // reported "看不见" bug). Cancel only stops the discarded first-mount animation.
     return () => anim.cancel()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effect.id])

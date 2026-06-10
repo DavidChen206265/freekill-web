@@ -251,7 +251,9 @@ function FlightCard({ fl, onDone }: { fl: { cid: number; from: { x: number; y: n
       { duration: GO_BACK_MS + 200, easing: EASE_OUT_QUAD, fill: 'forwards' },
     )
     anim.onfinish = onDone
-    anim.oncancel = onDone
+    // Do NOT call onDone on cancel: React 18 StrictMode (dev) runs effects
+    // mount→cleanup→mount, and cleanup cancels this anim — if cancel removed the
+    // flight, the settle card would unmount before it flew (equip "no animation" bug).
     return () => anim.cancel()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
