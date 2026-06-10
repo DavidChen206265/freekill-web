@@ -59,6 +59,9 @@ interface CardState {
   destroyTableCards: (cids: number[]) => void
   // Remove table cards whose holding_event_id >= threshold (DestroyTableCardByEvent).
   destroyTableCardsByEvent: (eventThreshold: number) => void
+  // Vanish pass: actually remove table cards marked vanishable (event id 0). Driven
+  // by a ~1.5s timer in CardLayer (mirrors TablePile.qml vanishTimer).
+  vanishTableCards: () => void
   reset: () => void
 }
 
@@ -135,27 +138,43 @@ export const useCardStore = create<CardState>((set, get) => ({
   },
 
   destroyTableCards: (cids) => {
-    // DestroyTableCard: remove the given cids from the table pile (RoomLogic.js:548).
+    // DestroyTableCard (RoomLogic.js:548-556): does NOT remove the card — only clears
+    // its holding_event_id (sets to 0), marking it vanishable. Removing immediately
+    // "will cause animation errors" (QML comment) — instant cards (无中生有/响应/延时
+    // 锦囊) move hand→table→here in one batch, so immediate removal kills the flight.
+    // The vanish pass (vanishTableCards, ~1.5s like TablePile.qml vanishTimer) removes
+    // them later, giving the fly-in time to play + the card to linger on the table.
     set((s) => {
-      const set2 = new Set(cids)
-      const tablePile = (s.areas.tablePile ?? []).filter((c) => !set2.has(c))
+      const cset = new Set(cids)
       const eventIds = { ...s.eventIds }
-      for (const c of cids) delete eventIds[c]
-      return { areas: { ...s.areas, tablePile }, eventIds, moveSeq: s.moveSeq + 1 }
+      for (const c of s.areas.tablePile ?? []) if (cset.has(c)) eventIds[c] = 0
+      return { eventIds }
     })
   },
 
   destroyTableCardsByEvent: (eventThreshold) => {
-    // DestroyTableCardByEvent: remove table cards whose holding_event_id >=
-    // threshold (RoomLogic.js:558) — clears cards from a finished event.
+    // DestroyTableCardByEvent (RoomLogic.js:558-566): clear holding_event_id for table
+    // cards whose id >= threshold (mark vanishable), DON'T remove now (see above).
     set((s) => {
       const eventIds = { ...s.eventIds }
-      const tablePile = (s.areas.tablePile ?? []).filter((c) => {
-        const eid = eventIds[c] ?? 0
-        if (eid >= eventThreshold) { delete eventIds[c]; return false }
-        return true
-      })
-      return { areas: { ...s.areas, tablePile }, eventIds, moveSeq: s.moveSeq + 1 }
+      for (const c of s.areas.tablePile ?? []) {
+        if ((eventIds[c] ?? 0) >= eventThreshold) eventIds[c] = 0
+      }
+      return { eventIds }
+    })
+  },
+
+  // The vanish pass (TablePile.qml vanishTimer, ~1.5s cycle): remove table cards whose
+  // holding_event_id is 0 (cleared by a Destroy* above) AND that have a known cid.
+  // Returns nothing; CardLayer drives this on a timer so flights finish + cards linger.
+  vanishTableCards: () => {
+    set((s) => {
+      const table = s.areas.tablePile ?? []
+      const keep = table.filter((c) => (s.eventIds[c] ?? 0) !== 0)
+      if (keep.length === table.length) return {}
+      const eventIds = { ...s.eventIds }
+      for (const c of table) if ((eventIds[c] ?? 0) === 0) delete eventIds[c]
+      return { areas: { ...s.areas, tablePile: keep }, eventIds, moveSeq: s.moveSeq + 1 }
     })
   },
 

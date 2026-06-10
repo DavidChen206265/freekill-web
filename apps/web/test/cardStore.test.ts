@@ -58,31 +58,39 @@ describe('cardStore.applyMoveCards', () => {
     expect(s.areas['hand:2']).toEqual([])
   })
 
-  it('DestroyTableCard removes the given cids from the table pile', () => {
+  it('DestroyTableCard marks cards vanishable; vanishTableCards removes them later', () => {
     const cs = useCardStore.getState()
     // play two cards onto the table (event_id 5)
     cs.applyMoveCards({ merged: [{ ids: [5], from: 0, to: 1, fromArea: CardArea.DrawPile, toArea: CardArea.Processing }], event_id: 5, '5': true })
     cs.applyMoveCards({ merged: [{ ids: [6], from: 0, to: 1, fromArea: CardArea.DrawPile, toArea: CardArea.Processing }], event_id: 5, '6': true })
     expect(useCardStore.getState().areas['tablePile']).toEqual([5, 6])
+    // Destroy does NOT remove immediately (would kill the fly-in animation) — it only
+    // marks the card vanishable (event id 0), like QML's holding_event_id=0.
     cs.destroyTableCards([5])
+    expect(useCardStore.getState().areas['tablePile']).toEqual([5, 6])
+    // The vanish pass removes the marked card; the still-held one stays.
+    cs.vanishTableCards()
     expect(useCardStore.getState().areas['tablePile']).toEqual([6])
   })
 
-  it('DestroyTableCardByEvent removes cards with holding_event_id >= threshold', () => {
+  it('DestroyTableCardByEvent marks cards (id >= threshold) vanishable; vanish removes', () => {
     const cs = useCardStore.getState()
     cs.applyMoveCards({ merged: [{ ids: [7], from: 0, to: 1, fromArea: CardArea.DrawPile, toArea: CardArea.Processing }], event_id: 3, '7': true })
     cs.applyMoveCards({ merged: [{ ids: [8], from: 0, to: 1, fromArea: CardArea.DrawPile, toArea: CardArea.Processing }], event_id: 7, '8': true })
-    // threshold 7 → removes cid 8 (eid 7), keeps cid 7 (eid 3)
+    // threshold 7 → marks cid 8 (eid 7) vanishable, keeps cid 7 (eid 3); not removed yet.
     cs.destroyTableCardsByEvent(7)
+    expect(useCardStore.getState().areas['tablePile']).toEqual([7, 8])
+    cs.vanishTableCards()
     expect(useCardStore.getState().areas['tablePile']).toEqual([7])
   })
 
-  it('a card leaving the table clears its event id (no stale removal)', () => {
+  it('a card leaving the table clears its event id (no stale vanish)', () => {
     const cs = useCardStore.getState()
     cs.applyMoveCards({ merged: [{ ids: [9], from: 0, to: 1, fromArea: CardArea.DrawPile, toArea: CardArea.Processing }], event_id: 4, '9': true })
     // card 9 picked up into a hand → leaves table, event id cleared
     cs.applyMoveCards({ merged: [{ ids: [9], from: 1, to: 2, fromArea: CardArea.Processing, toArea: CardArea.PlayerHand }], event_id: 0, '9': true })
     cs.destroyTableCardsByEvent(1) // should NOT affect card 9 (now in a hand)
+    cs.vanishTableCards()
     expect(useCardStore.getState().areas['hand:2']).toContain(9)
   })
 

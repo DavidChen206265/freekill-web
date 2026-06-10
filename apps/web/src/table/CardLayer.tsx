@@ -100,6 +100,14 @@ export function CardLayer() {
     }
   }
 
+  // Vanish pass (TablePile.qml vanishTimer, 1500ms): remove table cards marked
+  // vanishable by a Destroy* command. We DON'T remove on Destroy* (that kills the
+  // fly-in for instant cards); instead they linger ~1.5s then vanish here.
+  useEffect(() => {
+    const t = setInterval(() => useCardStore.getState().vanishTableCards(), 1500)
+    return () => clearInterval(t)
+  }, [])
+
   // Animate every card from its last position to the new target on moveSeq change.
   useEffect(() => {
     // Source area per cid for this move batch — lets a card that wasn't rendered
