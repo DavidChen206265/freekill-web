@@ -360,21 +360,30 @@ function MoveBoardBox({ active, resolve }: { active: PopupRequest; resolve: (v: 
 // name (AG.qml takeAG).
 function AgBox({ active, resolveAg }: { active: PopupRequest; resolveAg: (cid: number) => void }) {
   const interactive = active.agInteractive !== false
+  // AG is QML's `manualBox` — a FLOATING centered box (Room.qml:522 z:999), NOT a
+  // modal with a full-screen backdrop. A concurrent request can be asked of this
+  // player WHILE the AG pile is shown (e.g. 五谷丰登 in progress, then 无懈可击 asked
+  // via the play UI / Dashboard). A blocking backdrop would cover the Dashboard and
+  // make the nullification unanswerable — so render without a backdrop and let pointer
+  // events fall through everywhere except the box itself.
   return (
-    <Modal prompt={active.prompt}>
-      <div style={styles.cards}>
-        {(active.agCards ?? []).map(({ cid, takenBy }) => {
-          const locked = !!takenBy || !interactive
-          return (
-            <button key={cid} style={{ ...styles.agCard, ...(takenBy ? styles.agTaken : {}) }}
-              disabled={locked} onClick={() => { if (!locked) resolveAg(cid) }}>
-              <CardFaceView cid={cid} faceUp width={56} height={80} />
-              {takenBy && <span style={styles.agFootnote}>{takenBy}</span>}
-            </button>
-          )
-        })}
+    <div style={styles.agFloatWrap}>
+      <div style={styles.modal}>
+        <PromptText prompt={active.prompt} style={styles.prompt} />
+        <div style={styles.cards}>
+          {(active.agCards ?? []).map(({ cid, takenBy }) => {
+            const locked = !!takenBy || !interactive
+            return (
+              <button key={cid} style={{ ...styles.agCard, ...(takenBy ? styles.agTaken : {}) }}
+                disabled={locked} onClick={() => { if (!locked) resolveAg(cid) }}>
+                <CardFaceView cid={cid} faceUp width={56} height={80} />
+                {takenBy && <span style={styles.agFootnote}>{takenBy}</span>}
+              </button>
+            )
+          })}
+        </div>
       </div>
-    </Modal>
+    </div>
   )
 }
 
@@ -505,7 +514,11 @@ function Modal({ prompt, children }: { prompt: string; children: React.ReactNode
 
 const styles: Record<string, React.CSSProperties> = {
   backdrop: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: 100, pointerEvents: 'auto' },
-  modal: { background: '#26262b', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', color: '#eee' },
+  // AG (manualBox) floats near the top WITHOUT a blocking backdrop so the play UI
+  // underneath (e.g. a concurrent 无懈可击 prompt) stays clickable. The wrapper itself
+  // is click-through (pointerEvents none); only the box re-enables pointer events.
+  agFloatWrap: { position: 'absolute', top: '12%', left: 0, right: 0, display: 'grid', placeItems: 'center', zIndex: 100, pointerEvents: 'none' },
+  modal: { background: '#26262b', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', color: '#eee', pointerEvents: 'auto' },
   prompt: { fontSize: 16, textAlign: 'center' },
   generals: { display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', maxWidth: 640 },
   picked: { border: '2px solid #f1c40f', outline: '2px solid #f1c40f' },
