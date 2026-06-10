@@ -11,11 +11,20 @@ export interface Box { x: number; y: number; w: number; h: number }
 export const CARD_W = 70
 export const CARD_H = 100
 
-// drawPile: Room.qml x=w/2, y=h/2 (cards stack at scene center). CARD_W/H box
-// centered on that point.
+// roomArea (the photo region above the dashboard) — TablePile/drawPile are children
+// of THIS, not the full window: Room.qml:137-140 roomArea.height = scene - dashboard
+// + 20. The dashboard band is 150 tall (Dashboard.tsx), so roomArea ≈ 410 of 540.
+const DASHBOARD_H = 150
+const ROOM_AREA_H = STAGE_H - DASHBOARD_H + 20
+
+// drawPile: Room.qml x=w/2, y=roomScene.height/2 (cards stack at scene center). The
+// drawPile uses the FULL scene height (Room.qml:195 roomScene.height/2), unlike the
+// table strip. CARD_W/H box centered on that point.
 export const DRAW_PILE: Box = { x: STAGE_W / 2 - CARD_W / 2, y: STAGE_H / 2 - CARD_H / 2, w: CARD_W, h: CARD_H }
-// tablePile: Room.qml x=0.15w, y=0.6h+10, w=0.7w, h=150 (the play/discard strip).
-export const TABLE_PILE: Box = { x: STAGE_W * 0.15, y: STAGE_H * 0.6 + 10, w: STAGE_W * 0.7, h: 150 }
+// tablePile: Room.qml:198-203 — child of roomArea: x=0.15·w, y=0.6·roomArea.h+10,
+// w=0.7·w, h=150. Cards are CENTERED horizontally inside it (TablePile.qml CardArea
+// anchors.horizontalCenter), so the strip's centre is the screen centre (0.5·w).
+export const TABLE_PILE: Box = { x: STAGE_W * 0.15, y: ROOM_AREA_H * 0.6 + 10, w: STAGE_W * 0.7, h: 150 }
 
 // Per-player sub-areas, anchored to that player's Photo box (by display index).
 // Equip/judge/hand-of-others sit relative to the photo; self hand is the dashboard.

@@ -69,10 +69,16 @@ export function CardLayer() {
     // ItemArea-style: lay out left→right, shrink spacing if overflow.
     const span = Math.max(0, box.w - CARD_W)
     const step = n > 1 ? Math.min(CARD_W + 6, span / (n - 1)) : 0
+    // tablePile/drawPile cards are CENTERED in their box (TablePile.qml CardArea
+    // anchors.horizontalCenter; drawPile stacks at a point). Hand/area cards anchor
+    // left. Compute the row's start x so the run is centred for the table/draw piles.
+    const centered = key === 'tablePile' || key === 'drawPile'
+    const rowW = n > 0 ? CARD_W + step * (n - 1) : 0
+    const startX = centered ? box.x + (box.w - rowW) / 2 : box.x
     layoutIds.forEach((cid, i) => {
       const sel = cardStates[cid]?.selected
       targets.set(cid, {
-        x: box.x + step * i,
+        x: startX + step * i,
         // Selected hand cards rise 20px (ItemArea.updateCardPosition origY-=20).
         y: box.y - (sel ? 20 : 0),
         faceUp: known[cid] ?? (expandCards[cid] ? true : false),
