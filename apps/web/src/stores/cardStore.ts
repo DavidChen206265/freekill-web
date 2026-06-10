@@ -124,6 +124,19 @@ export const useCardStore = create<CardState>((set, get) => ({
               if (ids.includes(cid)) { actualFrom = k; break }
             }
           }
+          // QML moveCards SKIP guard (RoomLogic.js:200): a move within the SAME area
+          // (other than tablePile) is a no-op; and Processing→DiscardPile (both map to
+          // tablePile) is SKIPPED so the card KEEPS its on-table slot — it's not pulled
+          // out and re-appended (which would reorder the row + jump cards around). The
+          // vanishTimer removes it later. Without this, discarding a played card jumped
+          // it to the end of the row and re-centred everything ("加入顺序混乱").
+          const sameArea = actualFrom !== null && actualFrom === toKey
+          const procToDiscard = actualFrom === 'tablePile' && move.toArea === CardArea.DiscardPile
+          if ((sameArea && toKey !== 'tablePile') || procToDiscard) {
+            // still refresh visibility + event id, but DON'T move the card in the array
+            if (cid !== -1 && vis[String(cid)] !== undefined) known[cid] = vis[String(cid)]!
+            continue
+          }
           if (actualFrom) areas[actualFrom] = areas[actualFrom]!.filter((x) => x !== cid)
           // Void = card leaves play; don't add anywhere.
           if (move.toArea !== CardArea.Void) areas[toKey]!.push(cid)

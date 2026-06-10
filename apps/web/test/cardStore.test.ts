@@ -58,6 +58,19 @@ describe('cardStore.applyMoveCards', () => {
     expect(s.areas['hand:2']).toEqual([])
   })
 
+  it('Processing→Discard keeps the card in its on-table slot (no reorder jump)', () => {
+    // QML moveCards skips Processing→DiscardPile so the played card keeps its position
+    // on the table (it's removed later by the vanish pass). Without this the card was
+    // pulled out + re-appended to the row end → re-centred + jumped ("加入顺序混乱").
+    const cs = useCardStore.getState()
+    cs.applyMoveCards({ merged: [{ ids: [40], from: 1, to: 1, fromArea: CardArea.PlayerHand, toArea: CardArea.Processing }], event_id: 5, '40': true })
+    cs.applyMoveCards({ merged: [{ ids: [41], from: 1, to: 1, fromArea: CardArea.PlayerHand, toArea: CardArea.Processing }], event_id: 5, '41': true })
+    expect(useCardStore.getState().areas['tablePile']).toEqual([40, 41])
+    // 40 discarded (Processing→Discard) → stays put (still [40,41]), not moved to end.
+    cs.applyMoveCards({ merged: [{ ids: [40], from: 1, to: 1, fromArea: CardArea.Processing, toArea: CardArea.DiscardPile }], event_id: 5, '40': true })
+    expect(useCardStore.getState().areas['tablePile']).toEqual([40, 41])
+  })
+
   it('DestroyTableCard marks cards vanishable; vanishTableCards removes them later', () => {
     const cs = useCardStore.getState()
     // play two cards onto the table (event_id 5)

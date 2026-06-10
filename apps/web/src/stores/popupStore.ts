@@ -215,28 +215,41 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       }
       case 'FillAG': {
         // [id_list, disable_ids] — lay out the AG pile (RoomLogic.js:1453 addIds).
-        // Does NOT by itself prompt; the box is non-interactive until AskForAG.
+        // Does NOT by itself prompt; the box is non-interactive until AskForAG. But if
+        // an AG box is ALREADY interactive (our AskForAG arrived first, or a re-fill
+        // mid-pick), DON'T downgrade it back to the waiting state (that left the title
+        // stuck on "等待…").
         if (!arr) return false
         const cids = (arr[0] as number[]) ?? []
-        set({ active: { kind: 'ag', prompt: '等待…', agCards: cids.map((cid) => ({ cid })), agInteractive: false } })
+        set((s) => {
+          if (s.active?.kind === 'ag' && s.active.agInteractive) {
+            // keep interactivity + prompt; just refresh the card list if it grew
+            return { active: { ...s.active, agCards: cids.map((cid) => ({ cid })) } }
+          }
+          return { active: { kind: 'ag', prompt: '等待其他角色选择…', agCards: cids.map((cid) => ({ cid })), agInteractive: false } }
+        })
         return true
       }
       case 'AskForAG': {
         // [id_list, cancelable, reason] (room.lua askToAG:2738). Activate the AG pile
-        // for THIS player to pick (RoomLogic.js:1460 manualBox.interactive=true).
+        // for THIS player to pick (RoomLogic.js:1460 manualBox.interactive=true). The
+        // `reason` is the skill name (e.g. "amazing_grace_skill" → 五谷丰登); show it
+        // as the prompt so the player knows what they're choosing for (the QML AG box
+        // title is generic "请选择一张卡牌"; we surface the skill for clarity).
         // ROBUSTNESS: AskForAG carries its OWN id_list, so if no AG box exists yet
-        // (FillAG was dropped/lost, or the box got replaced), BUILD it from this data
-        // instead of silently doing nothing — that "do nothing" path was why 五谷
-        // sometimes showed no box at all. When an AG box IS present (normal case),
-        // keep its taken-card tags and just make it interactive.
+        // (FillAG was dropped/lost, or the box got replaced), BUILD it from this data.
         const askIds = (arr?.[0] as number[]) ?? []
+        const reason = String(arr?.[2] ?? '')
+        // Set the prompt to the bare reason KEY (e.g. "amazing_grace_skill"); vmStore's
+        // setActivePrompt(localizePrompt) registers + translates it via the VM → 五谷丰登.
+        // Falls back to a generic action label when there's no reason.
+        const agPrompt = reason || '请选择一张牌'
         set((s) => {
           if (s.active?.kind === 'ag') {
-            return { active: { ...s.active, prompt: '请选择一张牌', agInteractive: true } }
+            return { active: { ...s.active, prompt: agPrompt, agInteractive: true } }
           }
-          // No pre-existing AG box → reconstruct from AskForAG's own id_list.
           if (askIds.length > 0) {
-            return { active: { kind: 'ag', prompt: '请选择一张牌', agCards: askIds.map((cid) => ({ cid })), agInteractive: true } }
+            return { active: { kind: 'ag', prompt: agPrompt, agCards: askIds.map((cid) => ({ cid })), agInteractive: true } }
           }
           return {}
         })
