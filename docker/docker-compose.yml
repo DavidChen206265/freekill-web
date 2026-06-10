@@ -35,8 +35,12 @@ services:
       ASIO_HOST: asio
       ASIO_PORT: "9527"
       # MD5 of the shipped package set. The default in config.ts is freekill-core's
-      # flist MD5 — correct for a core-only deploy. If you add packages, recompute
-      # and set FK_MD5 here (otherwise asio rejects the handshake).
+      # flist MD5 — correct for a core-only deploy. If you add packages, recompute and
+      # set FK_MD5 here (otherwise asio rejects the handshake with "MD5 check failed").
+      # Recompute from the asio container's packages dir with the assets helper
+      # (byte-exact reproduction of asio calcFileMD5, verified against the server):
+      #   docker compose exec asio sh -c 'ls packages'   # confirm the package set
+      #   node freekill-web/packages/assets/scripts/compute-md5.mjs <path-to-packages>
       # FK_MD5: "<recomputed-md5>"
       FK_VERSION: "0.5.20"
     expose:
