@@ -3,12 +3,11 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-10 21:56:10　·　跟踪文件数: 2389
+最后更新: 2026-06-10 22:28:29　·　跟踪文件数: 2389
 
 ## 自上次重建以来的改动
 
-- 新增 2: freekill-web/apps/web/public/fk/audio.json, freekill-web/apps/web/public/fk/images.json
-- 修改 1780: freekill-web/.gitignore, freekill-web/analysis/freekill_web_implementation_plan.md, freekill-web/analysis/M3-M6_detailed_plan.md, freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/public/fk/anim.json, freekill-web/apps/web/public/fk/file-list.json, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/client.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/clientbase.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/clientplayer_base.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/client_util.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/i18n/en_US.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/i18n/init.lua …
+(无)
 
 ## Spike 验证状态
 
