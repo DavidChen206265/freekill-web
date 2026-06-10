@@ -1,0 +1,141 @@
+# PROJECT_STATE(自动生成 · 请勿手改)
+
+> 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
+> 人工维护的进度/决策记录见 `PROGRESS.md`。
+
+最后更新: 2026-06-10 21:56:10　·　跟踪文件数: 2389
+
+## 自上次重建以来的改动
+
+- 新增 2: freekill-web/apps/web/public/fk/audio.json, freekill-web/apps/web/public/fk/images.json
+- 修改 1780: freekill-web/.gitignore, freekill-web/analysis/freekill_web_implementation_plan.md, freekill-web/analysis/M3-M6_detailed_plan.md, freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/public/fk/anim.json, freekill-web/apps/web/public/fk/file-list.json, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/client.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/clientbase.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/clientplayer_base.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/client_util.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/i18n/en_US.lua, freekill-web/apps/web/public/fk/packages/freekill-core/lua/client/i18n/init.lua …
+
+## Spike 验证状态
+
+- ✅ gate1 引擎启动
+- ✅ gate2 ClientInstance
+- ✅ gate3 增量展开+QML查询
+- ✅ gate4 ui_emu 请求循环
+- 计时(ms): {"boot":59,"client":4,"total":173}
+- 引擎内容: {"skills":132,"cards":160,"generals":29,"packages":4,"modes":1}
+- 来源: freekill-web-spike/spike-result.json (2026-06-03T07:44:04.076Z)
+
+## 上游参考仓库(只读,不跟踪改动)
+
+- ✓ freekill-asio
+- ✓ FreeKill-release
+- ✓ FreeKill-sourcecode
+- freekill-core Lua 文件数: 295
+
+## 项目文件结构(自有代码)
+
+```text
+📁 freekill-web-spike
+  📁 src
+    fknatives.mjs
+    fkprelude.lua
+    gate4_playcard.lua
+    native_audit.mjs
+    perf_run.mjs
+    perf_spike.mjs
+    replay_spike.mjs
+    server_fkprelude.lua
+    server_spike.mjs
+    spike.mjs
+    vm_run.mjs
+    vm_spike.mjs
+  native-audit.json
+  package-lock.json
+  package.json
+  perf-result.json
+  README.md
+  spike-result.json
+  vm-result.json
+📁 freekill-web
+  📁 analysis
+    freekill_web_implementation_plan.md
+    M3-M6_detailed_plan.md
+    PROGRESS.md
+    PROJECT_STATE.md
+  📁 apps
+    📁 gateway
+      📁 scripts
+      📁 src
+      📁 test
+      package.json
+      tsconfig.json
+    📁 web
+      📁 public
+      📁 scripts
+      📁 src
+      📁 test
+      index.html
+      package.json
+      tsconfig.json
+      vite.config.ts
+  📁 audit
+    freekill-web-independent-audit-plan.md
+    phase1-startup-global-audit.md
+    phase2-network-protocol-audit.md
+    phase2b-lobby-room-command-audit.md
+    phase2c-task-rpc-vm-replay-audit.md
+    phase2d-room-notify-ui-audit.md
+    phase3-lobby-common-pages-audit.md
+    phase4-waiting-room-shell-audit.md
+    phase5-table-ui-components-audit.md
+    phase6-lua-package-code-audit.md
+    phase7-assets-audio-font-path-audit.md
+    phase8-replay-record-debug-test-tooling-audit.md
+    phase9-overview-detail-filter-pages-audit.md
+    source-assets-inventory.csv
+    source-cpp-inventory.csv
+    source-lua-inventory.csv
+    source-packages-code-inventory.csv
+    source-ui-qml-inventory.csv
+    web-apps-code-inventory.csv
+    web-packages-code-inventory.csv
+    web-public-fk-inventory.csv
+  📁 docker
+    asio-entrypoint.sh
+    asio.Dockerfile
+    caddy.Dockerfile
+    Caddyfile
+    docker-compose.yml
+    dockerignore.repo-root
+    freekill.server.config.json
+    gateway.Dockerfile
+    README.md
+  📁 packages
+    📁 assets
+      📁 scripts
+      📁 src
+      📁 test
+      package.json
+      tsconfig.json
+    📁 lua-native
+      📁 lua
+      📁 src
+      📁 test
+      package.json
+      tsconfig.json
+    📁 protocol
+      📁 src
+      📁 test
+      package.json
+      tsconfig.json
+    📁 shared
+      📁 src
+      📁 test
+      package.json
+      tsconfig.json
+  📁 scripts
+    wsl-clean-asio-pkgs.sh
+    wsl-probe-deps.sh
+    wsl-run-asio.sh
+  LICENSE
+  package.json
+  pnpm-lock.yaml
+  pnpm-workspace.yaml
+  README.md
+  tsconfig.base.json
+```

@@ -16,6 +16,17 @@ apps/web/public/fk/
 **/image/generals/
 **/image/card/*.png
 
+# Upstream extension-pack mirror (replicates FreeKill-release/packages structure;
+# ~1.5GB copyrighted Lua/art/audio, NOT redistributable). Ignore all pack CONTENT
+# but KEEP the per-pack directory visible via a tracked .gitkeep + the README, so the
+# pack list / layout survives in git and future packs can be ported without
+# re-discovering the structure. See packages-upstream/README.md.
+packages-upstream/*
+!packages-upstream/README.md
+!packages-upstream/*/
+packages-upstream/*/*
+!packages-upstream/*/.gitkeep
+
 # Test / coverage
 coverage/
 

@@ -9,6 +9,9 @@
 **/dist
 **/.vite
 freekill-web/apps/web/public/fk
+# Upstream extension-pack mirror (~1.5GB, gitignored); build falls back to
+# FreeKill-release/packages (whitelisted below).
+freekill-web/packages-upstream/
 
 # VCS / editor / OS
 **/.git
@@ -18,8 +21,8 @@ freekill-web/apps/web/public/fk
 
 # Spike + analysis + audit (not needed to build/run)
 freekill-web-spike/
-分析/
-audit/
+freekill-web/analysis/
+freekill-web/audit/
 
 # asio local build artifacts (rebuilt in the image)
 freekill-asio/build/

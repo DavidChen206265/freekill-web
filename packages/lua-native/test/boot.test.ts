@@ -5,8 +5,9 @@
 // built the ClientInstance. This is the spike's Gate 1-2 turned into a regression
 // test: if the native shim or prelude regresses, this fails.
 //
-// Reads freekill-core from the upstream read-only release tree (../../../.. from
-// this package = repo root, then FreeKill-release/packages/freekill-core).
+// Reads freekill-core from the in-repo upstream mirror (freekill-web/packages-
+// upstream, gitignored content) when present, else falls back to the external
+// read-only release tree (../../../.. = repo root, FreeKill-release/packages).
 
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
@@ -18,7 +19,11 @@ import { createNatives, bootClient } from '../src/index.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // packages/lua-native/test -> repo root is four levels up (../../../..).
 const REPO = path.resolve(__dirname, '..', '..', '..', '..')
-const CORE = path.join(REPO, 'FreeKill-release', 'packages', 'freekill-core')
+const WEB = path.resolve(__dirname, '..', '..', '..')        // freekill-web/
+const MIRROR_CORE = path.join(WEB, 'packages-upstream', 'freekill-core')
+const CORE = fs.existsSync(MIRROR_CORE)
+  ? MIRROR_CORE
+  : path.join(REPO, 'FreeKill-release', 'packages', 'freekill-core')
 const PRELUDE = path.join(__dirname, '..', 'lua', 'fkprelude.lua')
 
 const VFS_CORE = '/fk/packages/freekill-core'

@@ -6,7 +6,11 @@ import { LuaFactory } from 'wasmoon'
 import { createNatives, bootClient } from '../src/index.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO = path.resolve(__dirname, '..', '..', '..', '..')
-const CORE = path.join(REPO, 'FreeKill-release', 'packages', 'freekill-core')
+const WEB = path.resolve(__dirname, '..', '..', '..')
+const MIRROR_CORE = path.join(WEB, 'packages-upstream', 'freekill-core')
+const CORE = fs.existsSync(MIRROR_CORE)
+  ? MIRROR_CORE
+  : path.join(REPO, 'FreeKill-release', 'packages', 'freekill-core')
 const PRELUDE = path.join(__dirname, '..', 'lua', 'fkprelude.lua')
 const VFS = '/fk/packages/freekill-core'
 const EXTS = new Set(['.lua', '.json', '.txt'])

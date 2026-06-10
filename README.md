@@ -36,9 +36,9 @@ freekill-asio  (C++ / Linux,唯一权威服务端)
 
 ## 仓库结构
 
-monorepo(pnpm workspace)。所有代码均为本仓库自有;原版 `freekill-core` Lua 与美术**不入库**,运行时从本地上游同步(见下文)。
+monorepo(pnpm workspace)。所有代码均为本仓库自有;原版 `freekill-core` Lua 与美术**不入库**(版权,gitignore),运行时从本地上游同步(见下文)。
 
-| 包 | 职责 |
+| 目录 | 职责 |
 | --- | --- |
 | `packages/protocol` | CBOR packet 编解码(裸帧增量解码、字节串 0x40、Qt-zlib)、packet 类型、envelope 转换、zod schema |
 | `packages/lua-native` | 客户端 `fk.*` 原生面(`fkprelude.lua` + JS 叶子函数)+ boot 序列;node / browser 同构。把原版客户端 Lua 跑起来的关键 shim |
@@ -46,6 +46,9 @@ monorepo(pnpm workspace)。所有代码均为本仓库自有;原版 `freekill-co
 | `packages/assets` | assets-manifest 生成(含 asio flist / MD5 算法) |
 | `apps/gateway` | Node + TS 网关:WSS↔asio TCP、登录代理、reply requestId 回填 |
 | `apps/web` | React + Vite 前端:wasmoon 集成、DOM fixed-stage 牌桌、Zustand store、SkinBank 路径解析 |
+| `packages-upstream/` | **上游扩展包镜像**(复刻 FreeKill `packages/` 结构,~1.5GB 内容 gitignore,仅 `.gitkeep`+README 入库保留结构)。sync 优先从这里取包,缺失回退仓库外 `FreeKill-release/packages`。见 `packages-upstream/README.md` |
+| `analysis/` | 实现计划 / 进度 / 状态 / 风险(项目"大脑",入库追踪) |
+| `audit/` | 12 份逐元素 FreeKill→Web 还原审计报告(入库追踪) |
 
 ## 开发
 
@@ -63,7 +66,9 @@ pnpm -r typecheck    # 类型检查
 ```sh
 # 1) 启动 freekill-asio(在 WSL / Linux,监听 9527)
 
-# 2) 同步原版 Lua + 美术到 apps/web/public/fk(从本地上游 FreeKill-release)
+# 2) 同步原版 Lua + 美术到 apps/web/public/fk
+#    包源:优先 packages-upstream/(本仓库内镜像),缺失则回退 ../FreeKill-release/packages
+#    用 FK_PACKAGES_DIR=<dir> 可显式指定包源
 pnpm --filter @freekill-web/web sync-assets
 
 # 3) 网关(ASIO_HOST 必填——WSL NAT IP 每次重启会变)

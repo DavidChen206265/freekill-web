@@ -11,12 +11,23 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const WEB = path.resolve(__dirname, '..')
 const REPO = path.resolve(WEB, '..', '..', '..')
-const CORE = path.join(REPO, 'FreeKill-release', 'packages', 'freekill-core')
-const PACKAGES = path.join(REPO, 'FreeKill-release', 'packages')
+// Extension packs are mirrored into freekill-web/packages-upstream/ (gitignored;
+// structure preserved via .gitkeep, see packages-upstream/README.md). Prefer that
+// in-repo copy so the project is self-contained; fall back to the upstream
+// FreeKill-release/packages tree when the mirror isn't populated (e.g. fresh clone
+// before pulling packs). Override with FK_PACKAGES_DIR.
+const UPSTREAM_MIRROR = path.resolve(WEB, '..', '..', 'packages-upstream')
+const RELEASE_PACKAGES = path.join(REPO, 'FreeKill-release', 'packages')
+const PACKAGES = process.env.FK_PACKAGES_DIR
+  ? path.resolve(process.env.FK_PACKAGES_DIR)
+  : (fs.existsSync(path.join(UPSTREAM_MIRROR, 'freekill-core')) ? UPSTREAM_MIRROR : RELEASE_PACKAGES)
+const CORE = path.join(PACKAGES, 'freekill-core')
 const SOURCECODE = path.join(REPO, 'FreeKill-sourcecode')
 const DEST = path.join(WEB, 'public', 'fk', 'packages', 'freekill-core')
 const FK_ROOT = path.join(WEB, 'public', 'fk')
 const MANIFEST = path.join(WEB, 'public', 'fk', 'file-list.json')
+console.log(`[sync] packages source: ${PACKAGES}`)
+
 
 const EXTS = new Set(['.lua', '.json', '.txt'])
 const MOUNT_DIRS = ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']
