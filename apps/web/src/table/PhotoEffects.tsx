@@ -83,6 +83,8 @@ function TrembleDriver({ effect, boxRef }: { effect: PlayerEffect | undefined; b
 // either a bare built-in name ("damage") or a path-form ("./packages/.../anim/slash")
 // — resolveAnim() handles both. Frame count from anim.json; unknown/0 → nothing
 // (never invented art). Exported so CardLayer can play setCardEmotion on a table card.
+const FRAME_MS = 50 // PixmapAnimation.qml interval
+
 export function EmotionSprite({ emotion, scale = 0.75 }: { emotion: string; scale?: number }) {
   const [frames, setFrames] = useState<number | null>(null)
   const [frame, setFrame] = useState(0)
@@ -94,17 +96,45 @@ export function EmotionSprite({ emotion, scale = 0.75 }: { emotion: string; scal
     return () => { alive = false }
   }, [key])
 
+  // Preload ALL frame PNGs, THEN play. Behind a CDN each frame's first GET costs a
+  // full round-trip (~100ms > the 50ms frame interval), so the old "advance a lazy
+  // <img src> on a 50ms setInterval" stalled and dropped frames ("卡顿/部分帧不播").
+  // We pre-fetch every frame into the browser cache up front, then drive the index by
+  // requestAnimationFrame on WALL-CLOCK elapsed time (not timer ticks, which drift /
+  // pile up under load). Once cached the rendered <img> swaps instantly. A short
+  // timeout bounds the wait so a missing frame never hangs the whole effect.
   useEffect(() => {
     if (!frames || frames <= 0) return
+    let raf = 0
+    let timer = 0
+    let cancelled = false
+    let loaded = 0
+    const imgs: HTMLImageElement[] = []
+    const start = () => {
+      if (cancelled) return
+      const t0 = performance.now()
+      const tick = () => {
+        if (cancelled) return
+        const i = Math.floor((performance.now() - t0) / FRAME_MS)
+        if (i >= frames) { setFrame(-1); return } // done, hide
+        setFrame(i)
+        raf = requestAnimationFrame(tick)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    const onOne = () => { if (++loaded >= frames && !cancelled) { clearTimeout(timer); start() } }
+    for (let i = 0; i < frames; i++) {
+      const im = new Image()
+      im.onload = onOne
+      im.onerror = onOne // count errors too so one missing frame can't stall the play
+      im.src = animFrameUrl(base, i)
+      imgs.push(im)
+    }
+    // Fallback: don't wait forever for preloads — start anyway after 600ms.
+    timer = window.setTimeout(() => { if (!cancelled) start() }, 600)
     setFrame(0)
-    let i = 0
-    const t = setInterval(() => {
-      i += 1
-      if (i >= frames) { clearInterval(t); setFrame(-1); return } // -1 = done, hide
-      setFrame(i)
-    }, 50)
-    return () => clearInterval(t)
-  }, [frames])
+    return () => { cancelled = true; cancelAnimationFrame(raf); clearTimeout(timer); imgs.forEach((im) => { im.onload = im.onerror = null }) }
+  }, [frames, base])
 
   if (!frames || frames <= 0 || frame < 0) return null
   return (
