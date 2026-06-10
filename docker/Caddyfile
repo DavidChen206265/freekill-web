@@ -25,9 +25,18 @@
 	# on Linux (case-sensitive FS) even when they work on a Windows dev server, whose
 	# vite returns a true 404. Keep this handle separate from the SPA handle: file_server
 	# alone, no try_files, so a missing /fk/* path returns 404 (not index.html).
+	#
+	# Cache: revalidate, do NOT mark immutable. These filenames are NOT content-hashed
+	# (jink.mp3 is always jink.mp3 even if its bytes change), so `immutable` would pin
+	# stale bytes in every browser that ever fetched them — requiring a manual CF purge
+	# AND a per-user cache clear on every asset update (and it's how a pre-fix bad
+	# "200 index.html" got stuck across hard-refreshes). `no-cache` means "cache it but
+	# always revalidate via ETag": file_server emits an ETag (size+mtime), the browser
+	# sends If-None-Match, unchanged files get a cheap 304, changed files are fetched
+	# immediately. So asset fixes propagate with no purge / no user action.
 	handle /fk/* {
 		root * /srv
-		header Cache-Control "public, max-age=31536000, immutable"
+		header Cache-Control "no-cache"
 		file_server
 	}
 
