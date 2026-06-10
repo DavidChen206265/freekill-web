@@ -55,6 +55,8 @@ interface CardState {
   // the cards that moved in the last MoveCards (for the animation layer)
   lastMoved: { cid: number; from: AreaKey; to: AreaKey }[]
   applyMoveCards: (visibleData: unknown) => void
+  /** Clear the accumulated move buffer after CardLayer consumes it for flights. */
+  clearLastMoved: () => void
   // Remove specific cards from the table pile (DestroyTableCard — by cid list).
   destroyTableCards: (cids: number[]) => void
   // Remove table cards whose holding_event_id >= threshold (DestroyTableCardByEvent).
@@ -133,9 +135,22 @@ export const useCardStore = create<CardState>((set, get) => ({
           moved.push({ cid, from: actualFrom ?? 'drawPile', to: toKey })
         }
       }
-      return { areas, known, eventIds, moveSeq: s.moveSeq + 1, lastMoved: moved }
+      // ACCUMULATE across moves: several MoveCards can fire in one feed/React batch
+      // (e.g. draw 2 + play a card on the same turn-start). The CardLayer flight
+      // effect runs ONCE after the batch, so if we replaced lastMoved each call only
+      // the final move's source survived → earlier cards (e.g. the drawn ones) lost
+      // their fly-from origin and popped in. Keep the latest entry PER cid; CardLayer
+      // clears the buffer after consuming it.
+      const byCid = new Map<number, { cid: number; from: AreaKey; to: AreaKey }>()
+      for (const m of s.lastMoved) byCid.set(m.cid, m)
+      for (const m of moved) byCid.set(m.cid, m)
+      return { areas, known, eventIds, moveSeq: s.moveSeq + 1, lastMoved: [...byCid.values()] }
     })
   },
+
+  // CardLayer calls this after its flight effect consumes lastMoved, so the next
+  // batch starts fresh (origins aren't re-applied to already-settled cards).
+  clearLastMoved: () => set((s) => (s.lastMoved.length ? { lastMoved: [] } : {})),
 
   destroyTableCards: (cids) => {
     // DestroyTableCard (RoomLogic.js:548-556): does NOT remove the card — only clears

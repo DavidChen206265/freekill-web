@@ -106,4 +106,21 @@ describe('cardStore.applyMoveCards', () => {
     const moved = useCardStore.getState().lastMoved
     expect(moved).toEqual([{ cid: 20, from: 'hand:3', to: 'tablePile' }])
   })
+
+  it('lastMoved ACCUMULATES across batched moves (draw 2 + play in one batch)', () => {
+    // Several MoveCards fire before CardLayer's flight effect runs once. Without
+    // accumulation the earlier move (the draw) lost its origin and the drawn cards
+    // popped in with no fly animation. Keep the latest entry per cid across the batch.
+    const cs = useCardStore.getState()
+    cs.applyMoveCards({ merged: [{ ids: [30, 31], from: 0, to: 1, fromArea: CardArea.DrawPile, toArea: CardArea.PlayerHand }], event_id: 1, '30': true, '31': true })
+    cs.applyMoveCards({ merged: [{ ids: [32], from: 0, to: 1, fromArea: CardArea.PlayerHand, toArea: CardArea.Processing }], event_id: 2, '32': true })
+    const moved = useCardStore.getState().lastMoved
+    // all three cids retained (drawn 30/31 from drawPile + played 32 to table)
+    expect(moved.find((m) => m.cid === 30)?.from).toBe('drawPile')
+    expect(moved.find((m) => m.cid === 31)?.from).toBe('drawPile')
+    expect(moved.find((m) => m.cid === 32)?.to).toBe('tablePile')
+    // clearLastMoved empties it for the next batch
+    cs.clearLastMoved()
+    expect(useCardStore.getState().lastMoved).toEqual([])
+  })
 })

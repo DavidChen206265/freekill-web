@@ -151,9 +151,13 @@ export function CardLayer() {
     // card landing there has no node to fly to. Spawn a one-shot flight (its last
     // floating position → the slot box) that fades out on arrival (QML animates the
     // card into the equip/judge CardArea). Use the prior table/hand pos as the start.
+    // Also covers an OPPONENT's hand (hand:<other>): QML's handcardArea is an
+    // InvisibleCardArea centred on the photo — cards fly to the photo centre then
+    // vanish into the count (gains/draws), so we fly + fade there too.
     const settle: typeof flights = []
     for (const m of lastMoved) {
-      if (!(m.to.startsWith('equip:') || m.to.startsWith('judge:'))) continue
+      const toOther = m.to.startsWith('hand:') && Number(m.to.slice(5)) !== selfId
+      if (!(m.to.startsWith('equip:') || m.to.startsWith('judge:') || toOther)) continue
       // Start from the card's last floating position if it had one (it flew to the
       // table first); else from its source area box (opponent's hand was never
       // rendered) so it still flies into the slot rather than popping in.
@@ -164,10 +168,15 @@ export function CardLayer() {
       }
       const box = resolveAreaBox(m.to, playerIndex, playerNum)
       if (!from || !box) continue
-      settle.push({ id: ++flightSeq.current, cid: m.cid, from, to: { x: box.x, y: box.y }, faceUp: known[m.cid] ?? true })
+      // Opponent hand cards are hidden (face-down); equip/judge are face-up per known.
+      const faceUp = toOther ? false : (known[m.cid] ?? true)
+      settle.push({ id: ++flightSeq.current, cid: m.cid, from, to: { x: box.x, y: box.y }, faceUp })
       lastPos.current.delete(m.cid) // it's left the floating layer
     }
     if (settle.length > 0) setFlights((f) => [...f, ...settle])
+    // Consumed the move-origin buffer (flights + prev seeding) — clear so the next
+    // batch starts fresh and settled cards aren't re-flown.
+    useCardStore.getState().clearLastMoved()
     // Re-run when cards move OR when selection changes (selected cards rise).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moveSeq, cardStates])

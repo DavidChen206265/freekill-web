@@ -84,11 +84,13 @@ export function EmotionSprite({ emotion, scale = 0.75 }: { emotion: string; scal
 
   if (!frames || frames <= 0 || frame < 0) return null
   return (
-    <div style={styles.center}>
-      <img src={animFrameUrl(base, frame)} alt="" draggable={false}
-        style={{ transform: `scale(${scale})`, maxWidth: '160%', pointerEvents: 'none' }}
-        onError={(e) => { (e.currentTarget.style.visibility = 'hidden') }} />
-    </div>
+    <img src={animFrameUrl(base, frame)} alt="" draggable={false}
+      style={{
+        position: 'absolute', left: '50%', top: '50%',
+        transform: `translate(-50%, -50%) scale(${scale})`,
+        pointerEvents: 'none', maxWidth: 'none',
+      }}
+      onError={(e) => { (e.currentTarget.style.visibility = 'hidden') }} />
   )
 }
 
