@@ -203,7 +203,10 @@ fs.writeFileSync(path.join(FK_ROOT, 'anim.json'), JSON.stringify(animManifest, n
 // package audio/<type>/ (skill/death voices). Mirror the same roots so audio.ts can
 // resolve SkinBank.getAudio-style paths; lazily fetched at play time. We copy the
 // whole audio tree (system sounds are small; skill/death voices add up but are
-// lazy-loaded, never bundled). No frame manifest needed — paths are direct.
+// lazy-loaded, never bundled). We ALSO record every copied path into audio.json so
+// the client can resolve which candidate exists WITHOUT firing 404 HEAD probes (the
+// candidate-probe approach floods the console with 404s on the server deploy).
+const audioManifest = [] // paths relative to FK_ROOT, e.g. "audio/skill/yingzi1.mp3"
 function copyAudioTree(srcAudio, destAudio) {
   if (!fs.existsSync(srcAudio)) return { files: 0, bytes: 0 }
   let files = 0, bytes = 0
@@ -215,6 +218,7 @@ function copyAudioTree(srcAudio, destAudio) {
       else if (path.extname(name).toLowerCase() === '.mp3') {
         fs.mkdirSync(d, { recursive: true })
         fs.copyFileSync(full, path.join(d, name))
+        audioManifest.push(path.relative(FK_ROOT, path.join(d, name)).split(path.sep).join('/'))
         files++; bytes += st.size
       }
     }
@@ -230,9 +234,13 @@ accAudio(copyAudioTree(path.join(SOURCECODE, 'audio'), path.join(FK_ROOT, 'audio
 for (const pkg of ART_PACKS) {
   accAudio(copyAudioTree(path.join(PACKAGES, pkg, 'audio'), path.join(FK_ROOT, 'packages', pkg, 'audio')))
 }
+// audio.json: a set of every audio path that exists under /fk, so the client can
+// pick the one real candidate and issue a single GET instead of probing N URLs and
+// eating 404s (each miss is logged as a console error in the browser).
+fs.writeFileSync(path.join(FK_ROOT, 'audio.json'), JSON.stringify(audioManifest.sort(), null, 0))
 
 console.log(`[sync-fk-assets] copied ${relPaths.length} files (${(bytes / 1024 / 1024).toFixed(2)} MB) -> public/fk`)
 console.log(`[sync-fk-assets] images: ${imgFiles} files (${(imgBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/image + packages/*/image`)
 console.log(`[sync-fk-assets] anim: ${animDirs} sprites / ${animFiles} frames (${(animBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/**/image/anim + anim.json`)
-console.log(`[sync-fk-assets] audio: ${audioFiles} files (${(audioBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/**/audio`)
+console.log(`[sync-fk-assets] audio: ${audioFiles} files (${(audioBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/**/audio + audio.json`)
 console.log(`[sync-fk-assets] manifest: ${path.relative(WEB, MANIFEST)} + fkprelude.lua`)

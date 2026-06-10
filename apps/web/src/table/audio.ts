@@ -18,10 +18,31 @@ const ART_PKGS = ['standard', 'standard_cards', 'maneuvering']
 let unlocked = false
 let volume = 0.7
 
+// Manifest of every audio path that exists under /fk (built at sync time, see
+// sync-fk-assets.mjs → audio.json). Entries are relative to /fk, e.g.
+// "audio/skill/yingzi1.mp3". We resolve the one real candidate from this set and
+// issue a single GET, instead of probing every candidate URL over the network and
+// eating a 404 per miss — those 404s (HEAD or <audio>) flood the browser console on
+// the server deploy (each is logged as a failed request). null until loaded; while
+// loading we fall back to playing the first candidate optimistically.
+let audioManifest: Set<string> | null = null
+let audioManifestPromise: Promise<Set<string>> | null = null
+export function loadAudioManifest(): Promise<Set<string>> {
+  if (audioManifest) return Promise.resolve(audioManifest)
+  if (!audioManifestPromise) {
+    audioManifestPromise = fetch(`${FK}/audio.json`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((arr: string[]) => { audioManifest = new Set(arr); return audioManifest })
+      .catch(() => { audioManifest = new Set(); return audioManifest })
+  }
+  return audioManifestPromise
+}
+
 /** Call once on a user gesture (login/first click) so later plays aren't blocked. */
 export function unlockAudio(): void {
   if (unlocked) return
   unlocked = true
+  void loadAudioManifest() // warm the manifest so the first play resolves instantly
   // A muted no-op play primes the autoplay permission in most browsers.
   try {
     const a = new Audio()
@@ -32,34 +53,27 @@ export function unlockAudio(): void {
 
 export function setVolume(v: number): void { volume = Math.max(0, Math.min(1, v)) }
 
-// Probe candidate URLs in PARALLEL and play the highest-priority one that exists.
-// The old approach chained <audio> elements via onerror, advancing one candidate per
-// failed load. That is fine on a local dev server (a 404 is sub-millisecond) but slow
-// behind a CDN: a skill voice has ~12 candidates (built-in + 3 art packages × name/
-// name1 × general/deputy/plain) and the real file is usually last, so 11 sequential
-// 404 round-trips delayed or cut off the voice ("播放不完全/延迟"). It also had a
-// double-advance bug — a failed load fires BOTH `onerror` and the `play()` rejection,
-// each calling tryNext(), so the index could skip past the one valid candidate and
-// play nothing. Parallel HEAD probes collapse the wait to ~1 round-trip and pick the
-// winner deterministically by priority; the chosen URL is then played via a single
-// Audio element (a GET the service worker can cache for instant replays).
+// Resolve the first candidate that EXISTS (per the manifest) and play it with a
+// single GET — no network probing, so no 404s in the console. Candidates are full
+// URLs ("/fk/audio/...") given in priority order. Once the manifest is loaded the
+// lookup is a pure Set membership test; before then we optimistically play the first
+// candidate (rare: only sounds fired in the first moments before audio.json lands).
+function playUrl(url: string): void {
+  const a = new Audio(url)
+  a.volume = volume
+  a.play().catch(() => { /* autoplay still blocked — ignore */ })
+}
 function playCandidates(urls: string[]): void {
   if (urls.length === 0) return
-  const probes = urls.map(async (u) => {
-    try { const r = await fetch(u, { method: 'HEAD' }); return r.ok ? u : null }
-    catch { return null }
-  })
-  void Promise.all(probes).then((results) => {
-    const url = results.find((u): u is string => !!u)
+  void loadAudioManifest().then((manifest) => {
+    if (manifest.size === 0) { playUrl(urls[0]!); return } // manifest unavailable → best-effort
+    const url = urls.find((u) => manifest.has(u.startsWith(FK + '/') ? u.slice(FK.length + 1) : u))
     if (!url) {
-      // No candidate exists (404 everywhere) — silent by design (like QML), but logged
-      // so "no sound on the server" is diagnosable via fk_log=debug instead of invisible.
-      log.debug('lifecycle', `audio: no candidate played (assets missing/404?): ${urls[0] ?? ''}`)
+      // No candidate exists — silent by design (like QML), logged for fk_log=debug.
+      log.debug('lifecycle', `audio: no candidate exists for: ${urls[0] ?? ''}`)
       return
     }
-    const a = new Audio(url)
-    a.volume = volume
-    a.play().catch(() => { /* autoplay still blocked — ignore */ })
+    playUrl(url)
   })
 }
 
