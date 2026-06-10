@@ -7,9 +7,10 @@ export default defineConfig({
     react(),
     // PWA: installable app + a service worker that caches the /fk/ game assets
     // (audio / sprites / general+card art / extension-pack lua, ~53MB across 2000+
-    // files). The assets are large and flaky to fetch on first load — CacheFirst
-    // runtime caching makes each asset permanent after one successful fetch (and
-    // retries from network on a miss), fixing the "missing voice/animation" issue
+    // files). The assets are large and flaky to fetch on first load — StaleWhile-
+    // Revalidate runtime caching serves them from cache instantly (fixing the
+    // "missing voice/animation" issue) while refetching in the background so updated
+    // bytes land. See the runtimeCaching note for why NOT CacheFirst.
     // without precaching all 53MB up front.
     VitePWA({
       registerType: 'autoUpdate',
@@ -43,12 +44,16 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
           {
-            // Game assets: cache-first, permanent. Covers /fk/** (lua, json, images,
-            // audio, anim frames). cacheableResponse [0,200] also stores opaque/cross-
-            // origin OK responses; rangeRequests handles 206 media (partial audio)
-            // so those fetches still populate the cache.
+            // Game assets: /fk/** (lua, json, images, audio, anim frames). Use
+            // StaleWhileRevalidate, NOT CacheFirst: serve from cache instantly (fixes
+            // the flaky-first-load → missing voice/animation problem) AND refetch in
+            // the background so updated bytes land within one extra load. CacheFirst
+            // would pin stale bytes forever — the SAME bug the Caddy /fk no-cache fix
+            // (commit 72415ef) had to solve, because fk filenames are NOT content-
+            // hashed (jink.mp3 stays jink.mp3 even when its bytes change). SWR + Caddy
+            // ETag revalidation keep the SW cache self-updating with no manual purge.
             urlPattern: ({ url }) => url.pathname.startsWith('/fk/'),
-            handler: 'CacheFirst',
+            handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'fk-assets',
               expiration: { maxEntries: 4000, maxAgeSeconds: 60 * 60 * 24 * 90 },
