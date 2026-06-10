@@ -38,8 +38,12 @@ export interface GamePlayer {
   equipCids?: number[]
   judgeCids?: number[]
   handcardNum?: number
-  /** Displayable @-marks (from the VM mirror). */
-  displayMarks?: { name: string; value: number }[]
+  /** Text marks (Photo MarkArea): name is ALREADY translated; value is the localized
+   *  suffix ("" when hidden via @@). Rendered as `name value`. */
+  displayMarks?: { name: string; value: string }[]
+  /** Picture marks (Photo PicMarkArea, @!): name = raw mark key (→ getMarkPic icon),
+   *  value = count/localized text overlay, extra = hover tooltip (@!! description). */
+  picMarks?: { name: string; value: string; extra: string }[]
   marks: Record<string, number>
 }
 
@@ -91,7 +95,8 @@ export interface VmPlayerLike {
   equipCids?: number[]
   judgeCids?: number[]
   handcardNum?: number
-  marks?: { name: string; value: number }[]
+  marks?: { name: string; value: string }[]
+  picMarks?: { name: string; value: string; extra: string }[]
   isSelf?: boolean
 }
 
@@ -169,7 +174,16 @@ export const useGameStore = create<GameState>((set, get) => ({
   // in-game roster props, but DON'T wipe players (the caller re-syncs them from the
   // VM's post-ResetClientLua mirror). Capacity comes from ResetClientLua so the
   // seat grid + owner/start controls reappear (issue: controls vanished on return).
-  backToRoom: (capacity) => set({ started: false, winner: undefined, capacity, seatOrder: [], selfSkills: [] }),
+  // Per-player GAME state (general/hp/role/marks/dead/equip/judge…) is stripped back
+  // to waiting-room identity (id/name/avatar/seat/owner/ready) so last game's general
+  // / hp / marks don't linger in the waiting room before the re-sync lands.
+  backToRoom: (capacity) => set((s) => {
+    const players: Record<number, GamePlayer> = {}
+    for (const [id, p] of Object.entries(s.players)) {
+      players[Number(id)] = { id: p.id, name: p.name, avatar: p.avatar, index: p.index, seat: p.seat, owner: p.owner, ready: p.ready, marks: {} }
+    }
+    return { started: false, winner: undefined, capacity, seatOrder: [], selfSkills: [], players }
+  }),
 
   syncPlayers: (vmPlayers, started) => {
     set((s) => {
@@ -203,6 +217,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           judgeCids: vp.judgeCids ?? prev.judgeCids,
           handcardNum: vp.handcardNum ?? prev.handcardNum,
           displayMarks: vp.marks ?? prev.displayMarks,
+          picMarks: vp.picMarks ?? prev.picMarks,
         }
         if (vp.isSelf) selfId = vp.id
       }

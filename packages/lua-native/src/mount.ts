@@ -16,6 +16,9 @@ export interface LuaFactoryLike {
 export interface FileListManifest {
   base: string
   files: string[]
+  /** Additional package trees (extension packs) mounted under /fk/packages/<base>.
+   *  Each is fetched + mounted exactly like the primary base. */
+  extra?: { base: string; files: string[] }[]
 }
 
 export const VFS_PACKAGES = '/fk/packages'
@@ -52,5 +55,29 @@ export async function mountFromFetch(
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker))
 
-  return { files: files.length, bytes, ms: Date.now() - t0 }
+  let totalFiles = files.length
+  // Mount extension packs (manifest.extra). Their URL is the packages ROOT (baseUrl
+  // with the primary base stripped) + "/<pack-base>". Mounted under /fk/packages/<base>.
+  if (manifest.extra && manifest.extra.length > 0) {
+    const pkgRoot = baseUrl.slice(0, baseUrl.length - manifest.base.length - 1) // strip "/<base>"
+    for (const ex of manifest.extra) {
+      const exUrl = `${pkgRoot}/${ex.base}`
+      const exVfs = `${VFS_PACKAGES}/${ex.base}`
+      let exNext = 0
+      const exWorker = async () => {
+        while (exNext < ex.files.length) {
+          const rel = ex.files[exNext++]!
+          const res = await fetch(`${exUrl}/${rel}`)
+          if (!res.ok) throw new Error(`mount fetch failed ${res.status}: ${ex.base}/${rel}`)
+          const buf = new Uint8Array(await res.arrayBuffer())
+          factory.mountFileSync(luaModule, `${exVfs}/${rel}`, buf)
+          bytes += buf.length
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(concurrency, ex.files.length) }, exWorker))
+      totalFiles += ex.files.length
+    }
+  }
+
+  return { files: totalFiles, bytes, ms: Date.now() - t0 }
 }

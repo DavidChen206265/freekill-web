@@ -650,4 +650,116 @@ describe('client VM packet feed', () => {
     expect(after[String(cid)]!.mark.find((m) => m.k === '@test')?.v).toBe(7)
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!ready)('readPlayers mark classification: @! → picMarks, @@ → hidden value, @ → text (M5-a-2)', async () => {
+    // Mirrors clientVm.ts __fkReadPlayers mark classification against the REAL VM:
+    // SetPlayerMark by prefix → text vs picture mark, value hidden for @@.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    lua.global.set('__setup', JSON.stringify({ gameMode: 'aaa_role_mode', disabledPack: [], disabledGenerals: [] }))
+    await lua.doString(`
+      ClientCallback(ClientInstance, "Setup", cbor.encode({ 1, "me", "caocao", 0 }), false)
+      ClientCallback(ClientInstance, "EnterRoom", cbor.encode({ 2, 15, json.decode(__setup) }), false)
+      -- set three marks on self via the real SetPlayerMark path
+      ClientCallback(ClientInstance, "SetPlayerMark", cbor.encode({ 1, "@text", 2 }), false)
+      ClientCallback(ClientInstance, "SetPlayerMark", cbor.encode({ 1, "@@hidden", 3 }), false)
+      ClientCallback(ClientInstance, "SetPlayerMark", cbor.encode({ 1, "@!pic", 1 }), false)
+    `)
+    // The mark-classification snippet copied verbatim from clientVm.ts __fkReadPlayers.
+    await lua.doString(`
+      function __fkMarks()
+        local p = ClientInstance.players[1]
+        local textMarks, picMarks = {}, {}
+        if type(p.mark) == "table" then
+          for k, v in pairs(p.mark) do
+            if type(k) == "string" and k:startsWith("@") then
+              local isArr = (type(v) == "table" and not Util.isCborObject(v))
+              local num = (type(v) == "number") and v or (isArr and #v) or nil
+              if num and num ~= 0 then
+                if k:startsWith("@!") then
+                  local sv
+                  if isArr then sv = tostring(#v) elseif tostring(v) == "1" then sv = "" else sv = Translate(tostring(v)) end
+                  picMarks[#picMarks+1] = { name = k, value = sv }
+                else
+                  local val
+                  if k:startsWith("@@") then val = "" elseif isArr then val = "" else val = Translate(tostring(v)) end
+                  textMarks[#textMarks+1] = { name = Translate(k), value = val }
+                end
+              end
+            end
+          end
+        end
+        return json.encode({ text = textMarks, pic = picMarks })
+      end
+    `)
+    const marks = lua.global.get('__fkMarks') as () => string
+    const r = JSON.parse(marks()) as { text: { name: string; value: string }[]; pic: { name: string; value: string }[] }
+    // @!pic → picture mark, value "" (because raw value 1 → "1" → "")
+    expect(r.pic.find((m) => m.name === '@!pic')).toBeTruthy()
+    expect(r.pic.find((m) => m.name === '@!pic')!.value).toBe('')
+    // @@hidden → text mark with value HIDDEN ("")
+    const hidden = r.text.find((m) => m.value === '' && m.name.length > 0)
+    expect(hidden).toBeTruthy()
+    // @text (value 2) → text mark with a visible value "2"
+    expect(r.text.find((m) => m.value === '2')).toBeTruthy()
+    lua.global.close()
+  }, 30_000)
+
+  it.skipIf(!ready)('QmlMark @[type] mark renders GetQmlMark text (M5-b stage A)', async () => {
+    // QmlMark: register a spec with how_to_show, set a @[type]name mark on a player,
+    // and assert the bridge's GetQmlMark path produces the computed text.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    lua.global.set('__setup', JSON.stringify({ gameMode: 'aaa_role_mode', disabledPack: [], disabledGenerals: [] }))
+    await lua.doString(`
+      ClientCallback(ClientInstance, "Setup", cbor.encode({ 1, "me", "caocao", 0 }), false)
+      ClientCallback(ClientInstance, "EnterRoom", cbor.encode({ 2, 15, json.decode(__setup) }), false)
+      -- register a QmlMark spec (text type, qml_path="") whose how_to_show echoes value
+      Fk:addQmlMark{ name = "tmark", qml_path = "", how_to_show = function(name, value, p) return "MARK:" .. tostring(value) end }
+      -- set a @[tmark]x mark on self with a numeric value
+      ClientCallback(ClientInstance, "SetPlayerMark", cbor.encode({ 1, "@[tmark]x", 5 }), false)
+    `)
+    // The QmlMark snippet copied from clientVm.ts __fkReadPlayers @[ branch.
+    await lua.doString(`
+      function __fkQmlMarks()
+        local p = ClientInstance.players[1]
+        local out = {}
+        for k, v in pairs(p.mark) do
+          if type(k) == "string" and k:startsWith("@[") then
+            local close = k:find("]", 1, true)
+            if close then
+              local mtype = k:sub(3, close - 1)
+              local ok, qm = pcall(GetQmlMark, mtype, k, p.id)
+              if ok and type(qm) == "table" and type(qm.text) == "string" and qm.text ~= "" then
+                out[#out+1] = qm.text
+              end
+            end
+          end
+        end
+        return json.encode(out)
+      end
+    `)
+    const qm = lua.global.get('__fkQmlMarks') as () => string
+    const texts = JSON.parse(qm()) as string[]
+    expect(texts).toContain('MARK:5') // how_to_show echoed the value 5
+    lua.global.close()
+  }, 30_000)
 })

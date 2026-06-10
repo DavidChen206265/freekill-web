@@ -46,6 +46,14 @@ FreeKill-release/packages/standard_cards/*
 FreeKill-release/packages/maneuvering/*
 !FreeKill-release/packages/maneuvering/image
 !FreeKill-release/packages/maneuvering/audio
+# Extension packs (M5-b): ship the FULL tree (lua + image + anim + audio) — unlike
+# the core art-packs above (whose lua lives in freekill-core), extension packs carry
+# their own code that BOTH asio and the web VM need. Keep these in sync with
+# sync-fk-assets EXTENSION_PACKS + the asio enabled pack set (and recompute FK_MD5).
+!FreeKill-release/packages/utility
+!FreeKill-release/packages/standard_ex
+!FreeKill-release/packages/sp
+# (their .git subdirs are still excluded by the global **/.git rule above)
 # FreeKill-release/server/ holds a previous run's users.db/game.db/RSA (don't ship
 # those), but asio needs the two static DB init scripts. Exclude the dir, keep the
 # init .sql files.

@@ -49,6 +49,11 @@
 		@assets path /assets/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
 
+		# PWA control files MUST always revalidate so a new service worker / manifest
+		# is picked up on the next visit (Workbox autoUpdate). Never cache them long.
+		@swctl path /sw.js /registerSW.js /workbox-*.js /manifest.webmanifest
+		header @swctl Cache-Control "no-cache"
+
 		try_files {path} /index.html
 		file_server
 	}

@@ -18,7 +18,7 @@ function takerNameFor(pid: number): string {
   return p.general ? tr(p.general) : (p.name || `P${pid}`)
 }
 
-export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice' | 'moveBoard' | 'unsupported'
+export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice' | 'moveBoard' | 'chooseSkill' | 'unsupported'
 
 export interface CardGroup { name: string; cards: { cid: number; known: boolean }[] }
 export interface ArrangeArea { name: string; capacity: number; limit: number }
@@ -89,6 +89,11 @@ export interface PopupRequest {
   mbSideNames?: string[]
   mbPlayerIds?: number[]
   mbVirtNames?: Record<string, string>
+  // chooseSkill (CustomDialog → utility/qml/ChooseSkillBox.qml, used by sp xiaode etc.):
+  // pick min..max skills from a list; reply the selected skill-name array (or "" via
+  // cancel). csGenerals (optional, parallel) shows each skill's source general avatar.
+  csSkills?: string[]
+  csGenerals?: string[]
 }
 
 interface PopupState {
@@ -385,13 +390,34 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       }
       case 'CustomDialog':
       case 'MiniGame': {
-        // These load arbitrary extension QML (RoomLogic.js:1478/1488: popupBox.source
-        // = AppPath + path/qml_path). There is no QML runtime in the web port and the
-        // dialogs are extension-pack specific, so they are unsupported. BUT they are
-        // in ACTIVATE_COMMANDS (they start the operation timer), so leaving them
-        // unhandled would stall the timer with no way to respond. Render a minimal
-        // "unsupported" popup whose only action cancels — replies __cancel so the
-        // server gets a response and the game proceeds (audit: no silent stall).
+        // CustomDialog loads extension QML (RoomLogic.js:1478: popupBox.source =
+        // AppPath + path; item.loadData(data)). We can't run arbitrary QML, but the
+        // utility/qml shared boxes are a bounded, portable set (M5-b). Dispatch the
+        // ported ones by qml_path; everything else falls back to the unsupported
+        // popup (cancels safely). data = { path, data } (RoomLogic.js:1479-1480).
+        if (command === 'CustomDialog') {
+          const obj2 = (data ?? {}) as { path?: string; data?: unknown }
+          const path = String(obj2.path ?? '')
+          if (path.endsWith('ChooseSkillBox.qml')) {
+            // loadData([skills, min, max, prompt, generals]) (ChooseSkillBox.qml:124).
+            const d = (obj2.data as unknown[]) ?? []
+            const skills = (d[0] as string[]) ?? []
+            const min = Number(d[1] ?? 0) || 0
+            const max = Number(d[2] ?? skills.length) || skills.length
+            set({ active: {
+              kind: 'chooseSkill',
+              prompt: String(d[3] || '请选择技能'),
+              csSkills: skills,
+              csGenerals: Array.isArray(d[4]) ? (d[4] as string[]) : undefined,
+              min, max,
+              // ChooseSkillBox OK always replies (min may be 0); no separate cancel.
+              cancelable: min === 0,
+            } })
+            return true
+          }
+        }
+        // Unsupported extension QML / MiniGame: minimal popup whose only action
+        // cancels (replies __cancel) so the operation timer doesn't stall.
         set({ active: { kind: 'unsupported', prompt: `本功能(扩展 ${command})暂不支持,已跳过`, cancelable: true } })
         return true
       }

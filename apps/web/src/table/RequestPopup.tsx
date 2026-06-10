@@ -109,6 +109,28 @@ export function RequestPopup() {
     )
   }
 
+  if (active.kind === 'chooseSkill') {
+    // utility/qml/ChooseSkillBox.qml: multi-select skills (min..max), reply the
+    // selected skill-name array (ChooseSkillBox:97 replyToServer("", selected)).
+    const skills = active.csSkills ?? []
+    const ok = pickedStr.length >= min && pickedStr.length <= max
+    return (
+      <Modal prompt={`${active.prompt}${max > 1 ? `(${min}~${max})` : ''}`}>
+        <div style={vchoicesGrid(skills.length)}>
+          {skills.map((name, i) => {
+            const picked = pickedStr.includes(name)
+            const on = pickedStr.length < max || picked
+            return <button key={i} style={{ ...styles.choice, ...(picked ? styles.picked : {}), ...(on ? {} : styles.disabled) }} disabled={!on} onClick={() => toggleStr(name)}>{tr(name)}</button>
+          })}
+        </div>
+        <div style={styles.row}>
+          <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(pickedStr)}>确定</button>
+          {active.cancelable && <button style={styles.ghost} onClick={() => resolve('__cancel')}>取消</button>}
+        </div>
+      </Modal>
+    )
+  }
+
   // cards (AskForCardChosen single / AskForCardsChosen multi)
   const okCards = pickedNum.length >= min && pickedNum.length <= max
   return (
@@ -338,8 +360,12 @@ function MoveBoardBox({ active, resolve }: { active: PopupRequest; resolve: (v: 
 // name (AG.qml takeAG).
 function AgBox({ active, resolveAg }: { active: PopupRequest; resolveAg: (cid: number) => void }) {
   const interactive = active.agInteractive !== false
+  // AG is QML's `manualBox` — a floating, draggable box (Room.qml:522 z:999), NOT a
+  // modal. A concurrent request can be asked of this player WHILE the pile is shown
+  // (五谷丰登 in progress → 无懈可击 via the play UI). No backdrop + draggable so the
+  // Dashboard underneath stays reachable and an oversized pile can be moved aside.
   return (
-    <Modal prompt={active.prompt}>
+    <DraggableBox prompt={active.prompt} top="12%">
       <div style={styles.cards}>
         {(active.agCards ?? []).map(({ cid, takenBy }) => {
           const locked = !!takenBy || !interactive
@@ -352,7 +378,7 @@ function AgBox({ active, resolveAg }: { active: PopupRequest; resolveAg: (cid: n
           )
         })}
       </div>
-    </Modal>
+    </DraggableBox>
   )
 }
 
@@ -471,11 +497,54 @@ function vchoicesGrid(n: number): React.CSSProperties {
   }
 }
 
-function Modal({ prompt, children }: { prompt: string; children: React.ReactNode }) {  return (
-    <div style={styles.backdrop}>
-      <div style={styles.modal}>
-        <PromptText prompt={prompt} style={styles.prompt} />
-        {children}
+// Modal — despite the name, NOT a blocking modal. QML's GraphicsBox (every popup) is
+// a FLOATING box with a DragHandler (x+y) and NO full-screen backdrop (GraphicsBox.qml
+// :32). We mirror that: a draggable, collapsible box that floats over the scene without
+// a click-blocking backdrop, so an oversized box can be moved aside and concurrent
+// interactions (the AG/无懈可击 case) stay reachable. Drag by the header; ➖/➕ collapses.
+function Modal({ prompt, children }: { prompt: string; children: React.ReactNode }) {
+  return <DraggableBox prompt={prompt}>{children}</DraggableBox>
+}
+
+function DraggableBox({ prompt, children, top }: { prompt: string; children: React.ReactNode; top?: string }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
+  const drag = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const cur = pos ?? { x: 0, y: 0 }
+    drag.current = { px: e.clientX, py: e.clientY, ox: cur.x, oy: cur.y }
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!drag.current) return
+    setPos({ x: drag.current.ox + (e.clientX - drag.current.px), y: drag.current.oy + (e.clientY - drag.current.py) })
+  }
+  const onPointerUp = (e: React.PointerEvent) => {
+    drag.current = null
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+  }
+
+  // Wrapper is click-through (pointerEvents none) so the scene underneath stays usable;
+  // only the box itself captures pointer events. Default centered; `pos` offsets it.
+  const wrapStyle: React.CSSProperties = {
+    ...styles.floatWrap,
+    alignItems: top ? 'flex-start' : 'center',
+    paddingTop: top ?? 0,
+  }
+  const boxStyle: React.CSSProperties = pos
+    ? { ...styles.modal, transform: `translate(${pos.x}px, ${pos.y}px)` }
+    : styles.modal!
+  return (
+    <div style={wrapStyle}>
+      <div style={boxStyle}>
+        <div style={styles.boxHeader} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+          <PromptText prompt={prompt} style={styles.prompt} />
+          <button style={styles.collapseBtn} onPointerDown={(e) => e.stopPropagation()} onClick={() => setCollapsed((c) => !c)}>
+            {collapsed ? '➕' : '➖'}
+          </button>
+        </div>
+        {!collapsed && children}
       </div>
     </div>
   )
@@ -483,7 +552,12 @@ function Modal({ prompt, children }: { prompt: string; children: React.ReactNode
 
 const styles: Record<string, React.CSSProperties> = {
   backdrop: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: 100, pointerEvents: 'auto' },
-  modal: { background: '#26262b', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', color: '#eee' },
+  // Floating popup wrapper (GraphicsBox): centered, NO backdrop, click-through so the
+  // scene/Dashboard underneath stays usable; only the box captures pointer events.
+  floatWrap: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none' },
+  boxHeader: { display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'stretch', cursor: 'move', touchAction: 'none', justifyContent: 'space-between' },
+  collapseBtn: { background: 'transparent', border: 'none', color: '#bbb', fontSize: 14, cursor: 'pointer', padding: '0 4px', lineHeight: 1, flex: '0 0 auto' },
+  modal: { background: '#26262b', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', color: '#eee', pointerEvents: 'auto' },
   prompt: { fontSize: 16, textAlign: 'center' },
   generals: { display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', maxWidth: 640 },
   picked: { border: '2px solid #f1c40f', outline: '2px solid #f1c40f' },

@@ -41,6 +41,10 @@ export function GameOverModal() {
   // and capacity, leaving the waiting room blank for everyone (the bug).
   const backToRoom = async () => {
     if (!vm) { useGameStore.getState().resetGame(); return }
+    // Clear ALL transient per-game state (cards/marks/logs/popups/animations/round
+    // counter/thinking bars) so nothing leaks from the finished game into the waiting
+    // room or the next game. KEEPS the VM (rebuilt below, not closed) + roster.
+    useVmStore.getState().resetForNewGame()
     const { capacity } = vm.resetClientLua()
     useGameStore.getState().backToRoom(capacity)
     try {
