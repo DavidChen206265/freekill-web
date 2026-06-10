@@ -22,8 +22,14 @@
 2. **一个域名**,A/AAAA 记录指向 VPS 公网 IP。
 3. VPS 防火墙放行 **80 + 443**(TCP;443 也放 UDP 给 HTTP/3,可选)。
 4. 把**整个仓库**(`E:/Games/freekill/` 对应的目录树:`freekill-asio/`、`freekill-web/`、`FreeKill-release/`、`FreeKill-sourcecode/`)传到 VPS。
-   - `FreeKill-release/packages/` 有 1.5GB,但 `.dockerignore` 只放行 `freekill-core` + `packages.db` + `init.sql`。**传之前可只传这三项**(其余 packages 不需要),能省大量上传。
+   - `FreeKill-release/packages/` 有 1.5GB,但 `.dockerignore` 只放行 `freekill-core` + `packages.db` + `init.sql` + `standard`/`standard_cards`/`maneuvering` 的 `image/`+`audio/`。**传之前可只传这些**(其余 packages 不需要),能省大量上传。
    - `freekill-web/node_modules`、`freekill-asio/build/`、`分析/`、`audit/`、`freekill-web-spike/` 都不需要传(`.dockerignore` 已排除)。
+   - **音频/动画资源(M4 切片 V)**:web 的 `sync-fk-assets` 在镜像内从 `FreeKill-sourcecode/audio`+`image/anim` 和各包 `audio/`+`image/anim/` 生成音效与精灵帧。**这些目录必须随仓库传到 VPS**,否则构建出的 web 无声音、无技能/出牌精灵动画(浏览器静默 404)。
+   - **`.dockerignore` 必须在构建上下文根**(= `freekill-web` 的上一级,即 `E:/Games/freekill/`)。仓库里 `git pull` 拿不到它(它在 freekill-web 之外)。本仓库存了一份权威副本 `freekill-web/docker/dockerignore.repo-root`——**每次 `git pull` 后把它复制到上下文根**:
+     ```bash
+     cp freekill-web/docker/dockerignore.repo-root .dockerignore
+     ```
+     (老的 `.dockerignore` 会漏掉 audio/anim → 这正是"服务器没声音"的根因。)
 
 ## 部署步骤
 

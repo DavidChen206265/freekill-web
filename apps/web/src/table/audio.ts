@@ -10,6 +10,8 @@
 // getAudio tries "<name>.mp3" then "<name>1.mp3". We try candidate URLs in order and
 // play the first that loads; a 404 just means "no sound" (graceful, like QML).
 
+import { log } from '../diag/log.js'
+
 const FK = '/fk'
 const ART_PKGS = ['standard', 'standard_cards', 'maneuvering']
 
@@ -36,7 +38,13 @@ function playCandidates(urls: string[]): void {
   if (urls.length === 0) return
   let i = 0
   const tryNext = () => {
-    if (i >= urls.length) return
+    if (i >= urls.length) {
+      // All candidates failed — usually the audio assets aren't served (404). Silent
+      // by design (like QML), but logged so "no sound on the server" is diagnosable
+      // via fk_log=debug instead of being invisible (the .dockerignore-missed-audio bug).
+      log.debug('lifecycle', `audio: no candidate played (assets missing/404?): ${urls[0] ?? ''}`)
+      return
+    }
     const url = urls[i++]!
     const a = new Audio(url)
     a.volume = volume

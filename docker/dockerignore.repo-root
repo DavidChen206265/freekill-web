@@ -1,0 +1,66 @@
+# .dockerignore — keep the build context small. The Dockerfiles only need:
+#   freekill-asio/ (source), freekill-web/ (workspace),
+#   FreeKill-release/packages/{freekill-core, packages.db, init.sql},
+#   FreeKill-sourcecode/ (for sync-fk-assets: image/photo, fonts, lua/json).
+# Everything else (esp. the 1.5GB of unused FreeKill-release packages) is excluded.
+
+# Node / build outputs (reinstalled/rebuilt inside the image)
+**/node_modules
+**/dist
+**/.vite
+freekill-web/apps/web/public/fk
+
+# VCS / editor / OS
+**/.git
+**/.gitignore
+**/.DS_Store
+**/*.log
+
+# Spike + analysis + audit (not needed to build/run)
+freekill-web-spike/
+分析/
+audit/
+
+# asio local build artifacts (rebuilt in the image)
+freekill-asio/build/
+
+# All FreeKill-release packages EXCEPT the ones we ship (core-only deploy).
+# (Negation keeps freekill-core + the two db/sql files.)
+FreeKill-release/packages/*
+!FreeKill-release/packages/freekill-core
+!FreeKill-release/packages/packages.db
+!FreeKill-release/packages/init.sql
+# sync-fk-assets reads card/general ART from the TOP-LEVEL standard / standard_cards
+# / maneuvering packages (image/generals + image/card + image/anim sprites + audio
+# voices). The freekill-core/standard subtree is code-only (no image/). Keep just
+# those packages' image/ + audio/ dirs — the rest (lua/etc.) isn't needed.
+!FreeKill-release/packages/standard
+FreeKill-release/packages/standard/*
+!FreeKill-release/packages/standard/image
+!FreeKill-release/packages/standard/audio
+!FreeKill-release/packages/standard_cards
+FreeKill-release/packages/standard_cards/*
+!FreeKill-release/packages/standard_cards/image
+!FreeKill-release/packages/standard_cards/audio
+!FreeKill-release/packages/maneuvering
+FreeKill-release/packages/maneuvering/*
+!FreeKill-release/packages/maneuvering/image
+!FreeKill-release/packages/maneuvering/audio
+# FreeKill-release/server/ holds a previous run's users.db/game.db/RSA (don't ship
+# those), but asio needs the two static DB init scripts. Exclude the dir, keep the
+# init .sql files.
+FreeKill-release/server/*
+!FreeKill-release/server/init.sql
+!FreeKill-release/server/gamedb_init.sql
+
+# FreeKill-sourcecode: sync-fk-assets reads image/photo + image/card (built-in card
+# chrome + photo frames), image/anim (emotion + skillInvoke sprites, M4 slice V) and
+# audio (system/card/death sounds, slice V). The C++/Qt source, fonts, lib, packages,
+# lua — none used by the web build. Keep only those (saves ~100M+ of context).
+FreeKill-sourcecode/*
+!FreeKill-sourcecode/image
+!FreeKill-sourcecode/audio
+FreeKill-sourcecode/image/*
+!FreeKill-sourcecode/image/photo
+!FreeKill-sourcecode/image/card
+!FreeKill-sourcecode/image/anim
