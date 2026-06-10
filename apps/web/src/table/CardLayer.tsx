@@ -6,7 +6,7 @@
 // Resting position = area box + slot within the area (ItemArea-style spacing).
 // On each moveSeq bump we diff each card's prev vs next resting rect and animate.
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCardStore, type AreaKey } from '../stores/cardStore.js'
 import { useGameStore } from '../stores/gameStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
@@ -14,7 +14,7 @@ import { useCardNoteStore } from '../stores/cardNoteStore.js'
 import { useAnimationStore } from '../stores/animationStore.js'
 import { EmotionSprite } from './PhotoEffects.js'
 import { useVmStore } from '../stores/vmStore.js'
-import { resolveAreaBox, CARD_W, CARD_H } from './areas.js'
+import { resolveAreaBox, CARD_W, CARD_H, TABLE_PILE } from './areas.js'
 import { CardFaceView } from './CardFaceView.js'
 import { chosenPic } from './skin.js'
 import { tr } from '../i18n/zh.js'
@@ -40,6 +40,13 @@ export function CardLayer() {
 
   const nodeRefs = useRef(new Map<number, HTMLDivElement>())
   const lastPos = useRef(new Map<number, { x: number; y: number }>())
+  // One-shot "settle" flights for cards entering equip/judge slots: those areas are
+  // drawn as static icons inside the Photo (not floating cards), so the card has no
+  // resting node to fly to. We render a transient flying card (table → slot box) that
+  // fades out on arrival, then the Photo icon shows the persistent state — mirroring
+  // QML where the equip CardArea animates the card into the slot. Keyed by a seq id.
+  const [flights, setFlights] = useState<{ id: number; cid: number; from: { x: number; y: number }; to: { x: number; y: number }; faceUp: boolean }[]>([])
+  const flightSeq = useRef(0)
 
   // Compute every card's resting target (area box + slot within area).
   const playerNum = seatOrder.length || 1
@@ -140,6 +147,27 @@ export function CardLayer() {
       el.style.transform = `translate(${t.x}px, ${t.y}px)`
       lastPos.current.set(cid, { x: t.x, y: t.y })
     }
+    // Equip/judge are static icons in the Photo (CardLayer skips those areas), so a
+    // card landing there has no node to fly to. Spawn a one-shot flight (its last
+    // floating position → the slot box) that fades out on arrival (QML animates the
+    // card into the equip/judge CardArea). Use the prior table/hand pos as the start.
+    const settle: typeof flights = []
+    for (const m of lastMoved) {
+      if (!(m.to.startsWith('equip:') || m.to.startsWith('judge:'))) continue
+      // Start from the card's last floating position if it had one (it flew to the
+      // table first); else from its source area box (opponent's hand was never
+      // rendered) so it still flies into the slot rather than popping in.
+      let from: { x: number; y: number } | undefined = lastPos.current.get(m.cid)
+      if (!from) {
+        const srcBox = m.from && m.from !== 'tablePile' ? resolveAreaBox(m.from as AreaKey, playerIndex, playerNum) : TABLE_PILE
+        from = srcBox ? { x: srcBox.x, y: srcBox.y } : undefined
+      }
+      const box = resolveAreaBox(m.to, playerIndex, playerNum)
+      if (!from || !box) continue
+      settle.push({ id: ++flightSeq.current, cid: m.cid, from, to: { x: box.x, y: box.y }, faceUp: known[m.cid] ?? true })
+      lastPos.current.delete(m.cid) // it's left the floating layer
+    }
+    if (settle.length > 0) setFlights((f) => [...f, ...settle])
     // Re-run when cards move OR when selection changes (selected cards rise).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moveSeq, cardStates])
@@ -191,6 +219,36 @@ export function CardLayer() {
           </div>
         )
       })}
+      {/* one-shot equip/judge "settle" flights (table → slot box, fade out on arrival) */}
+      {flights.map((fl) => (
+        <FlightCard key={fl.id} fl={fl} onDone={() => setFlights((f) => f.filter((x) => x.id !== fl.id))} />
+      ))}
+    </div>
+  )
+}
+
+// A transient card that flies from `from` to `to` then fades out (equip/judge settle).
+function FlightCard({ fl, onDone }: { fl: { cid: number; from: { x: number; y: number }; to: { x: number; y: number }; faceUp: boolean }; onDone: () => void }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) { onDone(); return }
+    const anim = el.animate(
+      [
+        { transform: `translate(${fl.from.x}px, ${fl.from.y}px)`, opacity: 1 },
+        { transform: `translate(${fl.to.x}px, ${fl.to.y}px)`, opacity: 1, offset: 0.75 },
+        { transform: `translate(${fl.to.x}px, ${fl.to.y}px)`, opacity: 0 },
+      ],
+      { duration: GO_BACK_MS + 200, easing: EASE_OUT_QUAD, fill: 'forwards' },
+    )
+    anim.onfinish = onDone
+    anim.oncancel = onDone
+    return () => anim.cancel()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <div ref={ref} style={{ ...styles.card, pointerEvents: 'none' }}>
+      <CardFaceView cid={fl.cid} faceUp={fl.faceUp} width={CARD_W} height={CARD_H} />
     </div>
   )
 }
