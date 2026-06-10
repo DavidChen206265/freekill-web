@@ -41,6 +41,9 @@ services:
       # (byte-exact reproduction of asio calcFileMD5, verified against the server):
       #   docker compose exec asio sh -c 'ls packages'   # confirm the package set
       #   node freekill-web/packages/assets/scripts/compute-md5.mjs <path-to-packages>
+      # Examples (verified byte-exact against asio server.getMd5()):
+      #   core-only ...................... e48d6db7c1ea5c6efddcc06fe3071eeb (config.ts default)
+      #   core + utility+standard_ex+sp .. 8efa2ccfcfc10ffb84a010f9e87920f6
       # FK_MD5: "<recomputed-md5>"
       FK_VERSION: "0.5.20"
     expose:

@@ -21,6 +21,15 @@ const MANIFEST = path.join(WEB, 'public', 'fk', 'file-list.json')
 const EXTS = new Set(['.lua', '.json', '.txt'])
 const MOUNT_DIRS = ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']
 const IMG_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp'])
+// Extension packs to ship (must match the asio server's ENABLED pack set, or the
+// handshake MD5 won't match — recompute FK_MD5 with packages/assets/compute-md5.mjs).
+// Their lua is mounted into the VM VFS; their image/anim/audio synced for the browser.
+// Most depend on `utility` (shared skills/qml). To add a pack: add it here, put it in
+// asio's packages/ (enabled in packages.db), and recompute FK_MD5.
+const EXTENSION_PACKS = ['utility', 'standard_ex', 'sp']
+// Packs whose per-package art/anim/audio the browser loads (core art packs + the
+// extension packs that carry their own image/audio).
+const ART_PACKS = ['standard', 'standard_cards', 'maneuvering', ...EXTENSION_PACKS]
 
 function collect(dir) {
   const out = []
@@ -40,7 +49,7 @@ function collect(dir) {
 fs.rmSync(DEST, { recursive: true, force: true })
 // Also clear previously-synced image trees so removed assets don't linger.
 fs.rmSync(path.join(FK_ROOT, 'image'), { recursive: true, force: true })
-for (const pkg of ['standard', 'standard_cards', 'maneuvering']) {
+for (const pkg of ART_PACKS) {
   fs.rmSync(path.join(FK_ROOT, 'packages', pkg, 'image'), { recursive: true, force: true })
 }
 const relPaths = []
@@ -57,8 +66,39 @@ for (const sub of MOUNT_DIRS) {
 }
 
 relPaths.sort()
+
+// ---- Extension packs: mount their lua/json into the VFS (manifest.extra) ---------
+// Each pack's code tree (excluding image/audio, which load lazily as static assets)
+// is copied to public/fk/packages/<pkg>/ and listed under manifest.extra so the VM
+// mounts it at /fk/packages/<pkg>/. MUST match asio's enabled pack set (handshake MD5).
+const extra = []
+for (const pkg of EXTENSION_PACKS) {
+  const srcDir = path.join(PACKAGES, pkg)
+  if (!fs.existsSync(srcDir)) { console.warn(`  [extension] missing pack: ${pkg}`); continue }
+  const destDir = path.join(FK_ROOT, 'packages', pkg)
+  // clear stale code (keep image/ — handled by the art loop below)
+  for (const sub of ['lua', 'pkg', 'i18n', 'aux_skills', 'aux_events', 'qml']) {
+    fs.rmSync(path.join(destDir, sub), { recursive: true, force: true })
+  }
+  const files = []
+  for (const full of collect(srcDir)) {
+    const ext = path.extname(full).toLowerCase()
+    if (!EXTS.has(ext)) continue // only code/json/txt; image+audio load lazily
+    const rel = path.relative(srcDir, full).split(path.sep).join('/')
+    if (rel.startsWith('image/') || rel.startsWith('audio/')) continue
+    const target = path.join(destDir, rel)
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.copyFileSync(full, target)
+    files.push(rel)
+    bytes += fs.statSync(full).size
+  }
+  files.sort()
+  extra.push({ base: pkg, files })
+  console.log(`  [extension] ${pkg}: ${files.length} code files`)
+}
+
 fs.mkdirSync(path.dirname(MANIFEST), { recursive: true })
-fs.writeFileSync(MANIFEST, JSON.stringify({ base: 'freekill-core', files: relPaths }, null, 0))
+fs.writeFileSync(MANIFEST, JSON.stringify({ base: 'freekill-core', files: relPaths, extra }, null, 0))
 
 // ---- Image assets (slice 6) ----------------------------------------------
 // These are NOT in the VM mount manifest — the browser loads them via <img> on
@@ -93,7 +133,7 @@ acc(copyImages(path.join(SOURCECODE, 'image', 'photo'), path.join(FK_ROOT, 'imag
 // top of per-package card art; see PokerCard.qml).
 acc(copyImages(path.join(SOURCECODE, 'image', 'card'), path.join(FK_ROOT, 'image', 'card')))
 // ② per-package generals + card art (skip anim sprites for now — slice 7)
-for (const pkg of ['standard', 'standard_cards', 'maneuvering']) {
+for (const pkg of ART_PACKS) {
   acc(copyImages(path.join(PACKAGES, pkg, 'image', 'generals'), path.join(FK_ROOT, 'packages', pkg, 'image', 'generals')))
   acc(copyImages(path.join(PACKAGES, pkg, 'image', 'card'), path.join(FK_ROOT, 'packages', pkg, 'image', 'card')))
 }
@@ -153,7 +193,7 @@ const accAnim = (r) => { animDirs += r.dirs; animFiles += r.files; animBytes += 
 // built-in image/anim → /fk/image/anim, key = "<emotion>"
 accAnim(copyAnimDir(path.join(SOURCECODE, 'image', 'anim'), path.join(FK_ROOT, 'image', 'anim'), animManifest, ''))
 // per-package image/anim → /fk/packages/<pkg>/image/anim, key = "<pkg>/<emotion>"
-for (const pkg of ['standard', 'standard_cards', 'maneuvering']) {
+for (const pkg of ART_PACKS) {
   accAnim(copyAnimDir(path.join(PACKAGES, pkg, 'image', 'anim'), path.join(FK_ROOT, 'packages', pkg, 'image', 'anim'), animManifest, pkg + '/'))
 }
 fs.writeFileSync(path.join(FK_ROOT, 'anim.json'), JSON.stringify(animManifest, null, 0))
@@ -187,7 +227,7 @@ const accAudio = (r) => { audioFiles += r.files; audioBytes += r.bytes }
 // built-in audio (system/card/...) → /fk/audio
 accAudio(copyAudioTree(path.join(SOURCECODE, 'audio'), path.join(FK_ROOT, 'audio')))
 // per-package audio (skill/death voices) → /fk/packages/<pkg>/audio
-for (const pkg of ['standard', 'standard_cards', 'maneuvering']) {
+for (const pkg of ART_PACKS) {
   accAudio(copyAudioTree(path.join(PACKAGES, pkg, 'audio'), path.join(FK_ROOT, 'packages', pkg, 'audio')))
 }
 
