@@ -85,4 +85,17 @@ describe('cardStore.applyMoveCards', () => {
     cs.destroyTableCardsByEvent(1) // should NOT affect card 9 (now in a hand)
     expect(useCardStore.getState().areas['hand:2']).toContain(9)
   })
+
+  it('lastMoved records the source area so the anim layer can fly the card in', () => {
+    // A card used by player 3 (in their hand) goes to the table. CardLayer relies on
+    // lastMoved[].from = "hand:3" to seed the flight start at the owner's photo (the
+    // card was never rendered before, so without this it would pop into the centre).
+    const cs = useCardStore.getState()
+    // first put the card into player 3's hand (tracked even though not rendered)
+    cs.applyMoveCards({ merged: [{ ids: [20], from: 0, to: 3, fromArea: CardArea.DrawPile, toArea: CardArea.PlayerHand }], event_id: 1, '20': true })
+    // then player 3 uses it → Processing (table)
+    cs.applyMoveCards({ merged: [{ ids: [20], from: 3, to: 1, fromArea: CardArea.PlayerHand, toArea: CardArea.Processing }], event_id: 2, '20': true })
+    const moved = useCardStore.getState().lastMoved
+    expect(moved).toEqual([{ cid: 20, from: 'hand:3', to: 'tablePile' }])
+  })
 })

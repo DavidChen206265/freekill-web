@@ -28,6 +28,7 @@ export function CardLayer() {
   const areas = useCardStore((s) => s.areas)
   const known = useCardStore((s) => s.known)
   const moveSeq = useCardStore((s) => s.moveSeq)
+  const lastMoved = useCardStore((s) => s.lastMoved)
   const players = useGameStore((s) => s.players)
   const seatOrder = useGameStore((s) => s.seatOrder)
   const selfId = useGameStore((s) => s.selfId)
@@ -95,10 +96,23 @@ export function CardLayer() {
 
   // Animate every card from its last position to the new target on moveSeq change.
   useEffect(() => {
+    // Source area per cid for this move batch — lets a card that wasn't rendered
+    // before (came from an opponent's hand / the draw pile) FLY from its owner's
+    // area to the table, instead of popping in at the centre (QML moveCards animates
+    // every card along its from→to path). We seed `prev` from the source area box.
+    const fromArea = new Map<number, string>()
+    for (const m of lastMoved) fromArea.set(m.cid, m.from)
     for (const [cid, t] of targets) {
       const el = nodeRefs.current.get(cid)
       if (!el) continue
-      const prev = lastPos.current.get(cid)
+      let prev = lastPos.current.get(cid)
+      if (!prev) {
+        // No rendered prior position: seed from the move's source area so it flies in
+        // (e.g. a played card entering tablePile flies from the user's hand/photo).
+        const src = fromArea.get(cid)
+        const box = src && src !== 'tablePile' ? resolveAreaBox(src as AreaKey, playerIndex, playerNum) : null
+        if (box) prev = { x: box.x, y: box.y }
+      }
       if (prev && (prev.x !== t.x || prev.y !== t.y)) {
         el.animate(
           [

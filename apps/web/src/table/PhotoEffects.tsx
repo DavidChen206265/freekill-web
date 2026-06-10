@@ -110,7 +110,9 @@ function SkillBanner({ name, skillType }: { name: string; skillType: string }) {
         { opacity: 1, transform: 'translateX(0)', offset: 1440 / 1640 },
         { opacity: 0, transform: 'translateX(0)' },
       ],
-      { duration: 1640, easing: 'ease-out' },
+      // fill:forwards so the banner STAYS faded out after the run (without fill it
+      // reverts to the element's base opacity:1 and lingers — the reported bug).
+      { duration: 1640, easing: 'ease-out', fill: 'forwards' },
     )
     return () => anim.cancel()
   }, [])
