@@ -54,6 +54,15 @@
 		@swctl path /sw.js /registerSW.js /workbox-*.js /manifest.webmanifest
 		header @swctl Cache-Control "no-cache"
 
+		# PWA / browser icons at the site root (pwa-*.png, favicon.*, apple-touch-icon).
+		# These are NOT content-hashed and were once served as "200 index.html" (when the
+		# icon files were missing), which browsers heuristically cached — so a later valid
+		# PNG is rejected as "not a valid image" until the stale html entry expires. Force
+		# revalidation (ETag) so the corrected bytes are picked up on the next visit with
+		# no manual cache clear, same rationale as the /fk no-cache fix.
+		@icons path /pwa-*.png /favicon.png /favicon.ico /apple-touch-icon.png
+		header @icons Cache-Control "no-cache"
+
 		try_files {path} /index.html
 		file_server
 	}

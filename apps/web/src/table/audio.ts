@@ -32,26 +32,35 @@ export function unlockAudio(): void {
 
 export function setVolume(v: number): void { volume = Math.max(0, Math.min(1, v)) }
 
-// Try each candidate URL until one plays. We probe with a transient Audio element;
-// onerror advances to the next candidate. Returns immediately (fire-and-forget).
+// Probe candidate URLs in PARALLEL and play the highest-priority one that exists.
+// The old approach chained <audio> elements via onerror, advancing one candidate per
+// failed load. That is fine on a local dev server (a 404 is sub-millisecond) but slow
+// behind a CDN: a skill voice has ~12 candidates (built-in + 3 art packages × name/
+// name1 × general/deputy/plain) and the real file is usually last, so 11 sequential
+// 404 round-trips delayed or cut off the voice ("播放不完全/延迟"). It also had a
+// double-advance bug — a failed load fires BOTH `onerror` and the `play()` rejection,
+// each calling tryNext(), so the index could skip past the one valid candidate and
+// play nothing. Parallel HEAD probes collapse the wait to ~1 round-trip and pick the
+// winner deterministically by priority; the chosen URL is then played via a single
+// Audio element (a GET the service worker can cache for instant replays).
 function playCandidates(urls: string[]): void {
   if (urls.length === 0) return
-  let i = 0
-  const tryNext = () => {
-    if (i >= urls.length) {
-      // All candidates failed — usually the audio assets aren't served (404). Silent
-      // by design (like QML), but logged so "no sound on the server" is diagnosable
-      // via fk_log=debug instead of being invisible (the .dockerignore-missed-audio bug).
+  const probes = urls.map(async (u) => {
+    try { const r = await fetch(u, { method: 'HEAD' }); return r.ok ? u : null }
+    catch { return null }
+  })
+  void Promise.all(probes).then((results) => {
+    const url = results.find((u): u is string => !!u)
+    if (!url) {
+      // No candidate exists (404 everywhere) — silent by design (like QML), but logged
+      // so "no sound on the server" is diagnosable via fk_log=debug instead of invisible.
       log.debug('lifecycle', `audio: no candidate played (assets missing/404?): ${urls[0] ?? ''}`)
       return
     }
-    const url = urls[i++]!
     const a = new Audio(url)
     a.volume = volume
-    a.onerror = () => { tryNext() }
-    a.play().catch(() => { /* autoplay blocked or decode fail → try next */ tryNext() })
-  }
-  tryNext()
+    a.play().catch(() => { /* autoplay still blocked — ignore */ })
+  })
 }
 
 /** System sound by name (LogEvent Damage/LoseHP/ChangeMaxHp): /fk/audio/system/<name>. */
