@@ -360,30 +360,25 @@ function MoveBoardBox({ active, resolve }: { active: PopupRequest; resolve: (v: 
 // name (AG.qml takeAG).
 function AgBox({ active, resolveAg }: { active: PopupRequest; resolveAg: (cid: number) => void }) {
   const interactive = active.agInteractive !== false
-  // AG is QML's `manualBox` — a FLOATING centered box (Room.qml:522 z:999), NOT a
-  // modal with a full-screen backdrop. A concurrent request can be asked of this
-  // player WHILE the AG pile is shown (e.g. 五谷丰登 in progress, then 无懈可击 asked
-  // via the play UI / Dashboard). A blocking backdrop would cover the Dashboard and
-  // make the nullification unanswerable — so render without a backdrop and let pointer
-  // events fall through everywhere except the box itself.
+  // AG is QML's `manualBox` — a floating, draggable box (Room.qml:522 z:999), NOT a
+  // modal. A concurrent request can be asked of this player WHILE the pile is shown
+  // (五谷丰登 in progress → 无懈可击 via the play UI). No backdrop + draggable so the
+  // Dashboard underneath stays reachable and an oversized pile can be moved aside.
   return (
-    <div style={styles.agFloatWrap}>
-      <div style={styles.modal}>
-        <PromptText prompt={active.prompt} style={styles.prompt} />
-        <div style={styles.cards}>
-          {(active.agCards ?? []).map(({ cid, takenBy }) => {
-            const locked = !!takenBy || !interactive
-            return (
-              <button key={cid} style={{ ...styles.agCard, ...(takenBy ? styles.agTaken : {}) }}
-                disabled={locked} onClick={() => { if (!locked) resolveAg(cid) }}>
-                <CardFaceView cid={cid} faceUp width={56} height={80} />
-                {takenBy && <span style={styles.agFootnote}>{takenBy}</span>}
-              </button>
-            )
-          })}
-        </div>
+    <DraggableBox prompt={active.prompt} top="12%">
+      <div style={styles.cards}>
+        {(active.agCards ?? []).map(({ cid, takenBy }) => {
+          const locked = !!takenBy || !interactive
+          return (
+            <button key={cid} style={{ ...styles.agCard, ...(takenBy ? styles.agTaken : {}) }}
+              disabled={locked} onClick={() => { if (!locked) resolveAg(cid) }}>
+              <CardFaceView cid={cid} faceUp width={56} height={80} />
+              {takenBy && <span style={styles.agFootnote}>{takenBy}</span>}
+            </button>
+          )
+        })}
       </div>
-    </div>
+    </DraggableBox>
   )
 }
 
@@ -502,11 +497,54 @@ function vchoicesGrid(n: number): React.CSSProperties {
   }
 }
 
-function Modal({ prompt, children }: { prompt: string; children: React.ReactNode }) {  return (
-    <div style={styles.backdrop}>
-      <div style={styles.modal}>
-        <PromptText prompt={prompt} style={styles.prompt} />
-        {children}
+// Modal — despite the name, NOT a blocking modal. QML's GraphicsBox (every popup) is
+// a FLOATING box with a DragHandler (x+y) and NO full-screen backdrop (GraphicsBox.qml
+// :32). We mirror that: a draggable, collapsible box that floats over the scene without
+// a click-blocking backdrop, so an oversized box can be moved aside and concurrent
+// interactions (the AG/无懈可击 case) stay reachable. Drag by the header; ➖/➕ collapses.
+function Modal({ prompt, children }: { prompt: string; children: React.ReactNode }) {
+  return <DraggableBox prompt={prompt}>{children}</DraggableBox>
+}
+
+function DraggableBox({ prompt, children, top }: { prompt: string; children: React.ReactNode; top?: string }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
+  const drag = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const cur = pos ?? { x: 0, y: 0 }
+    drag.current = { px: e.clientX, py: e.clientY, ox: cur.x, oy: cur.y }
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!drag.current) return
+    setPos({ x: drag.current.ox + (e.clientX - drag.current.px), y: drag.current.oy + (e.clientY - drag.current.py) })
+  }
+  const onPointerUp = (e: React.PointerEvent) => {
+    drag.current = null
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+  }
+
+  // Wrapper is click-through (pointerEvents none) so the scene underneath stays usable;
+  // only the box itself captures pointer events. Default centered; `pos` offsets it.
+  const wrapStyle: React.CSSProperties = {
+    ...styles.floatWrap,
+    alignItems: top ? 'flex-start' : 'center',
+    paddingTop: top ?? 0,
+  }
+  const boxStyle: React.CSSProperties = pos
+    ? { ...styles.modal, transform: `translate(${pos.x}px, ${pos.y}px)` }
+    : styles.modal!
+  return (
+    <div style={wrapStyle}>
+      <div style={boxStyle}>
+        <div style={styles.boxHeader} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+          <PromptText prompt={prompt} style={styles.prompt} />
+          <button style={styles.collapseBtn} onPointerDown={(e) => e.stopPropagation()} onClick={() => setCollapsed((c) => !c)}>
+            {collapsed ? '➕' : '➖'}
+          </button>
+        </div>
+        {!collapsed && children}
       </div>
     </div>
   )
@@ -514,10 +552,11 @@ function Modal({ prompt, children }: { prompt: string; children: React.ReactNode
 
 const styles: Record<string, React.CSSProperties> = {
   backdrop: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: 100, pointerEvents: 'auto' },
-  // AG (manualBox) floats near the top WITHOUT a blocking backdrop so the play UI
-  // underneath (e.g. a concurrent 无懈可击 prompt) stays clickable. The wrapper itself
-  // is click-through (pointerEvents none); only the box re-enables pointer events.
-  agFloatWrap: { position: 'absolute', top: '12%', left: 0, right: 0, display: 'grid', placeItems: 'center', zIndex: 100, pointerEvents: 'none' },
+  // Floating popup wrapper (GraphicsBox): centered, NO backdrop, click-through so the
+  // scene/Dashboard underneath stays usable; only the box captures pointer events.
+  floatWrap: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none' },
+  boxHeader: { display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'stretch', cursor: 'move', touchAction: 'none', justifyContent: 'space-between' },
+  collapseBtn: { background: 'transparent', border: 'none', color: '#bbb', fontSize: 14, cursor: 'pointer', padding: '0 4px', lineHeight: 1, flex: '0 0 auto' },
   modal: { background: '#26262b', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', color: '#eee', pointerEvents: 'auto' },
   prompt: { fontSize: 16, textAlign: 'center' },
   generals: { display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', maxWidth: 640 },

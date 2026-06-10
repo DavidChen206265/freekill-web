@@ -51,6 +51,8 @@ interface VmState {
   /** Observer: switch viewpoint to player `pid` (VM changeSelf + re-sync). */
   switchViewpoint: (pid: number) => Promise<void>
   reset: () => void
+  /** Back-to-room after GameOver: clear transient per-game stores, keep VM + roster. */
+  resetForNewGame: () => void
 }
 
 const RECENT_CAP = 50
@@ -580,5 +582,23 @@ export const useVmStore = create<VmState>((set, get) => ({
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
+  },
+
+  // Back-to-room after GameOver: clear ALL transient per-game state but KEEP the VM
+  // (rebuilt via resetClientLua, not closed) and the roster (gameStore.backToRoom +
+  // re-sync handle that). Without this, the previous game's cards/marks/logs/popups/
+  // animations/round-counter/thinking-bars linger into the waiting room and next game.
+  resetForNewGame: () => {
+    useCardStore.getState().reset()
+    useCardFaceStore.getState().reset()
+    useInteractionStore.getState().clear()
+    usePopupStore.getState().clear()
+    useLogStore.getState().reset()
+    useFocusStore.getState().clear()
+    useAnimationStore.getState().reset()
+    useCardNoteStore.getState().reset()
+    useMiscStore.getState().reset()
+    useTimerStore.getState().deactivate()
+    set({ notifyCounts: {}, recent: [], totalFed: 0 })
   },
 }))
