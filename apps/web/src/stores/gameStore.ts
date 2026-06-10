@@ -38,8 +38,12 @@ export interface GamePlayer {
   equipCids?: number[]
   judgeCids?: number[]
   handcardNum?: number
-  /** Displayable @-marks (from the VM mirror). */
-  displayMarks?: { name: string; value: number }[]
+  /** Text marks (Photo MarkArea): name is ALREADY translated; value is the localized
+   *  suffix ("" when hidden via @@). Rendered as `name value`. */
+  displayMarks?: { name: string; value: string }[]
+  /** Picture marks (Photo PicMarkArea, @!): name = raw mark key (→ getMarkPic icon),
+   *  value = count/localized text overlay, extra = hover tooltip (@!! description). */
+  picMarks?: { name: string; value: string; extra: string }[]
   marks: Record<string, number>
 }
 
@@ -91,7 +95,8 @@ export interface VmPlayerLike {
   equipCids?: number[]
   judgeCids?: number[]
   handcardNum?: number
-  marks?: { name: string; value: number }[]
+  marks?: { name: string; value: string }[]
+  picMarks?: { name: string; value: string; extra: string }[]
   isSelf?: boolean
 }
 
@@ -203,6 +208,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           judgeCids: vp.judgeCids ?? prev.judgeCids,
           handcardNum: vp.handcardNum ?? prev.handcardNum,
           displayMarks: vp.marks ?? prev.displayMarks,
+          picMarks: vp.picMarks ?? prev.picMarks,
         }
         if (vp.isSelf) selfId = vp.id
       }

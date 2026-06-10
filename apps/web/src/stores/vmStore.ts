@@ -19,6 +19,7 @@ import { useLogStore } from './logStore.js'
 import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
 import { useAnimationStore } from './animationStore.js'
+import { useMiscStore } from './miscStore.js'
 import { useCardNoteStore } from './cardNoteStore.js'
 import { playSystem, playByPath, playSkillSound, playDeath } from '../table/audio.js'
 import { registerTranslations, hasTranslation, tr } from '../i18n/zh.js'
@@ -204,6 +205,9 @@ export const useVmStore = create<VmState>((set, get) => ({
       (e) => {
         // Drive the render caches, then update the debug feed.
         useGameStore.getState().apply(e.command, e.data)
+        // Start the MiscStatus elapsed-time clock when the game starts (local tick,
+        // like MiscStatus.qml's Timer).
+        if (e.command === 'StartGame') useMiscStore.getState().startClock()
         // Operation countdown — 1:1 with QML: every request callback that needs UI
         // calls roomScene.activate() (RoomLogic.js), which restarts the bar. The
         // ui_emu click loop (UpdateRequestUI) and non-request notifies do NOT.
@@ -358,6 +362,14 @@ export const useVmStore = create<VmState>((set, get) => ({
           const tkeys = [command, ' thinking...'].filter((k) => k && !hasTranslation(k))
           if (tkeys.length > 0) registerTranslations(get().vm!.translate(tkeys))
           useFocusStore.getState().setFocus(ids, command, timeout)
+        }
+        else if (e.command === 'UpdateDrawPile') {
+          // Remaining draw-pile count (RoomLogic.js:1520 → miscStatus.pileNum). data = int.
+          useMiscStore.getState().setPileNum(Number(Array.isArray(e.data) ? e.data[0] : e.data) || 0)
+        }
+        else if (e.command === 'UpdateRoundNum') {
+          // Current round (RoomLogic.js:1525 → miscStatus.roundNum). data = int.
+          useMiscStore.getState().setRoundNum(Number(Array.isArray(e.data) ? e.data[0] : e.data) || 0)
         }
         else if (e.command === 'Animate') {
           // Pure visual effect (room.lua doAnimate). data={type, ...}. RoomLogic.js
@@ -566,6 +578,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useFocusStore.getState().clear()
     useAnimationStore.getState().reset()
     useCardNoteStore.getState().reset()
+    useMiscStore.getState().reset()
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
 }))

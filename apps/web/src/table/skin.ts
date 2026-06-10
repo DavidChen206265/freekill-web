@@ -180,6 +180,12 @@ export function numberPic(n: number, color: string): string {
 export function cardBackPic(): string {
   return `${FK}/image/card/card-back.png`
 }
+/** Picture-mark icon (PicMarkArea, @! marks): packages/<pkg>/image/mark/<mark>.png.
+ *  SkinBank.getMarkPic scans packages; we try the art packages and let <img> onError
+ *  fall back to a text chip (most @! marks live in extension packs, not core). */
+export function markPicCandidates(mark: string): string[] {
+  return ART_PKGS.map((p) => `${FK}/packages/${p}/image/mark/${mark}.png`)
+}
 /** "Chosen" marker overlaid on a selected card (BasicCard chosen.png). */
 export function chosenPic(): string {
   return `${FK}/image/card/chosen.png`

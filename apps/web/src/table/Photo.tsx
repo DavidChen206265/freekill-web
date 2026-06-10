@@ -13,8 +13,8 @@ import { useVmStore } from '../stores/vmStore.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
-import { useRef } from 'react'
-import { generalPic, photoBack, rolePic, deathPic, chainPic } from './skin.js'
+import { useRef, useState } from 'react'
+import { generalPic, photoBack, rolePic, deathPic, chainPic, markPicCandidates } from './skin.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
 import { JudgeArea } from './JudgeArea.js'
@@ -109,12 +109,21 @@ export function Photo({ player, playerNum, isSelf }: {
         <img src={rolePic(shownRole(player))} alt="" style={styles.role} draggable={false} onError={hideImg} />
       )}
 
-      {/* mark area (@-marks: text + value) above the equip strip (Photo.qml MarkArea) */}
+      {/* text mark area (Photo.qml MarkArea): `name value`, name already translated
+          by the VM bridge; value "" when hidden (@@). Above the equip strip. */}
       {(player.displayMarks?.length ?? 0) > 0 && (
         <div style={styles.marks}>
           {player.displayMarks!.map((m) => (
-            <span key={m.name} style={styles.mark}>{tr(m.name)} {m.value}</span>
+            <span key={m.name} style={styles.mark}>{m.value ? `${m.name} ${m.value}` : m.name}</span>
           ))}
+        </div>
+      )}
+      {/* picture mark area (Photo.qml PicMarkArea, @! marks): icon + count/value,
+          hover tooltip. Icon art lives in extension packs; falls back to a text chip
+          when absent (core has none). */}
+      {(player.picMarks?.length ?? 0) > 0 && (
+        <div style={styles.picMarks}>
+          {player.picMarks!.map((m) => <PicMark key={m.name} mark={m} />)}
         </div>
       )}
 
@@ -163,6 +172,24 @@ export function Photo({ player, playerNum, isSelf }: {
       {/* slice V: transient visual effects (emotion sprite / skill banner). tremble
           is applied to the photo box ref. */}
       <PhotoEffects playerId={player.id} boxRef={photoBoxRef} />
+    </div>
+  )
+}
+
+// PicMark (PicMarkArea.qml): a 21×21 icon (getMarkPic) with a count/value overlay at
+// the bottom-right + a hover tooltip (mark_extra). Icon art lives in extension packs;
+// when no candidate loads we fall back to a small text chip of the (translated) mark
+// name so the mark stays visible (freekill-core ships no mark icons).
+function PicMark({ mark }: { mark: { name: string; value: string; extra: string } }) {
+  const [idx, setIdx] = useState(0)
+  const candidates = markPicCandidates(mark.name)
+  const src = candidates[idx]
+  return (
+    <div style={styles.picMark} title={mark.extra || undefined}>
+      {src
+        ? <img src={src} alt="" style={styles.picMarkImg} draggable={false} onError={() => setIdx((i) => i + 1)} />
+        : <span style={styles.picMarkFallback}>{tr(mark.name)}</span>}
+      {mark.value && <span style={styles.picMarkVal}>{mark.value}</span>}
     </div>
   )
 }
@@ -225,6 +252,13 @@ const styles: Record<string, React.CSSProperties> = {
   // outlined white text on a dark translucent backing.
   marks: { position: 'absolute', left: 23, right: 2, bottom: 56, zIndex: 4, display: 'flex', flexWrap: 'wrap', gap: 2 },
   mark: { fontSize: 11, color: '#fff', background: 'rgba(60,50,41,.8)', borderRadius: 4, border: '1px solid rgba(255,255,255,.5)', padding: '0 3px', lineHeight: '14px', textShadow: '0 0 2px #000, 0 0 2px #000' },
+  // PicMarkArea (@! marks): icon row near the top-left of the photo (RowLayout of
+  // 21×21 icons with a count overlay). Placed above the text mark row.
+  picMarks: { position: 'absolute', left: 23, right: 2, bottom: 72, zIndex: 4, display: 'flex', flexWrap: 'wrap', gap: 2 },
+  picMark: { position: 'relative', width: 21, height: 21, display: 'grid', placeItems: 'center' },
+  picMarkImg: { width: 21, height: 21, objectFit: 'contain' },
+  picMarkFallback: { fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(165,3,48,.85)', borderRadius: 3, padding: '0 2px', lineHeight: '12px', textShadow: '0 0 2px #000' },
+  picMarkVal: { position: 'absolute', right: -1, bottom: -2, fontSize: 12, fontWeight: 700, color: '#fff', textShadow: '0 0 2px #000, 0 0 2px #000' },
   // judge (delayed-trick) row — rendered outside the clipped photo box (in the
   // unclipped wrap), sitting just BELOW the photo's bottom edge so the icons hang
   // under the portrait. Was bottom:22 inside the clip; +60px down → ~2px below.

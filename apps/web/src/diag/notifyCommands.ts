@@ -31,6 +31,8 @@ export const HANDLED_EXPLICIT = new Set<string>([
   // M4 slice V — visual/audio effects now consumed (animationStore / audio.ts /
   // Toast / cardNoteStore):
   'Animate', 'LogEvent', 'ShowToast', 'SetCardFootnote', 'SetCardVirtName',
+  // M5-a — table misc status (miscStore → MiscStatus):
+  'UpdateDrawPile', 'UpdateRoundNum',
 ])
 
 // Commands consumed INDIRECTLY via the VM mirror: the VM applies them to its own
@@ -52,7 +54,7 @@ export const MIRROR_DRIVEN = new Set<string>([
 // 五谷-class bugs. (Animate/LogEvent/ShowToast/SetCardFootnote done in M4 slice V.)
 export const KNOWN_DEFERRED = new Set<string>([
   'SetBanner', 'ShowVirtualCard', 'UpdateLimitSkill', 'ChangeSkin',
-  'UpdateDrawPile', 'UpdateRoundNum', 'UpdateGameData', 'UpdateMarkArea',
+  'UpdateGameData', 'UpdateMarkArea',
   'UpdateMiniGame', 'ServerMessage', 'Chat',
 ])
 

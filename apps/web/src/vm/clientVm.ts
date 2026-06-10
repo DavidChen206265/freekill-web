@@ -118,14 +118,40 @@ export class ClientVm {
         if ci and ci.players then
           for _, p in ipairs(ci.players) do
             local sp = p.player
-            -- Displayable marks: @-prefixed with a numeric/string value (MarkArea).
-            local marks = {}
+            -- Player marks (Photo MarkArea + PicMarkArea). Classify by prefix exactly
+            -- like RoomLogic.js SetPlayerMark (1291) + the two areas' setMark:
+            --   "@!" / "@!!"  -> PICTURE mark (icon by getMarkPic), special_value =
+            --                    array→count / "1"→"" / else tr(value); @!! adds desc.
+            --   "@@"          -> text mark with value HIDDEN.
+            --   other "@"     -> text mark, shown as "name value" where value is
+            --                    array→joined tr / else tr(value).
+            -- value 0 / nil is not shown (removeMark). @$/@& pile marks shown as count
+            -- (click-to-view-pile deferred to M5-b).
+            local textMarks, picMarks = {}, {}
             if type(p.mark) == "table" then
               for k, v in pairs(p.mark) do
                 if type(k) == "string" and k:startsWith("@") then
-                  local n = (type(v) == "number") and v
-                    or (type(v) == "table" and not Util.isCborObject(v)) and #v or nil
-                  if n and n ~= 0 then marks[#marks+1] = { name = k, value = n } end
+                  -- numeric value, or array length for non-cbor table values
+                  local isArr = (type(v) == "table" and not Util.isCborObject(v))
+                  local num = (type(v) == "number") and v or (isArr and #v) or nil
+                  if num and num ~= 0 then
+                    if k:startsWith("@!") then
+                      -- picture mark: count (array) / "" (==1) / tr(value)
+                      local sv
+                      if isArr then sv = tostring(#v)
+                      elseif tostring(v) == "1" then sv = ""
+                      else sv = Translate(tostring(v)) end
+                      local extra = k:startsWith("@!!") and (Translate(k) .. " " .. Translate(":" .. k)) or ""
+                      picMarks[#picMarks+1] = { name = k, value = sv, extra = extra }
+                    else
+                      -- text mark: "name value" (value hidden for @@)
+                      local val
+                      if k:startsWith("@@") then val = ""
+                      elseif isArr then val = table.concat(table.map(v, function(x) return Translate(tostring(x)) end), " ")
+                      else val = Translate(tostring(v)) end
+                      textMarks[#textMarks+1] = { name = Translate(k), value = val }
+                    end
+                  end
                 end
               end
             end
@@ -143,7 +169,8 @@ export class ClientVm {
               equipCids = p.getCardIds and p:getCardIds("e") or {},
               judgeCids = p.getCardIds and p:getCardIds("j") or {},
               handcardNum = p.getHandcardNum and p:getHandcardNum() or 0,
-              marks = marks,
+              marks = textMarks,
+              picMarks = picMarks,
               isSelf = (Self ~= nil and p.id == Self.id),
             }
           end
@@ -616,7 +643,8 @@ export interface VmPlayer {
   equipCids?: number[]
   judgeCids?: number[]
   handcardNum?: number
-  marks?: { name: string; value: number }[]
+  marks?: { name: string; value: string }[]
+  picMarks?: { name: string; value: string; extra: string }[]
   isSelf?: boolean
 }
 
