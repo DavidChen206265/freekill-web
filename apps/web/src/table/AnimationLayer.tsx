@@ -70,17 +70,18 @@ function IndicateLines({ effect }: { effect: SceneEffect }) {
   useEffect(() => {
     const el = ref.current
     if (!el || segments.length === 0) { remove(effect.id); return }
-    // 3-phase: grow+hold via stroke-dashoffset isn't trivial across segments, so we
-    // approximate QML's perceived effect with opacity in/hold/out over 700ms (the
-    // line itself is drawn instantly; the in/out fade reads as the indicate flash).
+    // 3-phase fade: in (180ms) → hold → out. QML's IndicatorLine is ~700ms; we hold
+    // a bit longer (total 1100ms) so cross-table targeting is easy to follow without
+    // the war log — the line + arrowhead are the primary "who → whom" cue.
+    const DUR = 1100
     const anim = el.animate(
       [
         { opacity: 0 },
-        { opacity: 1, offset: 200 / 700 },
-        { opacity: 1, offset: 400 / 700 },
+        { opacity: 1, offset: 180 / DUR },
+        { opacity: 1, offset: 850 / DUR },
         { opacity: 0 },
       ],
-      { duration: 700, easing: 'linear' },
+      { duration: DUR, easing: 'linear' },
     )
     anim.onfinish = () => remove(effect.id)
     anim.oncancel = () => remove(effect.id)
@@ -90,13 +91,28 @@ function IndicateLines({ effect }: { effect: SceneEffect }) {
 
   return (
     <svg ref={ref} style={styles.svg} viewBox={`0 0 ${STAGE_W} ${STAGE_H}`} width={STAGE_W} height={STAGE_H}>
-      {segments.map((s, i) => (
-        <g key={i}>
-          <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="#96943D" strokeWidth={6} strokeLinecap="round" opacity={0.85} />
-          <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="#fff" strokeWidth={2} strokeLinecap="round" opacity={0.3} />
-          <circle cx={s.x2} cy={s.y2} r={7} fill="#96943D" />
-        </g>
-      ))}
+      {segments.map((s, i) => {
+        // Arrowhead at the target end so the direction (who → whom) is unmistakable
+        // even at a glance — this is the cue that lets players read targeting without
+        // the war log. Triangle pointing along the line toward (x2,y2).
+        const ang = Math.atan2(s.y2 - s.y1, s.x2 - s.x1)
+        const ah = 16 // arrowhead length
+        const aw = 9 // half-width
+        const tipX = s.x2, tipY = s.y2
+        const baseX = s.x2 - ah * Math.cos(ang), baseY = s.y2 - ah * Math.sin(ang)
+        const leftX = baseX - aw * Math.sin(ang), leftY = baseY + aw * Math.cos(ang)
+        const rightX = baseX + aw * Math.sin(ang), rightY = baseY - aw * Math.cos(ang)
+        return (
+          <g key={i}>
+            <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="#96943D" strokeWidth={6} strokeLinecap="round" opacity={0.9} />
+            <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="#fff" strokeWidth={2} strokeLinecap="round" opacity={0.35} />
+            {/* source dot */}
+            <circle cx={s.x1} cy={s.y1} r={5} fill="#96943D" />
+            {/* target arrowhead */}
+            <polygon points={`${tipX},${tipY} ${leftX},${leftY} ${rightX},${rightY}`} fill="#d8d24a" stroke="#000" strokeWidth={0.5} />
+          </g>
+        )
+      })}
     </svg>
   )
 }

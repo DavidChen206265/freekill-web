@@ -27,13 +27,37 @@ export function loadAnimManifest(): Promise<Record<string, number>> {
 
 export function PhotoEffects({ playerId, boxRef }: { playerId: number; boxRef: RefObject<HTMLDivElement | null> }) {
   const effect = useAnimationStore((s) => s.players[playerId])
+  const targetNonce = useAnimationStore((s) => s.targeted[playerId])
   return (
     <div style={styles.layer}>
       <TrembleDriver effect={effect} boxRef={boxRef} />
+      {targetNonce !== undefined && <TargetPulse key={`t${targetNonce}`} />}
       {effect?.kind === 'emotion' && effect.emotion && <EmotionSprite key={`e${effect.nonce}`} emotion={effect.emotion} />}
       {effect?.kind === 'invokeSkill' && <SkillBanner key={`s${effect.nonce}`} name={effect.skillName ?? ''} skillType={effect.skillType ?? 'special'} />}
     </div>
   )
+}
+
+// Targeted-by-a-card pulse: a red ring that flashes over the photo when this player
+// is an Indicate target, so the "who → whom" relationship is clear even without the
+// war log (and even if the brief indicate line is missed). ~900ms, then fades.
+function TargetPulse() {
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const anim = el.animate(
+      [
+        { opacity: 0, boxShadow: '0 0 0 0 rgba(231,76,60,0)' },
+        { opacity: 1, boxShadow: '0 0 12px 4px rgba(231,76,60,0.95)', offset: 0.2 },
+        { opacity: 1, boxShadow: '0 0 12px 4px rgba(231,76,60,0.9)', offset: 0.75 },
+        { opacity: 0, boxShadow: '0 0 18px 6px rgba(231,76,60,0)' },
+      ],
+      { duration: 900, easing: 'ease-out', fill: 'forwards' },
+    )
+    return () => anim.cancel()
+  }, [])
+  return <div ref={ref} style={styles.targetRing} />
 }
 
 // Tremble: shake the photo box left then back (Photo.qml:337-353 → x-15 100ms InQuad
@@ -131,6 +155,7 @@ function SkillBanner({ name, skillType }: { name: string; skillType: string }) {
 
 const styles: Record<string, React.CSSProperties> = {
   layer: { position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 9, overflow: 'visible' },
+  targetRing: { position: 'absolute', inset: 0, borderRadius: 8, border: '2px solid rgba(231,76,60,0.95)', boxSizing: 'border-box', opacity: 0 },
   center: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', overflow: 'visible' },
   banner: { fontWeight: 900, whiteSpace: 'nowrap', textShadow: '0 0 3px #000, 0 1px 2px #000, 0 0 6px #a50330', letterSpacing: 1 },
   skillSprite: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', opacity: 0.9 },
