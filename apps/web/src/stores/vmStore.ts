@@ -205,6 +205,18 @@ export const useVmStore = create<VmState>((set, get) => ({
     set({ booting: true, error: undefined })
     const vm = new ClientVm(
       (e) => {
+        // Whether a popup-style handler claimed this command (used by the unhandled-
+        // notifyUI detector below — a 五谷-class guard). Declared out here so the
+        // book-keeping after the try/catch can still read it.
+        let popupHandled = false
+        // The command handlers below dispatch UNTRUSTED server packets into many UI
+        // stores. A malformed/edge-case packet (extension pkg, new card kind, …) can
+        // make one handler throw; without a guard that exception bubbles all the way
+        // back through notifyUI → the WASM feedPacket (the reported console error) and
+        // can abort the rest of this packet's commands. Isolate per-command: log it
+        // (so it's still diagnosable via fk_log) and keep going. The book-keeping
+        // below (noteNotify + counters) always runs.
+        try {
         // Drive the render caches, then update the debug feed.
         useGameStore.getState().apply(e.command, e.data)
         // Start the MiscStatus elapsed-time clock when the game starts (local tick,
@@ -214,9 +226,6 @@ export const useVmStore = create<VmState>((set, get) => ({
         // calls roomScene.activate() (RoomLogic.js), which restarts the bar. The
         // ui_emu click loop (UpdateRequestUI) and non-request notifies do NOT.
         if (ACTIVATE_COMMANDS.has(e.command)) useTimerStore.getState().activate()
-        // Whether a popup-style handler claimed this command (used by the unhandled-
-        // notifyUI detector below — a 五谷-class guard).
-        let popupHandled = false
         if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
         else if (e.command === 'DestroyTableCard') useCardStore.getState().destroyTableCards((e.data as number[]) ?? [])
         else if (e.command === 'DestroyTableCardByEvent') useCardStore.getState().destroyTableCardsByEvent(Number(e.data) || 0)
@@ -429,6 +438,12 @@ export const useVmStore = create<VmState>((set, get) => ({
               if (Object.keys(virt).length > 0) usePopupStore.setState((s) => (s.active?.kind === 'moveBoard' ? { active: { ...s.active, mbVirtNames: virt } } : {}))
             }
           }
+        }
+        } catch (err) {
+          // One command's handler threw on this server packet — log it (diagnosable
+          // via fk_log=debug) instead of letting it bubble into the WASM feedPacket
+          // and surface as an uncaught console error / abort the remaining commands.
+          log.error('error', `notifyUI handler threw for "${e.command}"`, err)
         }
         // Detect 五谷-class gaps: any notifyUI no store consumed. popupHandled covers
         // dynamically-added popup commands; HANDLED_EXPLICIT/MIRROR_DRIVEN cover the
