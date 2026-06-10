@@ -270,6 +270,27 @@ describe('popupStore', () => {
     }
   })
 
+  it('CustomDialog ChooseSkillBox → chooseSkill popup, replies selected skill array (M5-b)', () => {
+    // sp xiaode: askToCustomDialog{qml_path=ChooseSkillBox, extra_data={skills,0,1,prompt}}.
+    const sent: unknown[] = []
+    usePopupStore.getState().setReplySender((d) => sent.push(d))
+    const handled = usePopupStore.getState().handle('CustomDialog', {
+      path: 'packages/utility/qml/ChooseSkillBox.qml',
+      data: [['rende', 'wusheng', 'paoxiao'], 0, 1, '#xiaode-invoke::5'],
+    })
+    expect(handled).toBe(true)
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('chooseSkill')
+    expect(a.csSkills).toEqual(['rende', 'wusheng', 'paoxiao'])
+    expect(a.min).toBe(0)
+    expect(a.max).toBe(1)
+    expect(a.cancelable).toBe(true) // min 0 → cancelable
+    // resolve with a picked skill → reply is the selected skill-name array
+    usePopupStore.getState().resolve(['wusheng'])
+    expect(sent).toEqual([['wusheng']])
+    expect(usePopupStore.getState().active).toBeNull()
+  })
+
   it('shuffleInvisiblePoxi: visible picks pass through, invisible picks randomized within area', () => {
     // group A: 1,2 visible; 3,4 invisible. group B: 5 visible.
     const groups = [

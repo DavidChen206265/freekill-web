@@ -109,6 +109,28 @@ export function RequestPopup() {
     )
   }
 
+  if (active.kind === 'chooseSkill') {
+    // utility/qml/ChooseSkillBox.qml: multi-select skills (min..max), reply the
+    // selected skill-name array (ChooseSkillBox:97 replyToServer("", selected)).
+    const skills = active.csSkills ?? []
+    const ok = pickedStr.length >= min && pickedStr.length <= max
+    return (
+      <Modal prompt={`${active.prompt}${max > 1 ? `(${min}~${max})` : ''}`}>
+        <div style={vchoicesGrid(skills.length)}>
+          {skills.map((name, i) => {
+            const picked = pickedStr.includes(name)
+            const on = pickedStr.length < max || picked
+            return <button key={i} style={{ ...styles.choice, ...(picked ? styles.picked : {}), ...(on ? {} : styles.disabled) }} disabled={!on} onClick={() => toggleStr(name)}>{tr(name)}</button>
+          })}
+        </div>
+        <div style={styles.row}>
+          <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(pickedStr)}>确定</button>
+          {active.cancelable && <button style={styles.ghost} onClick={() => resolve('__cancel')}>取消</button>}
+        </div>
+      </Modal>
+    )
+  }
+
   // cards (AskForCardChosen single / AskForCardsChosen multi)
   const okCards = pickedNum.length >= min && pickedNum.length <= max
   return (
