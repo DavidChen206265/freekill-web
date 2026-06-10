@@ -106,7 +106,12 @@ fs.writeFileSync(MANIFEST, JSON.stringify({ base: 'freekill-core', files: relPat
 //   ① built-in chrome  FreeKill-sourcecode/image/photo/  -> public/fk/image/photo/
 //   ② per-package art   packages/<pkg>/image/{generals,card}/
 //                        -> public/fk/packages/<pkg>/image/...
-function copyImages(srcDir, destDir) {
+// We also record every per-package card-art path into images.json (the set the
+// client uses to resolve which package actually has a card/equip PNG, instead of
+// probing each package over <img> and eating a 404 per miss — that floods the
+// browser console on the server deploy, same class as the audio 404 storm).
+const imageManifest = [] // paths relative to FK_ROOT, e.g. "packages/standard_cards/image/card/peach.png"
+function copyImages(srcDir, destDir, record = false) {
   let n = 0, b = 0
   const walk = (s, d) => {
     if (!fs.existsSync(s)) return
@@ -117,6 +122,7 @@ function copyImages(srcDir, destDir) {
       else if (IMG_EXTS.has(path.extname(name).toLowerCase())) {
         fs.mkdirSync(d, { recursive: true })
         fs.copyFileSync(full, path.join(d, name))
+        if (record) imageManifest.push(path.relative(FK_ROOT, path.join(d, name)).split(path.sep).join('/'))
         n++; b += st.size
       }
     }
@@ -135,8 +141,13 @@ acc(copyImages(path.join(SOURCECODE, 'image', 'card'), path.join(FK_ROOT, 'image
 // ② per-package generals + card art (skip anim sprites for now — slice 7)
 for (const pkg of ART_PACKS) {
   acc(copyImages(path.join(PACKAGES, pkg, 'image', 'generals'), path.join(FK_ROOT, 'packages', pkg, 'image', 'generals')))
-  acc(copyImages(path.join(PACKAGES, pkg, 'image', 'card'), path.join(FK_ROOT, 'packages', pkg, 'image', 'card')))
+  // record=true: card art (incl. equipIcon/delayedTrick subdirs) is what the client
+  // candidate-probes across packages → manifest it so it resolves with one GET.
+  acc(copyImages(path.join(PACKAGES, pkg, 'image', 'card'), path.join(FK_ROOT, 'packages', pkg, 'image', 'card'), true))
 }
+// images.json: the set of per-package card-art paths that exist under /fk, so the
+// client picks the one real package candidate (no <img> 404 probing).
+fs.writeFileSync(path.join(FK_ROOT, 'images.json'), JSON.stringify(imageManifest.sort(), null, 0))
 
 // Also stage the fk prelude (client native surface) next to the manifest so the
 // browser can fetch it. Source of truth is the lua-native package.
@@ -240,7 +251,7 @@ for (const pkg of ART_PACKS) {
 fs.writeFileSync(path.join(FK_ROOT, 'audio.json'), JSON.stringify(audioManifest.sort(), null, 0))
 
 console.log(`[sync-fk-assets] copied ${relPaths.length} files (${(bytes / 1024 / 1024).toFixed(2)} MB) -> public/fk`)
-console.log(`[sync-fk-assets] images: ${imgFiles} files (${(imgBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/image + packages/*/image`)
+console.log(`[sync-fk-assets] images: ${imgFiles} files (${(imgBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/image + packages/*/image + images.json`)
 console.log(`[sync-fk-assets] anim: ${animDirs} sprites / ${animFiles} frames (${(animBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/**/image/anim + anim.json`)
 console.log(`[sync-fk-assets] audio: ${audioFiles} files (${(audioBytes / 1024 / 1024).toFixed(2)} MB) -> public/fk/**/audio + audio.json`)
 console.log(`[sync-fk-assets] manifest: ${path.relative(WEB, MANIFEST)} + fkprelude.lua`)

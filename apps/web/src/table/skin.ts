@@ -12,6 +12,32 @@ const PHOTO = `${FK}/image/photo`
 // Packages that actually carry general/card art (mirrors the sync set).
 const ART_PKGS = ['standard', 'standard_cards', 'maneuvering']
 
+// Manifest of per-package card-art paths that exist under /fk (built at sync time,
+// see sync-fk-assets.mjs → images.json). Used to prune candidate lists so the client
+// only requests the package that actually has a card/equip PNG — otherwise each
+// <img> miss across packages logs a 404 in the browser console (same class as the
+// audio 404 storm). null until loaded; while loading, candidate lists are returned
+// unfiltered and the <img> onError fallback still resolves them.
+let imageManifest: Set<string> | null = null
+export function loadImageManifest(): Promise<Set<string>> {
+  if (imageManifest) return Promise.resolve(imageManifest)
+  return fetch(`${FK}/images.json`)
+    .then((r) => (r.ok ? r.json() : []))
+    .then((arr: string[]) => { imageManifest = new Set(arr); return imageManifest! })
+    .catch(() => { imageManifest = new Set(); return imageManifest! })
+}
+// Kick off the load at module init so candidate lists are pruned by first render.
+void loadImageManifest()
+// Keep only candidates that exist per the manifest. Before the manifest loads (or if
+// it's empty/unavailable) return the list unchanged so the <img> onError chain still
+// works — only the console-noise reduction is deferred, never correctness.
+function pruneToExisting(urls: string[]): string[] {
+  const m = imageManifest
+  if (!m || m.size === 0) return urls
+  const filtered = urls.filter((u) => !u.startsWith(`${FK}/packages/`) || m.has(u.slice(FK.length + 1)))
+  return filtered.length > 0 ? filtered : urls
+}
+
 function pkgPath(ext: string | undefined, sub: string, name: string, suffix: string): string {
   // Prefer the known extension; else leave '' (caller may try resolveByScan).
   if (ext) return `${FK}/packages/${ext}/image/${sub}/${name}${suffix}`
@@ -59,7 +85,7 @@ export function cardPicCandidates(name: string, ext?: string): string[] {
     const u = `${FK}/packages/${p}/image/card/${name}.png`
     if (!urls.includes(u)) urls.push(u)
   }
-  return urls
+  return pruneToExisting(urls)
 }
 
 /** Equip icon: packages/<ext>/image/card/equipIcon/<name>.png */
@@ -80,9 +106,12 @@ export function equipIconCandidates(name: string, ext?: string): string[] {
     const u = `${FK}/packages/${p}/image/card/equipIcon/${name}.png`
     if (!urls.includes(u)) urls.push(u)
   }
-  // Built-in fallback (SkinBank.searchBuiltinPic equipIcon/unknown).
-  urls.push(`${FK}/image/card/equipIcon/unknown.png`)
-  return urls
+  // Prune package candidates to those that exist (avoids per-miss 404s), then append
+  // the built-in fallback (SkinBank.searchBuiltinPic equipIcon/unknown) — it's under
+  // /fk/image (not /fk/packages) so it's always kept by the prune filter.
+  const pruned = pruneToExisting(urls)
+  pruned.push(`${FK}/image/card/equipIcon/unknown.png`)
+  return pruned
 }
 
 /** Delayed-trick icon: packages/<ext>/image/card/delayedTrick/<name>.png */
