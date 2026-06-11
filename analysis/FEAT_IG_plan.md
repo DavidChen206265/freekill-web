@@ -63,12 +63,12 @@
 - **改动**:① 新 VM 桥 `__fkGeneralDetail(name)` + `clientVm.generalDetail(name)`(照搬 `GetGeneralDetail`,返回技能数组);② 选将候选 `GeneralCard` 接 `useLongPress`(已有,450ms)+ `onContextMenu`;③ 复用/改造 `GeneralDetailModal` 支持"按武将名"模式(现仅按 pid)——加一个 `generalName` 入口,技能走 `generalDetail` 而非 `playerSkills`,武将立绘已有 `GeneralCard`。
 - **自验**:lua-native 对真 VM 断言 `GetGeneralDetail("caocao").skill` 含奸雄+描述;浏览器选将框长按/右键候选武将弹技能。低风险、自包含。
 
-### IG-7 · 同账号顶号"反向踢" → **诊断完成:VPS 跑旧镜像,非代码 bug(待 VPS 重建验证)**
-- **现象**:同账号在新客户端登录,**新的反被老的踢出**(期望:新顶旧)。
-- **复现结论(2026-06-11,真 asio fork + 网关探针 `takeover-probe.mjs` / `takeover-ingame-probe.mjs`)**:四种场景全部 **CORRECT**(B 接管、A 被踢):① 两 bridge 不同 uuid ② 单 bridge 同 uuid ③ A park 后 B 新 uuid ④ **局内**(A+B 开局后 A2 同账号登录→Reconnect 接管)。**本地 fork(HEAD `ebcf6a7` 含 W1-1 A1 takeover 修复)bug 复现不出来。**
-- **真因(高度指向)**:VPS 的 asio 镜像从独立 clone 的 `~/freekill/freekill-web-asio/` sibling repo 构建(asio.Dockerfile:22),`takeoverInLobby` 由 `ebcf6a7` 引入。**若 VPS 没 `cd freekill-web-asio && git pull` + `docker compose build asio`,跑的是 pre-A1 旧代码 = 死锁/反向踢**——与 2g 音效"VPS 跑旧镜像"同款运维坑。
-- **修复 = 运维而非代码**:VPS 按 `docker/VPS_UPDATE_GUIDE.md` 拉取 fork 最新 + 重建 asio 镜像。重建后用 takeover-probe(或真双客户端)验证新顶旧。
-- **若重建后仍复现**:再回到局内/网络时序深挖(候选:asio `setSocket` 后旧 socket `onDisconnected` 误标新 player Offline、网关多实例)。仍禁止盲改已证正确的 takeover 主路径。
+### IG-7 · 同账号顶号"反向踢" → ✅ **真因=客户端顶号战争,已修(web 客户端)**
+- **现象**:VPS 确认是最新镜像(fork `ebcf6a7` + 主仓已部署),**仍**复现:老客户端**对局中**,新客户端登录成功但**进大厅 + 一直"连接断开正在重连"**,老客户端**正常游戏不受影响**。
+- **真因(`takeover-war-probe.mjs` 真 asio 复现,2026-06-11)**:**客户端顶号战争**。服务端 takeover 本身正确(新登录踢旧),但**真实 web 客户端被踢后会自动重连**——被踢方重连→反踢对方→对方又重连→反踢……死循环(探针实测 8 秒内双方各登录 13 次)。老客户端有对局状态,asio `reconnect()` 每次都把它还原回房间→看着"没变化、正常游戏";新客户端无状态,每次刚连上又被踢→永远"正在重连"。**前几轮探针没复现是因为它们不自动重连(真客户端会)。**
+- **修复(web 客户端,`stores/index.ts` + LoginPage)**:被踢的 ErrorDlg 文案是定值 `others logged in again with this name`(asio auth.cpp:475)。收到它→置 `duplicateLoginKick` 标志→`closed` 重连闸门跳过(不再自动重连,等同 intentionalClose)→ LoginPage 显示"你的账号已在别处登录,此客户端已断开"。手动重新登录会清标志(用户主动顶回去是允许的)。
+- **验证(实现纪律 5,真 asio)**:`takeover-war-probe.mjs` 双方都启用"被踢即停"后,登录数稳定在 1/1(原 13/13),A2 接管(收 Reconnect)、A 停在 kicked-off——**战争消除**。web 150 测试 + typecheck/build 绿。
+- **判定纠正**:此前误诊为"VPS 跑旧镜像",经用户确认镜像最新后用自动重连探针复现真因,推翻误诊。**未改服务端 takeover 主路径(已证正确)。**
 
 
 ### IG-8 · ~~VPS 扩展包武将立绘+名称不显示~~ **误报,已撤(2026-06-11)**

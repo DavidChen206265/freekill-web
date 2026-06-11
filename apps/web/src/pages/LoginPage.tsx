@@ -23,7 +23,7 @@ function defaultGatewayUrl(): string {
 }
 
 export function LoginPage() {
-  const { connect, status, detail } = useConnectionStore()
+  const { connect, status, detail, kickedMessage } = useConnectionStore()
   const [url, setUrl] = useState(defaultGatewayUrl())
   // 不再预填 webtester 默认账号(3c):避免大家图方便都登同一个账号互相顶号。
   // 老用户的凭据由 connectionStore 持久化 + tryAutoLogin 回填,不受此空默认影响。
@@ -61,8 +61,10 @@ export function LoginPage() {
         <button style={styles.button} disabled={busy} type="submit">
           {busy ? '连接中…' : '登录'}
         </button>
+        {/* IG-7: duplicate-login kick — explain why we stopped (no auto-reconnect war). */}
+        {kickedMessage && <p style={styles.error}>{kickedMessage}</p>}
         {status === 'failed' && <p style={styles.error}>登录失败{detail ? `: ${detail}` : ''}</p>}
-        {status === 'closed' && <p style={styles.error}>连接已关闭{detail ? `: ${detail}` : ''}</p>}
+        {status === 'closed' && !kickedMessage && <p style={styles.error}>连接已关闭{detail ? `: ${detail}` : ''}</p>}
         <p style={styles.hint}>请创建你自己的账号:首次登录用任意用户名+密码即自动注册。请勿共用账号,否则会互相顶号下线。</p>
       </form>
     </div>

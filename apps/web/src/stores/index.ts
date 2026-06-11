@@ -24,6 +24,10 @@ interface ConnectionState {
   detail?: string
   serverUrl: string
   reconnecting: boolean
+  /** Set when the server kicked us because the same account logged in elsewhere
+   *  (IG-7). We then STOP auto-reconnecting (otherwise the two clients fight a
+   *  takeover war) and surface this so the UI can tell the user. */
+  kickedMessage?: string
   connect: (url: string, creds: LoginCredentials) => void
   disconnect: () => void
   tryAutoLogin: () => boolean
@@ -106,8 +110,10 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         // perpetuates the flood. Only an UNEXPECTED transport close retries.
         const limited = typeof detail === 'string' && (detail.includes('4029') || detail.includes('too many'))
         if (status === 'failed' && limited) { set({ reconnecting: false }); return }
-        // An unexpected close (not an explicit logout, not rate-limit) reconnects.
-        if (status === 'closed' && !intentionalClose && !limited) scheduleReconnect()
+        // An unexpected close (not an explicit logout, not rate-limit, not a duplicate-
+        // login kick) reconnects. IG-7: a duplicate-login kick must NOT reconnect —
+        // doing so starts a takeover war with the client that legitimately took over.
+        if (status === 'closed' && !intentionalClose && !limited && !duplicateLoginKick) scheduleReconnect()
       },
       onEnvelope: (env) => routeEnvelope(env),
     })
@@ -134,11 +140,13 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     reconnecting: false,
     connect: (url, creds) => {
       intentionalClose = false
+      duplicateLoginKick = false // fresh manual login — clear any prior kick state
       reconnectTries = 0
       clearReconnectTimer()
       const uuid = creds.uuid ?? `web-${crypto.randomUUID()}`
       lastCreds = { url, user: creds.user, password: creds.password, uuid }
       saveCreds(lastCreds)
+      set({ kickedMessage: undefined })
       doConnect(url, { ...creds, uuid })
     },
     disconnect: () => {
@@ -215,6 +223,15 @@ function parseRoom(entry: unknown): RoomInfo | null {
 // Central envelope router: maps server commands to store updates, and — once in
 // a room — forwards every server packet's raw CBOR to the client VM (in order).
 let inRoom = false
+// IG-7: set when the server kicks us for a duplicate login ("others logged in again
+// with this name"). The kick ErrorDlg arrives just before asio drops the TCP; the
+// connection store reads this in its `closed` gate to SUPPRESS auto-reconnect — else
+// this client would re-login, kick the other, get kicked back… a takeover war (the
+// reported "new client stuck in 正在重连 while the old keeps playing"). A fresh manual
+// connect() clears it.
+let duplicateLoginKick = false
+// asio's exact duplicate-login kick message (auth.cpp:475 / serverplayer.cpp:267).
+const DUP_LOGIN_KICK = 'others logged in again with this name'
 let feedChain: Promise<void> = Promise.resolve()
 // The login Setup packet arrives during the lobby phase (before the VM exists).
 // It carries [selfId, name, avatar] — the VM needs it to know who Self is, so we
@@ -407,8 +424,15 @@ function routeEnvelope(env: Envelope): void {
     }
     case 'ErrorMsg':
     case 'ErrorDlg': {
+      const text = String(data)
+      // IG-7: duplicate-login kick → stop the takeover war. Flag it so the imminent
+      // WS close does NOT auto-reconnect, and surface a clear message to the user.
+      if (text.includes(DUP_LOGIN_KICK)) {
+        duplicateLoginKick = true
+        useConnectionStore.setState({ kickedMessage: '你的账号已在别处登录，此客户端已断开。', reconnecting: false })
+      }
       useLobbyStore.setState((s) => ({
-        chat: [...s.chat.slice(-199), { who: '系统', text: `错误: ${String(data)}`, at: Date.now() }],
+        chat: [...s.chat.slice(-199), { who: '系统', text: `错误: ${text}`, at: Date.now() }],
       }))
       break
     }
