@@ -63,12 +63,13 @@
 - **改动**:① 新 VM 桥 `__fkGeneralDetail(name)` + `clientVm.generalDetail(name)`(照搬 `GetGeneralDetail`,返回技能数组);② 选将候选 `GeneralCard` 接 `useLongPress`(已有,450ms)+ `onContextMenu`;③ 复用/改造 `GeneralDetailModal` 支持"按武将名"模式(现仅按 pid)——加一个 `generalName` 入口,技能走 `generalDetail` 而非 `playerSkills`,武将立绘已有 `GeneralCard`。
 - **自验**:lua-native 对真 VM 断言 `GetGeneralDetail("caocao").skill` 含奸雄+描述;浏览器选将框长按/右键候选武将弹技能。低风险、自包含。
 
-### IG-7 · 修复:同账号顶号"反向踢"(用户报 bug,先复现再修)
+### IG-7 · 同账号顶号"反向踢" → **诊断完成:VPS 跑旧镜像,非代码 bug(待 VPS 重建验证)**
 - **现象**:同账号在新客户端登录,**新的反被老的踢出**(期望:新顶旧)。
-- **已核实(见 memory `same-account-takeover-bug`)**:fork `auth.cpp:471-496` 的 takeover 两支(局内 `reconnect` / 大厅 `takeoverInLobby`)**方向都正确(新接管、踢旧)**;网关按 **uuid** park 老连接 25s,uuid 存 localStorage **同浏览器复用、不同客户端不同**。**真因未坐实,禁止盲改**。
-- **第一步必须真机复现**(实现纪律 5):写 `takeover-probe.mjs`,两 WS 同账号**不同 uuid**,B 在 A 在线时登录,记录谁收 `ErrorDlg`/断线、谁留大厅;再测 A 先刷新 park 再 B 登录。据复现锁定真实路径(候选:park 断开回调与新 takeover 时序、asio `setSocket` 后旧 socket `onDisconnected` 误标新 player Offline、网关 asio close 误关新 ws)。
-- **再按真因最小修复**,不动正确的 takeover 主路径。可能在网关(park 命中时主动 close 旧 asio 而非仅解绑)或 fork(setState/onDisconnected 时序)。
-- **自验**:复现脚本从"新被踢"转为"旧被踢、新进大厅",且不回归刷新重连(refresh-test)与局内 reconnect。
+- **复现结论(2026-06-11,真 asio fork + 网关探针 `takeover-probe.mjs` / `takeover-ingame-probe.mjs`)**:四种场景全部 **CORRECT**(B 接管、A 被踢):① 两 bridge 不同 uuid ② 单 bridge 同 uuid ③ A park 后 B 新 uuid ④ **局内**(A+B 开局后 A2 同账号登录→Reconnect 接管)。**本地 fork(HEAD `ebcf6a7` 含 W1-1 A1 takeover 修复)bug 复现不出来。**
+- **真因(高度指向)**:VPS 的 asio 镜像从独立 clone 的 `~/freekill/freekill-web-asio/` sibling repo 构建(asio.Dockerfile:22),`takeoverInLobby` 由 `ebcf6a7` 引入。**若 VPS 没 `cd freekill-web-asio && git pull` + `docker compose build asio`,跑的是 pre-A1 旧代码 = 死锁/反向踢**——与 2g 音效"VPS 跑旧镜像"同款运维坑。
+- **修复 = 运维而非代码**:VPS 按 `docker/VPS_UPDATE_GUIDE.md` 拉取 fork 最新 + 重建 asio 镜像。重建后用 takeover-probe(或真双客户端)验证新顶旧。
+- **若重建后仍复现**:再回到局内/网络时序深挖(候选:asio `setSocket` 后旧 socket `onDisconnected` 误标新 player Offline、网关多实例)。仍禁止盲改已证正确的 takeover 主路径。
+
 
 ### IG-8 · ~~VPS 扩展包武将立绘+名称不显示~~ **误报,已撤(2026-06-11)**
 - 用户后续确认:VPS 扩展包武将立绘+名称**实际正常**,此前为误报。本项取消,不实现。
