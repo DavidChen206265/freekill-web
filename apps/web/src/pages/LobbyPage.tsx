@@ -10,12 +10,21 @@ import { CreateRoomDialog } from '../components/CreateRoomDialog.js'
 import { VmDebugPanel } from '../components/VmDebugPanel.js'
 import { RoomScene } from '../table/RoomScene.js'
 import { WaitingRoom } from '../table/WaitingRoom.js'
+import { LoadingRoom } from '../table/LoadingRoom.js'
+import { useVmStore } from '../stores/vmStore.js'
 
 export function LobbyPage() {
   const { client, disconnect } = useConnectionStore()
   const { online, total, enteredRoomId } = useLobbyStore()
   const username = useAuthStore((s) => s.username)
   const started = useGameStore((s) => s.started)
+  // 3b: while the room is bootstrapping (enteredRoomId set, but VM not booted /
+  // EnterRoom not yet processed → capacity still 0), show a loading page instead
+  // of an empty "等待房间 · 0/?" that looks like an error. Covers create/observe/
+  // reconnect (all go through the same VM boot). Once booted + capacity known the
+  // waiting room (or RoomScene if already started) renders.
+  const booted = useVmStore((s) => s.booted)
+  const capacity = useGameStore((s) => s.capacity)
   const [showCreate, setShowCreate] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
 
@@ -29,11 +38,13 @@ export function LobbyPage() {
     client?.notify('QuitRoom', '')
   }
 
-  // In-room: waiting room until the game starts, then the fixed-stage table.
+  // In-room: loading until the VM boots + EnterRoom sets capacity; then the
+  // waiting room until the game starts, then the fixed-stage table.
   if (enteredRoomId !== undefined) {
+    const loading = !started && (!booted || capacity === 0)
     return (
       <div style={styles.roomWrap}>
-        {started ? <RoomScene /> : <WaitingRoom />}
+        {started ? <RoomScene /> : loading ? <LoadingRoom /> : <WaitingRoom />}
         <div style={styles.roomBar}>
           <span style={styles.meta}>房间 · {username}</span>
           <button style={styles.btn} onClick={() => setShowDebug((v) => !v)}>{showDebug ? '隐藏' : 'VM 调试'}</button>
