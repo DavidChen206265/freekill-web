@@ -52,7 +52,7 @@
 在 `GeneralDetailModal` 武将技能下方,照搬 `PlayerDetail.qml:291-312` 增"装备/判定牌"段:读该 pid 的 `equipCids ∪ judgeCids`(gameStore 已镜像),逐张 `cardVisibility` 真才显示;扩展 VM 桥:① `__fkCardVisibility(cid)`;② `virtualEquipNames` 扩展返回 `{name,cid(原牌),suit,number}`(现只返 name);卡面+花色点数+ 技能描述(`tr(":"+name)`,VM translate)。虚拟牌显示"(原牌名 花色 点数)虚拟名: 描述"。
 - **自验**:lua-native 对真 VM 断言 `GetVirtualEquipData` 返回原牌 cid/suit/number(用一张转化的延时锦囊场景);浏览器右键有乐不思蜀的玩家详情,见原牌花色点数 + 描述。
 
-### IG-5 · 局内聊天 + 送花/砸蛋(③,最大,分两小步)
+### IG-5 · 局内聊天 + 送花/砸蛋 ✅(③,最大,分两小步)
 - **IG-5a 房间内文字聊天**:in-room 路由处理 `Chat` type=2(`index.ts` 现仅 type=1 落 lobbyStore);新建 roomChatStore + 牌桌 ChatBox(复用大厅 `ChatBox.tsx` 抽共用,`isLobby` 区分 type)+ Photo 聊天气泡(`ChatBubble.qml`:渐显 200ms/停 2.5s/渐隐 150ms);发送 `notify('Chat',{type:2,msg})`;emoji `{emojiN}`→`/fk/image/emoji/N.png`;旁观/死亡不可发。
 - **IG-5b 送花/砸蛋**:Photo 右键菜单/快捷键发 `$@<Type>:<pid>` 特殊消息;收到 type=2 且 `msg` 以 `$@` 开头→解析 Type+目标→从 from photo 飞向 to photo 播动画(WAAPI 飞行 + star),复用 PACE 的 animationStore scene 通道范式;资源 `image/anim/<type>/`(确认 sync 已含 chat-anim 帧)+ 音效 `fly/flower` 预取(复用 PACE-2 warm)。
 - **自验**:双 WS 客户端 A 发房间聊天/送花给 B,B 收到气泡/飞行动画;旁观者发送被拒;真 asio 验证 type=2 广播路径。

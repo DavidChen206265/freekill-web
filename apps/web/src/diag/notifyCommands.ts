@@ -31,6 +31,8 @@ export const HANDLED_EXPLICIT = new Set<string>([
   // M4 slice V — visual/audio effects now consumed (animationStore / audio.ts /
   // Toast / cardNoteStore):
   'Animate', 'LogEvent', 'ShowToast', 'SetCardFootnote', 'SetCardVirtName',
+  // IG-5 — in-game chat + 送花/砸蛋 (roomChatStore / present animation):
+  'Chat',
   // M5-a — table misc status (miscStore → MiscStatus):
   'UpdateDrawPile', 'UpdateRoundNum',
 ])
@@ -55,7 +57,7 @@ export const MIRROR_DRIVEN = new Set<string>([
 export const KNOWN_DEFERRED = new Set<string>([
   'SetBanner', 'ShowVirtualCard', 'UpdateLimitSkill', 'ChangeSkin',
   'UpdateGameData', 'UpdateMarkArea',
-  'UpdateMiniGame', 'ServerMessage', 'Chat',
+  'UpdateMiniGame', 'ServerMessage',
 ])
 
 /**

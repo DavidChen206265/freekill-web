@@ -19,6 +19,8 @@ import { useLogStore } from './logStore.js'
 import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
 import { useRoleGuessStore } from './roleGuessStore.js'
+import { useRoomChatStore } from './roomChatStore.js'
+import { parsePresent } from './roomChatStore.js'
 import { useAnimationStore } from './animationStore.js'
 import { useMiscStore } from './miscStore.js'
 import { useCardNoteStore } from './cardNoteStore.js'
@@ -221,6 +223,30 @@ function handleLogEvent(data: unknown): void {
     }
     default: break
   }
+}
+
+// Chat dispatch (IG-5) — mirrors RoomPage.qml addToChat/specialChat. A "$@<Type>:<pid>"
+// message is a present (送花/砸蛋): fly the glyph from sender→target via the scene
+// channel (RoomPage.qml:581 specialChat). Anything else is a text line: append it to
+// the room-chat log (which also drives the Photo bubble). Observers/dead handled by the
+// server (it only broadcasts to allowed senders).
+function handleChat(data: unknown): void {
+  const d = data as { type?: number; sender?: number; msg?: string; userName?: string; time?: string }
+  const sender = Number(d?.sender)
+  const msg = String(d?.msg ?? '')
+  if (!msg) return
+  // Present: "$@<Type>:<targetPid>" (WaitingRoom.qml givePresent / RoomPage specialChat).
+  const present = parsePresent(msg)
+  if (msg.startsWith('$@')) {
+    if (present) useAnimationStore.getState().pushScene({ kind: 'present', from: sender, to: present.to, present: present.type })
+    return // a $@ message is never shown as text (even an unrecognized one)
+  }
+  useRoomChatStore.getState().append({
+    sender,
+    userName: String(d?.userName ?? '') || `P${sender}`,
+    msg,
+    time: String(d?.time ?? ''),
+  })
 }
 
 export const useVmStore = create<VmState>((set, get) => ({
@@ -436,6 +462,12 @@ export const useVmStore = create<VmState>((set, get) => ({
           // RoomLogic.js callbacks["LogEvent"]:1374-1442. Audio comes in V-5; here we
           // drive the visual side (Damage → tremble + "damage" emotion, Death).
           handleLogEvent(e.data)
+        }
+        else if (e.command === 'Chat') {
+          // IG-5: in-game chat. ClientBase:chat enriched it to {type,sender,msg,
+          // userName,...}. A "$@<Type>:<pid>" msg is a 送花/砸蛋 present (RoomPage.qml
+          // specialChat) → fly the glyph from sender to target; else it's a text line.
+          handleChat(e.data)
         }
         // Popup-style requests (AskForGeneral/Choice/cards/AG/arrange) — not ui_emu.
         else if ((popupHandled = usePopupStore.getState().handle(e.command, e.data))) {
@@ -686,6 +718,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useMiscStore.getState().reset()
     useMiscStore.getState().clearClock() // back-to-room after GameOver → next game's clock is fresh (2b)
     useRoleGuessStore.getState().reset() // IG-3: clear local role guesses for the next game
+    useRoomChatStore.getState().reset() // IG-5: clear room chat log for the next game
     stopBgm() // game ended → stop BGM until next StartGame
     useTimerStore.getState().deactivate()
     set({ notifyCounts: {}, recent: [], totalFed: 0 })

@@ -9,6 +9,7 @@ import { AnimationLayer } from './AnimationLayer.js'
 import { Dashboard } from './Dashboard.js'
 import { RequestPopup } from './RequestPopup.js'
 import { GameLogPanel } from './GameLogPanel.js'
+import { RoomChatPanel } from './RoomChatPanel.js'
 import { MiscStatus } from './MiscStatus.js'
 import { Toast } from './Toast.js'
 import { GameOverModal } from './GameOverModal.js'
@@ -35,6 +36,7 @@ export function RoomScene() {
       <AnimationLayer />
       <Dashboard />
       <GameLogPanel />
+      <RoomChatPanel />
       <MiscStatus />
       <Toast />
       <RequestPopup />

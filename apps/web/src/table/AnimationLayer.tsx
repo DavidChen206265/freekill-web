@@ -34,6 +34,7 @@ export function AnimationLayer() {
       {scene.map((e) => {
         if (e.kind === 'indicate') return <IndicateLines key={e.id} effect={e} />
         if (e.kind === 'ultSkill') return <UltSkillBanner key={e.id} effect={e} />
+        if (e.kind === 'present') return <PresentFly key={e.id} effect={e} />
         // superLightBox: built-in default not yet rendered (package-specific = M5);
         // it self-removes immediately so it never lingers.
         return <SelfRemove key={e.id} id={e.id} />
@@ -154,9 +155,44 @@ function SelfRemove({ id }: { id: number }) {
   return null
 }
 
+// Present (送花/砸蛋, IG-5b) — a glyph flies from the sender's photo to the target's
+// (RoomPage.qml specialChat → ChatAnim/<Type>.qml: ~360ms fly + a small pop). We use a
+// glyph (no sprite assets needed) and WAAPI-translate it along the path, then a brief
+// pop at the target. Faithful to the "from → to" present gesture.
+const PRESENT_GLYPH: Record<string, string> = {
+  Flower: '🌹', Egg: '🥚', GiantEgg: '🥚', Shoe: '👟', Wine: '🍷',
+}
+function PresentFly({ effect }: { effect: SceneEffect }) {
+  const remove = useAnimationStore((s) => s.removeScene)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const from = effect.from !== undefined ? playerCenter(effect.from) : null
+  const to = effect.to !== undefined ? playerCenter(effect.to) : null
+  const glyph = PRESENT_GLYPH[effect.present ?? 'Flower'] ?? '🌹'
+  const big = effect.present === 'GiantEgg'
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !from || !to) { remove(effect.id); return }
+    const FLY = 360 // RoomPage.qml present fly duration
+    const anim = el.animate(
+      [
+        { transform: `translate(${from.x}px, ${from.y}px) scale(0.6)`, opacity: 0 },
+        { transform: `translate(${from.x}px, ${from.y}px) scale(1)`, opacity: 1, offset: 0.12 },
+        { transform: `translate(${to.x}px, ${to.y}px) scale(${big ? 2.2 : 1})`, opacity: 1, offset: 0.82 },
+        { transform: `translate(${to.x}px, ${to.y}px) scale(${big ? 2.6 : 1.4})`, opacity: 0 },
+      ],
+      { duration: FLY + 360, easing: 'ease-out' },
+    )
+    anim.onfinish = () => remove(effect.id)
+    return () => anim.cancel()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effect.id])
+  return <div ref={ref} style={{ ...styles.present, fontSize: big ? 56 : 34 }}>{glyph}</div>
+}
+
 const styles: Record<string, React.CSSProperties> = {
   layer: { position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 60 },
   svg: { position: 'absolute', left: 0, top: 0, width: STAGE_W, height: STAGE_H, overflow: 'visible' },
   ult: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' },
   ultText: { fontSize: 56, fontWeight: 900, color: '#E4D5A0', textShadow: '0 0 8px #000, 0 0 16px #a50330, 0 2px 4px #000', letterSpacing: 4 },
+  present: { position: 'absolute', left: 0, top: 0, lineHeight: 1, willChange: 'transform', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.6))' },
 }

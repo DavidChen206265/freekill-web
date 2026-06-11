@@ -30,7 +30,7 @@ export interface PlayerEffect {
 }
 
 // ---- scene effects ---------------------------------------------------------
-export type SceneEffectKind = 'indicate' | 'ultSkill' | 'superLightBox'
+export type SceneEffectKind = 'indicate' | 'ultSkill' | 'superLightBox' | 'present'
 
 export interface SceneEffect {
   id: number
@@ -44,6 +44,10 @@ export interface SceneEffect {
   deputy?: boolean
   // superLightBox: qml path + extra data (only built-in default supported)
   path?: string
+  // present (送花/砸蛋, IG-5b): flies from `from` photo to `to` photo. `present` is
+  // the type (Flower/Egg/GiantEgg/Shoe/Wine).
+  to?: number
+  present?: string
 }
 
 interface AnimationState {

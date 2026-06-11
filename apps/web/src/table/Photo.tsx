@@ -13,8 +13,9 @@ import { useVmStore } from '../stores/vmStore.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
 import { useRoleGuessStore, GUESS_ROLES } from '../stores/roleGuessStore.js'
+import { useRoomChatStore } from '../stores/roomChatStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { generalPic, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
@@ -202,6 +203,8 @@ export function Photo({ player, playerNum, isSelf }: {
       {/* slice V: transient visual effects (emotion sprite / skill banner). tremble
           is applied to the photo box ref. */}
       <PhotoEffects playerId={player.id} boxRef={photoBoxRef} />
+      {/* IG-5: transient chat bubble (ChatBubble.qml: fade in 200ms / hold 2.5s / out). */}
+      <PhotoChatBubble playerId={player.id} />
     </div>
   )
 }
@@ -245,6 +248,20 @@ function trName(player: GamePlayer): string {
 // RoleComboBox.qml value: role==='hidden' → 'hidden'; role_shown → role;
 // else roleVisible ? role : 'unknown'. roleVisible comes from the VM
 // (Self:roleVisible(p)); Self always sees itself (player.lua:1711).
+// A transient chat bubble over a player's photo (ChatBubble.qml: fade in / hold ~2.5s
+// / fade out → cleared from the store). Reads the latest line for this player.
+function PhotoChatBubble({ playerId }: { playerId: number }) {
+  const bubble = useRoomChatStore((s) => s.bubbles[playerId])
+  const clearBubble = useRoomChatStore((s) => s.clearBubble)
+  useEffect(() => {
+    if (!bubble) return
+    const t = setTimeout(() => clearBubble(playerId, bubble.seq), 2850)
+    return () => clearTimeout(t)
+  }, [bubble, playerId, clearBubble])
+  if (!bubble) return null
+  return <div style={styles.chatBubble}>{bubble.msg}</div>
+}
+
 function shownRole(player: GamePlayer): string {
   const role = player.role ?? 'unknown'
   if (role === 'hidden') return 'hidden'
@@ -280,6 +297,7 @@ const styles: Record<string, React.CSSProperties> = {
   roleGuessable: { cursor: 'pointer' },
   rolePicker: { position: 'absolute', top: 32, right: -2, display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: 'rgba(0,0,0,.8)', borderRadius: 5, zIndex: 20 },
   rolePickerItem: { width: 30, height: 33, cursor: 'pointer' },
+  chatBubble: { position: 'absolute', left: '50%', top: -8, transform: 'translate(-50%,-100%)', maxWidth: 160, padding: '4px 8px', background: '#fff', color: '#222', borderRadius: 8, fontSize: 12, lineHeight: 1.3, whiteSpace: 'normal', wordBreak: 'break-word', boxShadow: '0 2px 6px rgba(0,0,0,.5)', zIndex: 30, pointerEvents: 'none' },
   equip: { position: 'absolute', left: 22, right: 3, bottom: 40, zIndex: 3 },
   // MarkArea: x:23, anchored just above the equip strip (Photo.qml). @-marks as
   // outlined white text on a dark translucent backing.
