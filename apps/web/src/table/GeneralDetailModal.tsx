@@ -10,6 +10,7 @@ import { useDetailStore } from '../stores/detailStore.js'
 import { useGameStore } from '../stores/gameStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { GeneralCard } from './GeneralCard.js'
+import { PromptText } from './PromptText.js'
 import { suitSymbol, isRedSuit, numberStr } from '../stores/cardFaceStore.js'
 import { tr, hasTranslation, registerTranslations } from '../i18n/zh.js'
 import type { PlayerCardInfo, GeneralDetail } from '../vm/clientVm.js'
@@ -76,7 +77,7 @@ export function GeneralDetailModal() {
               {genDetail.skill.map((s, i) => (
                 <div key={i} style={styles.skill}>
                   <span style={{ ...styles.skillName, ...(s.related ? styles.relatedSkill : {}) }}>{s.name}</span>
-                  <span style={styles.skillDesc}>{s.description}</span>
+                  <PromptText prompt={s.description} style={styles.skillDesc} />
                 </div>
               ))}
             </div>
@@ -109,7 +110,7 @@ export function GeneralDetailModal() {
             {skills.map((s, i) => (
               <div key={i} style={styles.skill}>
                 <span style={styles.skillName}>{s.name}</span>
-                <span style={styles.skillDesc}>{s.description}</span>
+                <PromptText prompt={s.description} style={styles.skillDesc} />
               </div>
             ))}
             {/* IG-4: visible equip/judge cards (PlayerDetail.qml:291-312). A virtual
@@ -144,14 +145,14 @@ function CardLine({ c }: { c: PlayerCardInfo }) {
           (<span>{tr(c.name)}</span><span style={suitStyle}>{suit}</span><span>{rank}</span>)
           {tr(c.virtName)}
         </span>
-        <span style={styles.cardDesc}>{tr(':' + c.virtName)}</span>
+        <PromptText prompt={tr(':' + c.virtName)} style={styles.cardDesc} />
       </div>
     )
   }
   return (
     <div style={styles.cardLine}>
       <span style={styles.cardName}>{tr(c.name)}(<span style={suitStyle}>{suit}</span>{rank})</span>
-      <span style={styles.cardDesc}>{tr(':' + c.name)}</span>
+      <PromptText prompt={tr(':' + c.name)} style={styles.cardDesc} />
     </div>
   )
 }
