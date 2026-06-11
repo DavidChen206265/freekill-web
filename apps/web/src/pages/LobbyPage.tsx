@@ -12,6 +12,7 @@ import { RoomScene } from '../table/RoomScene.js'
 import { WaitingRoom } from '../table/WaitingRoom.js'
 import { LoadingRoom } from '../table/LoadingRoom.js'
 import { useVmStore } from '../stores/vmStore.js'
+import { isBgmMuted, toggleBgmMuted } from '../table/audio.js'
 
 export function LobbyPage() {
   const { client, disconnect } = useConnectionStore()
@@ -27,6 +28,7 @@ export function LobbyPage() {
   const capacity = useGameStore((s) => s.capacity)
   const [showCreate, setShowCreate] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
+  const [bgmMuted, setBgmMuted] = useState(isBgmMuted())
 
   useEffect(() => { client?.notify('RefreshRoomList', '') }, [client])
 
@@ -47,6 +49,7 @@ export function LobbyPage() {
         {started ? <RoomScene /> : loading ? <LoadingRoom /> : <WaitingRoom />}
         <div style={styles.roomBar}>
           <span style={styles.meta}>房间 · {username}</span>
+          <button style={styles.btn} onClick={() => setBgmMuted(toggleBgmMuted())} title="背景音乐开关">{bgmMuted ? '🔇' : '🔊'}</button>
           <button style={styles.btn} onClick={() => setShowDebug((v) => !v)}>{showDebug ? '隐藏' : 'VM 调试'}</button>
           <button style={styles.ghost} onClick={tryQuitRoom}>离开</button>
         </div>

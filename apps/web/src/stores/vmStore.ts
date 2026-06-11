@@ -21,7 +21,7 @@ import { useFocusStore } from './focusStore.js'
 import { useAnimationStore } from './animationStore.js'
 import { useMiscStore } from './miscStore.js'
 import { useCardNoteStore } from './cardNoteStore.js'
-import { playSystem, playByPath, playSkillSound, playDeath } from '../table/audio.js'
+import { playSystem, playByPath, playSkillSound, playDeath, playBgm, stopBgm, playDrawSound, playMoveSound } from '../table/audio.js'
 import { registerTranslations, hasTranslation, tr } from '../i18n/zh.js'
 import { log, noteNotify } from '../diag/log.js'
 
@@ -157,6 +157,18 @@ function handleAnimate(data: unknown, vm: ClientVm | null): void {
   }
 }
 
+// Pick a card-move SFX by movement kind (W1-1 2f, user-added sounds). Draw = any
+// card moving into a hand FROM the draw pile; otherwise a generic move/discard.
+// One sound per batch (don't stack N plays for a multi-card move).
+function playMoveCardsSound(data: unknown): void {
+  const merged = (data as { merged?: { fromArea?: number; toArea?: number }[] })?.merged
+  if (!Array.isArray(merged) || merged.length === 0) return
+  // CardArea: PlayerHand=1, DrawPile=6.
+  const isDraw = merged.some((m) => m.toArea === 1 && m.fromArea === 6)
+  if (isDraw) playDrawSound()
+  else playMoveSound()
+}
+
 // LogEvent dispatch — mirrors RoomLogic.js callbacks["LogEvent"] (1374-1442). Visual
 // side here (tremble/emotion/death); audio is added in V-5. Damage shakes the target
 // Photo and plays the "damage" emotion sprite.
@@ -221,12 +233,12 @@ export const useVmStore = create<VmState>((set, get) => ({
         useGameStore.getState().apply(e.command, e.data)
         // Start the MiscStatus elapsed-time clock when the game starts (local tick,
         // like MiscStatus.qml's Timer).
-        if (e.command === 'StartGame') useMiscStore.getState().startClock()
+        if (e.command === 'StartGame') { useMiscStore.getState().startClock(); playBgm() }
         // Operation countdown — 1:1 with QML: every request callback that needs UI
         // calls roomScene.activate() (RoomLogic.js), which restarts the bar. The
         // ui_emu click loop (UpdateRequestUI) and non-request notifies do NOT.
         if (ACTIVATE_COMMANDS.has(e.command)) useTimerStore.getState().activate()
-        if (e.command === 'MoveCards') useCardStore.getState().applyMoveCards(e.data)
+        if (e.command === 'MoveCards') { useCardStore.getState().applyMoveCards(e.data); playMoveCardsSound(e.data) }
         else if (e.command === 'DestroyTableCard') useCardStore.getState().destroyTableCards((e.data as number[]) ?? [])
         else if (e.command === 'DestroyTableCardByEvent') useCardStore.getState().destroyTableCardsByEvent(Number(e.data) || 0)
         else if (e.command === 'UpdateRequestUI') {
@@ -603,6 +615,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useAnimationStore.getState().reset()
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
+    stopBgm() // stop game BGM on leave/reconnect (StartGame replay restarts it)
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
 
@@ -621,6 +634,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
     useMiscStore.getState().clearClock() // back-to-room after GameOver → next game's clock is fresh (2b)
+    stopBgm() // game ended → stop BGM until next StartGame
     useTimerStore.getState().deactivate()
     set({ notifyCounts: {}, recent: [], totalFed: 0 })
   },

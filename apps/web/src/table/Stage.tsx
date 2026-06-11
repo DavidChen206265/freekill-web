@@ -25,6 +25,8 @@ export function Stage({ children }: { children: ReactNode }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  // W1-1 2e: game background image (FreeKill image/gamebg.jpg) behind the table,
+  // with the dark-green fallback color showing through letterbox bars / on load fail.
   viewport: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', overflow: 'hidden', background: '#0d3b1e' },
-  stage: { position: 'relative', width: STAGE_W, height: STAGE_H, transformOrigin: 'center center', background: '#14532d', boxShadow: '0 0 0 2px #0a2e16' },
+  stage: { position: 'relative', width: STAGE_W, height: STAGE_H, transformOrigin: 'center center', backgroundColor: '#14532d', backgroundImage: 'url(/fk/image/gamebg.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: '0 0 0 2px #0a2e16' },
 }

@@ -61,6 +61,67 @@ export function unlockAudio(): void {
 
 export function setVolume(v: number): void { volume = Math.max(0, Math.min(1, v)) }
 
+// ---- BGM (W1-1 2e) --------------------------------------------------------
+// Loop the game background music (FreeKill Room.qml MediaPlayer + Config.bgmFile,
+// audio/system/bgm.mp3). Mirrors QML: infinite loop, restart on stop. Browsers
+// block autoplay until a gesture, so playBgm() only actually starts after
+// unlockAudio() (login click) has run; we (re)try on start. Separate volume from
+// SFX, with a mute toggle persisted to localStorage.
+let bgmEl: HTMLAudioElement | null = null
+let bgmMuted = (() => { try { return localStorage.getItem('fk-bgm-muted') === '1' } catch { return false } })()
+let bgmVolume = (() => { try { const v = Number(localStorage.getItem('fk-bgm-volume')); return v >= 0 && v <= 1 ? v : 0.4 } catch { return 0.4 } })()
+
+export function isBgmMuted(): boolean { return bgmMuted }
+
+export function playBgm(): void {
+  if (bgmMuted) return
+  if (!bgmEl) {
+    bgmEl = new Audio(`${FK}/audio/system/bgm.mp3`)
+    bgmEl.loop = true
+    bgmEl.volume = bgmVolume
+  }
+  // play() may reject if not yet unlocked; harmless — next call (after a gesture) wins.
+  bgmEl.play().catch(() => { /* autoplay blocked until a user gesture */ })
+}
+
+export function stopBgm(): void {
+  if (bgmEl) { bgmEl.pause(); bgmEl.currentTime = 0 }
+}
+
+export function toggleBgmMuted(): boolean {
+  bgmMuted = !bgmMuted
+  try { localStorage.setItem('fk-bgm-muted', bgmMuted ? '1' : '0') } catch { /* ignore */ }
+  if (bgmMuted) stopBgm()
+  else playBgm()
+  return bgmMuted
+}
+
+// ---- Card move SFX (W1-1 2f) ----------------------------------------------
+// FreeKill has no generic draw/move card SFX (only出牌 voice / recast / chain via
+// PlaySound). These are USER-ADDED sounds (not from原版): drawCard / moveCard, synced
+// to /fk/audio/system/. Played on MoveCards by movement kind. Gated by the SFX mute
+// (uses the same `unlocked` gate as other sounds; volume = SFX volume).
+let sfxMuted = (() => { try { return localStorage.getItem('fk-sfx-muted') === '1' } catch { return false } })()
+export function isSfxMuted(): boolean { return sfxMuted }
+export function toggleSfxMuted(): boolean {
+  sfxMuted = !sfxMuted
+  try { localStorage.setItem('fk-sfx-muted', sfxMuted ? '1' : '0') } catch { /* ignore */ }
+  return sfxMuted
+}
+
+/** Draw-card sound (cards moving into a hand from the draw pile). User-added (2f). */
+export function playDrawSound(): void {
+  if (sfxMuted || !unlocked) return
+  playUrl(`${FK}/audio/system/drawCard.mp3`)
+}
+/** Generic card-move / discard sound. User-added (2f). */
+export function playMoveSound(): void {
+  if (sfxMuted || !unlocked) return
+  playUrl(`${FK}/audio/system/moveCard.mp3`)
+}
+
+
+
 // Resolve the first candidate that EXISTS (per the manifest) and play it with a
 // single GET — no network probing, so no 404s in the console. Candidates are full
 // URLs ("/fk/audio/...") given in priority order. Once the manifest is loaded the

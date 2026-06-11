@@ -149,6 +149,14 @@ acc(copyImages(path.join(SOURCECODE, 'image', 'photo'), path.join(FK_ROOT, 'imag
 // ① built-in card chrome (suit / number / card-back / unknown — overlays drawn on
 // top of per-package card art; see PokerCard.qml).
 acc(copyImages(path.join(SOURCECODE, 'image', 'card'), path.join(FK_ROOT, 'image', 'card')))
+// Game-table background image (W1-1 2e). Single top-level file, not a tree.
+{
+  const bgSrc = path.join(SOURCECODE, 'image', 'gamebg.jpg')
+  if (fs.existsSync(bgSrc)) {
+    fs.mkdirSync(FK_ROOT, { recursive: true })
+    fs.copyFileSync(bgSrc, path.join(FK_ROOT, 'image', 'gamebg.jpg'))
+  }
+}
 // ② per-package generals + card art (skip anim sprites for now — slice 7)
 for (const pkg of ART_PACKS) {
   acc(copyImages(path.join(PACKAGES, pkg, 'image', 'generals'), path.join(FK_ROOT, 'packages', pkg, 'image', 'generals')))
