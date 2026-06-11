@@ -36,11 +36,11 @@
 
 > 复杂度/价值排序:④a 建房设置(纯前端表单,价值高、依赖少)→ ④b 手气卡验证 → ① 身份猜测(小、自包含)→ ② 详情补装备/判定(中,复用现有桥)→ ③ 局内聊天+送花(最大,新通道+动画)。
 
-### IG-1 · 开局前设置面板(④a,纯前端表单,无服务端改动)
+### IG-1 · 开局前设置面板 ✅(④a,纯前端表单,无服务端改动)
 建 `CreateRoomDialog` 的设置项:思考时间(`timeout` 滑块/输入 10-120,默认沿用 90)、选将数(`generalNum` 3-?)、选将超时(`generalTimeout` 10-60)、手气卡次数(`luckTime` 0-8)、enableDeputy/enableFreeAssign 开关。照搬 QML `RoomGeneralSettings.qml`/`CreateRoom.qml` 字段范围与默认。值写入既有 settings 结构对应字段(协议已通,只是从硬编码改成可填)。
 - **自验**:真 asio 建房带非默认 `generalNum`/`timeout`,VM 收到生效(选将数变化、超时窗口变化);typecheck/build/web 测试绿。
 
-### IG-2 · 手气卡可用(④b)
+### IG-2 · 手气卡可用 ✅(④b)
 基于 IG-1 能传 `luckTime>0`。核实手气卡请求在 web 端的呈现:`AskForLuckCard` 是 `AskForSkillInvoke`(InteractionBar OK/Cancel),需把 prompt `#AskForLuckCard:::N` 本地化(i18n "你想使用手气卡吗?还可使用 %arg 次")+ 确认 OK→换牌、Cancel→保留 的回路在 web 真打通(摸到新起手牌)。
 - **自验**:真 asio 开 `luckTime=2` 起一局,开局收到手气卡询问,点"使用"→起手牌变化、次数递减;点"取消"→保留。lua-native 或双 WS E2E 验证换牌。
 

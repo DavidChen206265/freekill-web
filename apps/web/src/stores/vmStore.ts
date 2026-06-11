@@ -307,6 +307,10 @@ export const useVmStore = create<VmState>((set, get) => ({
           // etc.) the server sends ONLY the name (verified: captured packet ["luoyi"]),
           // so prompt is empty. QML falls back to #AskForSkillInvoke "你想发动〖%1〗吗？"
           // with the skill name (RoomLogic.js:829-830). Non-empty → processPrompt.
+          // IG-2: the LUCK CARD also arrives as AskForSkillInvoke with a non-empty
+          // prompt ["AskForLuckCard", "#AskForLuckCard:::N"] (gameflow.lua/request.lua) —
+          // it flows through localizePrompt → "你想使用手气卡吗？还可以使用 N 次", and
+          // OK(use)/Cancel(keep) reply via the same updateRequestUI→ReplyToServer path.
           const d = e.data as unknown[]
           const skill = String(d?.[0] ?? '')
           const prompt = String(d?.[1] ?? '')

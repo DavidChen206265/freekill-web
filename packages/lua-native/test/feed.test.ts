@@ -435,6 +435,13 @@ describe('client VM packet feed', () => {
     expect(tx.slash).toBe('杀')
     expect(tx.jink).toBe('闪')
     expect(tx.caocao).toBe('曹操')
+    // IG-2: the luck-card prompt key resolves to the real zh template via the VM's
+    // Translate (web's localizePrompt registers it, processPrompt fills %arg with the
+    // remaining count). Proves the prompt the OK/Cancel bar shows is localized, not raw.
+    const lt = JSON.parse(translate(JSON.stringify(['#AskForLuckCard', 'AskForLuckCard']))) as Record<string, string>
+    expect(lt['#AskForLuckCard']).toContain('手气卡')
+    expect(lt['#AskForLuckCard']).toContain('%arg') // template carries the %arg slot processPrompt fills
+    expect(lt['AskForLuckCard']).toBe('手气卡')
     lua.global.close()
   }, 30_000)
 
