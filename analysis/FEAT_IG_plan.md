@@ -57,6 +57,19 @@
 - **IG-5b 送花/砸蛋**:Photo 右键菜单/快捷键发 `$@<Type>:<pid>` 特殊消息;收到 type=2 且 `msg` 以 `$@` 开头→解析 Type+目标→从 from photo 飞向 to photo 播动画(WAAPI 飞行 + star),复用 PACE 的 animationStore scene 通道范式;资源 `image/anim/<type>/`(确认 sync 已含 chat-anim 帧)+ 音效 `fly/flower` 预取(复用 PACE-2 warm)。
 - **自验**:双 WS 客户端 A 发房间聊天/送花给 B,B 收到气泡/飞行动画;旁观者发送被拒;真 asio 验证 type=2 广播路径。
 
+### IG-6 · 选将页右键/长按看武将技能(用户追加)
+- **目标**:AskForGeneral 选将框里,右键(桌面)/长按(移动端)候选武将→看该武将技能描述。
+- **核实结论(已读源码)**:原版 `ChooseGeneralBox.qml:175` 的 `onRightClicked` 只做 FreeAssign 作弊,**不是看技能**;看技能走 `GeneralsOverview`/`GeneralDetailPage`,调 **`GetGeneralDetail(name)`**(`client_util.lua:27-64`)按**武将名**返回 `{kingdom,hp,maxHp,skill:[{name,description,is_related_skill}],...}`——与现有按 player id 的 `GetPlayerSkills` 不同(选将时还没有 player)。所以这是"web 友好增强",数据源照搬 `GetGeneralDetail`。
+- **改动**:① 新 VM 桥 `__fkGeneralDetail(name)` + `clientVm.generalDetail(name)`(照搬 `GetGeneralDetail`,返回技能数组);② 选将候选 `GeneralCard` 接 `useLongPress`(已有,450ms)+ `onContextMenu`;③ 复用/改造 `GeneralDetailModal` 支持"按武将名"模式(现仅按 pid)——加一个 `generalName` 入口,技能走 `generalDetail` 而非 `playerSkills`,武将立绘已有 `GeneralCard`。
+- **自验**:lua-native 对真 VM 断言 `GetGeneralDetail("caocao").skill` 含奸雄+描述;浏览器选将框长按/右键候选武将弹技能。低风险、自包含。
+
+### IG-7 · 修复:同账号顶号"反向踢"(用户报 bug,先复现再修)
+- **现象**:同账号在新客户端登录,**新的反被老的踢出**(期望:新顶旧)。
+- **已核实(见 memory `same-account-takeover-bug`)**:fork `auth.cpp:471-496` 的 takeover 两支(局内 `reconnect` / 大厅 `takeoverInLobby`)**方向都正确(新接管、踢旧)**;网关按 **uuid** park 老连接 25s,uuid 存 localStorage **同浏览器复用、不同客户端不同**。**真因未坐实,禁止盲改**。
+- **第一步必须真机复现**(实现纪律 5):写 `takeover-probe.mjs`,两 WS 同账号**不同 uuid**,B 在 A 在线时登录,记录谁收 `ErrorDlg`/断线、谁留大厅;再测 A 先刷新 park 再 B 登录。据复现锁定真实路径(候选:park 断开回调与新 takeover 时序、asio `setSocket` 后旧 socket `onDisconnected` 误标新 player Offline、网关 asio close 误关新 ws)。
+- **再按真因最小修复**,不动正确的 takeover 主路径。可能在网关(park 命中时主动 close 旧 asio 而非仅解绑)或 fork(setState/onDisconnected 时序)。
+- **自验**:复现脚本从"新被踢"转为"旧被踢、新进大厅",且不回归刷新重连(refresh-test)与局内 reconnect。
+
 ---
 
 ## 风险与边界
