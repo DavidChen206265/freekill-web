@@ -9,6 +9,7 @@ import { useFocusStore } from '../stores/focusStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
 import { sampleMemory, type MemSample } from '../diag/memStats.js'
 import { checkAssets, type AssetCheckResult } from '../diag/assetCheck.js'
+import { precacheAll, isPrecacheEnabled, setPrecacheEnabled, type PrecacheResult } from '../diag/assetPrecache.js'
 import { log, setLogLevel, unhandledCommands } from '../diag/log.js'
 import type { LogLevel } from '@freekill-web/shared'
 
@@ -22,6 +23,10 @@ export function VmDebugPanel() {
   const [assetRes, setAssetRes] = useState<AssetCheckResult | null>(null)
   const [assetChecking, setAssetChecking] = useState(false)
   const [assetProgress, setAssetProgress] = useState({ done: 0, total: 0 })
+  const [precacheOn, setPrecacheOn] = useState(isPrecacheEnabled())
+  const [precaching, setPrecaching] = useState(false)
+  const [precacheProgress, setPrecacheProgress] = useState({ done: 0, total: 0 })
+  const [precacheRes, setPrecacheRes] = useState<PrecacheResult | null>(null)
   const [logLevel, setLevelState] = useState<LogLevel>(log.getLevel())
   const [logTick, setLogTick] = useState(0) // force re-render to refresh the log view
   const readMem = async () => {
@@ -34,6 +39,14 @@ export function VmDebugPanel() {
       const res = await checkAssets({ onProgress: (done, total) => setAssetProgress({ done, total }) })
       setAssetRes(res)
     } finally { setAssetChecking(false) }
+  }
+  const togglePrecache = () => { const on = !precacheOn; setPrecacheEnabled(on); setPrecacheOn(on) }
+  const runPrecache = async () => {
+    setPrecaching(true); setPrecacheRes(null); setPrecacheProgress({ done: 0, total: 0 })
+    try {
+      const res = await precacheAll({ onProgress: (done, total) => setPrecacheProgress({ done, total }) })
+      setPrecacheRes(res)
+    } finally { setPrecaching(false) }
   }
   const changeLevel = (lvl: LogLevel) => { setLogLevel(lvl); setLevelState(lvl) }
   const exportLog = () => {
@@ -100,6 +113,23 @@ export function VmDebugPanel() {
           )}
         </div>
       )}
+
+      <h4 style={styles.h4}>全量预缓存(可选 · 默认关)</h4>
+      <div style={styles.stats}>
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+          <input type="checkbox" checked={precacheOn} onChange={togglePrecache} />
+          开启后预下载全部资源(~53MB,适合离线/弱网;默认懒加载更省流量)
+        </label>
+        <button style={styles.btn} onClick={runPrecache} disabled={precaching}>
+          {precaching ? `下载中… ${precacheProgress.done}/${precacheProgress.total}` : '立即预下载全部资源'}
+        </button>
+        {precacheRes && (
+          <div>
+            完成 <b>{precacheRes.ok}</b>/{precacheRes.total} · 用时 {(precacheRes.ms / 1000).toFixed(1)}s
+            {precacheRes.failed.length > 0 && <span style={styles.err}> · {precacheRes.failed.length} 项失败</span>}
+          </div>
+        )}
+      </div>
 
       <h4 style={styles.h4}>notifyUI 命令计数</h4>
       <div style={styles.counts}>
