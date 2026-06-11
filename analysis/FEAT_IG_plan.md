@@ -57,7 +57,7 @@
 - **IG-5b 送花/砸蛋**:Photo 右键菜单/快捷键发 `$@<Type>:<pid>` 特殊消息;收到 type=2 且 `msg` 以 `$@` 开头→解析 Type+目标→从 from photo 飞向 to photo 播动画(WAAPI 飞行 + star),复用 PACE 的 animationStore scene 通道范式;资源 `image/anim/<type>/`(确认 sync 已含 chat-anim 帧)+ 音效 `fly/flower` 预取(复用 PACE-2 warm)。
 - **自验**:双 WS 客户端 A 发房间聊天/送花给 B,B 收到气泡/飞行动画;旁观者发送被拒;真 asio 验证 type=2 广播路径。
 
-### IG-6 · 选将页右键/长按看武将技能(用户追加)
+### IG-6 · 选将页右键/长按看武将技能 ✅(用户追加)
 - **目标**:AskForGeneral 选将框里,右键(桌面)/长按(移动端)候选武将→看该武将技能描述。
 - **核实结论(已读源码)**:原版 `ChooseGeneralBox.qml:175` 的 `onRightClicked` 只做 FreeAssign 作弊,**不是看技能**;看技能走 `GeneralsOverview`/`GeneralDetailPage`,调 **`GetGeneralDetail(name)`**(`client_util.lua:27-64`)按**武将名**返回 `{kingdom,hp,maxHp,skill:[{name,description,is_related_skill}],...}`——与现有按 player id 的 `GetPlayerSkills` 不同(选将时还没有 player)。所以这是"web 友好增强",数据源照搬 `GetGeneralDetail`。
 - **改动**:① 新 VM 桥 `__fkGeneralDetail(name)` + `clientVm.generalDetail(name)`(照搬 `GetGeneralDetail`,返回技能数组);② 选将候选 `GeneralCard` 接 `useLongPress`(已有,450ms)+ `onContextMenu`;③ 复用/改造 `GeneralDetailModal` 支持"按武将名"模式(现仅按 pid)——加一个 `generalName` 入口,技能走 `generalDetail` 而非 `playerSkills`,武将立绘已有 `GeneralCard`。

@@ -8,17 +8,20 @@
 
 import { generalPic, generalCardBorder, kingdomIcon } from './skin.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
+import { useLongPress } from './useLongPress.js'
 import { tr } from '../i18n/zh.js'
 
 const KINGDOM_COLOR: Record<string, string> = {
   wei: '#3b6ea5', shu: '#a5453b', wu: '#3ba558', qun: '#8a7a3b', god: '#7a3ba5', wild: '#555',
 }
 
-export function GeneralCard({ name, selected, disabled, onClick, width = 93, height = 130 }: {
+export function GeneralCard({ name, selected, disabled, onClick, onViewDetail, width = 93, height = 130 }: {
   name: string
   selected?: boolean
   disabled?: boolean
   onClick?: () => void
+  // IG-6: right-click (desktop) / long-press (mobile) to view this general's skills.
+  onViewDetail?: (name: string) => void
   width?: number
   height?: number
 }) {
@@ -28,11 +31,28 @@ export function GeneralCard({ name, selected, disabled, onClick, width = 93, hei
   const bg = (kingdom && KINGDOM_COLOR[kingdom]) || '#2a2a30'
   const scale = width / 93
 
+  // Long-press opens the skill detail (mirrors BasicItem.qml long-press → rightClicked).
+  const lp = useLongPress(() => onViewDetail?.(name))
+  const handleClick = () => {
+    if (lp.consumeFired()) return // a long-press just opened detail — skip selection
+    onClick?.()
+  }
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (!onViewDetail) return
+    e.preventDefault()
+    onViewDetail(name)
+  }
+
   return (
     <button
       type="button"
       disabled={disabled}
-      onClick={onClick}
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      onPointerDown={lp.onPointerDown}
+      onPointerMove={lp.onPointerMove}
+      onPointerUp={lp.onPointerUp}
+      onPointerLeave={lp.onPointerCancel}
       style={{
         ...styles.card, width, height,
         outline: selected ? '3px solid #f1c40f' : 'none',

@@ -57,6 +57,7 @@ export class ClientVm {
   private fnCardFitPattern: ((argsJson: string) => string) | null = null
   private fnVirtualEquipNames: ((argsJson: string) => string) | null = null
   private fnPlayerSkills: ((id: number) => string) | null = null
+  private fnGeneralDetail: ((name: string) => string) | null = null
   private fnPlayerCards: ((id: number) => string) | null = null
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
@@ -304,6 +305,22 @@ export class ClientVm {
         local ok, sk = pcall(GetPlayerSkills, id)
         return json.encode((ok and sk) or {})
       end
+      -- IG-6: general detail BY NAME (GeneralsOverview/GeneralDetailPage via
+      -- GetGeneralDetail, client_util.lua:27). Unlike __fkPlayerSkills (by player id,
+      -- visible-only), this is for the GENERAL-PICK box where there is no player yet —
+      -- returns the general's full skill list {name,description,is_related_skill} +
+      -- kingdom/hp. Skips '#'-prefixed internal skills (GeneralDetailPage:84 filter).
+      function __fkGeneralDetail(name)
+        local ok, d = pcall(GetGeneralDetail, name)
+        if not ok or type(d) ~= "table" then return json.encode({ skill = {} }) end
+        local skills = {}
+        for _, s in ipairs(d.skill or {}) do
+          if type(s.name) == "string" and not s.name:startsWith("#") then
+            skills[#skills+1] = { name = Translate(s.name), description = s.description, related = s.is_related_skill and true or false }
+          end
+        end
+        return json.encode({ kingdom = d.kingdom, hp = d.hp, maxHp = d.maxHp, skill = skills })
+      end
       -- Card-pattern match (ArrangeCardsBox/GuanxingBox selectable: cardFitPattern).
       -- argsJson = {cids:[..], pattern:".."}; returns { r: { "<cid>": bool } }. A
       -- pattern of "" or "." matches everything (handled on the JS side too).
@@ -440,6 +457,7 @@ export class ClientVm {
     this.fnCardFitPattern = lua.global.get('__fkCardFitPattern') as typeof this.fnCardFitPattern
     this.fnVirtualEquipNames = lua.global.get('__fkVirtualEquipNames') as typeof this.fnVirtualEquipNames
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
+    this.fnGeneralDetail = lua.global.get('__fkGeneralDetail') as typeof this.fnGeneralDetail
     this.fnPlayerCards = lua.global.get('__fkPlayerCards') as typeof this.fnPlayerCards
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
     this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
@@ -628,6 +646,13 @@ export class ClientVm {
     try { return JSON.parse(this.fnPlayerSkills(id)) as { name: string; description: string }[] } catch { return [] }
   }
 
+  /** IG-6: general detail by NAME (for the general-pick box, where there is no player
+   *  yet). Skill names are already localized; `related` marks 关联技能. */
+  generalDetail(name: string): GeneralDetail {
+    if (!this.fnGeneralDetail) return { skill: [] }
+    try { return JSON.parse(this.fnGeneralDetail(name)) as GeneralDetail } catch { return { skill: [] } }
+  }
+
   /** IG-4: a player's visible equip + judge cards for the detail panel. Each entry is
    *  the physical card (name/suit/number — the "original" for a virtual one) + optional
    *  virtName (the transformed name, e.g. 乐不思蜀). `unknown` counts hidden cards. */
@@ -682,6 +707,14 @@ export interface PlayerCardInfo {
   suit: string
   number: number
   virtName?: string
+}
+
+// IG-6: general detail by name (GetGeneralDetail) for the general-pick skill view.
+export interface GeneralDetail {
+  kingdom?: string
+  hp?: number
+  maxHp?: number
+  skill: { name: string; description: string; related?: boolean }[]
 }
 
 export interface CardFace {

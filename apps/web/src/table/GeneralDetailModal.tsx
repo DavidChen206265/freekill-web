@@ -12,16 +12,19 @@ import { useVmStore } from '../stores/vmStore.js'
 import { GeneralCard } from './GeneralCard.js'
 import { suitSymbol, isRedSuit, numberStr } from '../stores/cardFaceStore.js'
 import { tr, hasTranslation, registerTranslations } from '../i18n/zh.js'
-import type { PlayerCardInfo } from '../vm/clientVm.js'
+import type { PlayerCardInfo, GeneralDetail } from '../vm/clientVm.js'
 
 export function GeneralDetailModal() {
   const pid = useDetailStore((s) => s.pid)
+  const generalName = useDetailStore((s) => s.generalName)
   const close = useDetailStore((s) => s.close)
   const players = useGameStore((s) => s.players)
   const vm = useVmStore((s) => s.vm)
   const [skills, setSkills] = useState<{ name: string; description: string }[]>([])
   // IG-4: the player's visible equip + judge cards (incl. virtual cards' original).
   const [cards, setCards] = useState<{ cards: PlayerCardInfo[]; unknown: number }>({ cards: [], unknown: 0 })
+  // IG-6: general-pick skill view (by name, no player). Skills already localized.
+  const [genDetail, setGenDetail] = useState<GeneralDetail>({ skill: [] })
   // The long-press / right-click that opens this modal is followed by a synthetic
   // click (on pointer-up) that would otherwise hit the backdrop and close it at
   // once. Ignore backdrop clicks for a brief grace window after opening.
@@ -45,6 +48,43 @@ export function GeneralDetailModal() {
     }
     if (keys.size > 0) registerTranslations(vm.translate([...keys]))
   }, [pid, vm])
+
+  // IG-6: fetch the general's full skill list by name (GetGeneralDetail).
+  useEffect(() => {
+    if (generalName == null || !vm) { setGenDetail({ skill: [] }); return }
+    openedAt.current = Date.now()
+    setGenDetail(vm.generalDetail(generalName))
+    if (!hasTranslation(generalName)) registerTranslations(vm.translate([generalName]))
+  }, [generalName, vm])
+
+  // IG-6: general-pick skill view — portrait + full skills (no player context).
+  if (generalName != null) {
+    const onBackdropG = () => { if (Date.now() - openedAt.current > 350) close() }
+    return (
+      <div style={styles.backdrop} onClick={onBackdropG}>
+        <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div style={styles.header}>
+            <span style={styles.name}>{tr(generalName)}</span>
+            <button style={styles.close} onClick={close}>×</button>
+          </div>
+          <div style={styles.body}>
+            <div style={styles.portraits}>
+              <GeneralCard name={generalName} width={93} height={130} />
+            </div>
+            <div style={styles.skills}>
+              {genDetail.skill.length === 0 && <div style={styles.noSkill}>无技能信息</div>}
+              {genDetail.skill.map((s, i) => (
+                <div key={i} style={styles.skill}>
+                  <span style={{ ...styles.skillName, ...(s.related ? styles.relatedSkill : {}) }}>{s.name}</span>
+                  <span style={styles.skillDesc}>{s.description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (pid == null || !player) return null
 
@@ -128,6 +168,7 @@ const styles: Record<string, React.CSSProperties> = {
   noSkill: { color: '#888' },
   skill: { display: 'block' },
   skillName: { color: '#9FD49C', fontWeight: 700, fontSize: 17, marginRight: 8 },
+  relatedSkill: { color: '#c08fe0' },
   skillDesc: { color: '#E4D5A0' },
   cardSection: { marginTop: 8, paddingTop: 10, borderTop: '1px solid #444', display: 'flex', flexDirection: 'column', gap: 8 },
   cardHead: { color: '#bbb', fontSize: 13, fontWeight: 700 },

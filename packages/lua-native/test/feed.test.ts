@@ -445,6 +445,50 @@ describe('client VM packet feed', () => {
     lua.global.close()
   }, 30_000)
 
+  it.skipIf(!ready)('IG-6: __fkGeneralDetail returns a general\'s skills BY NAME', async () => {
+    // The general-pick skill view (GetGeneralDetail, client_util.lua:27) — by general
+    // NAME (no player yet), unlike GetPlayerSkills (by player id). Verify against the
+    // real VM: caocao → 奸雄 with a description; '#'-prefixed internal skills filtered.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    // Bridge copied verbatim from clientVm.ts __fkGeneralDetail.
+    await lua.doString(`
+      function __fkGeneralDetail(name)
+        local ok, d = pcall(GetGeneralDetail, name)
+        if not ok or type(d) ~= "table" then return json.encode({ skill = {} }) end
+        local skills = {}
+        for _, s in ipairs(d.skill or {}) do
+          if type(s.name) == "string" and not s.name:startsWith("#") then
+            skills[#skills+1] = { name = Translate(s.name), description = s.description, related = s.is_related_skill and true or false }
+          end
+        end
+        return json.encode({ kingdom = d.kingdom, hp = d.hp, maxHp = d.maxHp, skill = skills })
+      end
+    `)
+    const generalDetail = lua.global.get('__fkGeneralDetail') as (n: string) => string
+    await lua.doString(`ClientCallback(ClientInstance,"Setup",cbor.encode({1,"me","caocao",0}),false)`)
+    const d = JSON.parse(generalDetail('caocao')) as { kingdom?: string; skill: { name: string; description: string; related?: boolean }[] }
+    expect(d.kingdom).toBe('wei')
+    expect(d.skill.length).toBeGreaterThan(0)
+    // caocao's signature skill 奸雄 (jianxiong) — name localized, has a description.
+    const jx = d.skill.find((s) => s.name === '奸雄')
+    expect(jx).toBeTruthy()
+    expect(typeof jx!.description).toBe('string')
+    expect(jx!.description.length).toBeGreaterThan(0)
+    // No '#'-prefixed internal skill names leak through.
+    expect(d.skill.every((s) => !s.name.startsWith('#'))).toBe(true)
+    lua.global.close()
+  }, 30_000)
+
   it.skipIf(!ready)('VM read bridge: player equip/judge/shield + general extension (slice 6)', async () => {
     const factory = new LuaFactory()
     const luaModule = await factory.getLuaModule()

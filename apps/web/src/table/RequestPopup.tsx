@@ -13,6 +13,7 @@ import { useVmStore } from '../stores/vmStore.js'
 import { arrangeDrop, arrangeValid, type ArrangeState } from './arrangeDrop.js'
 import { CardFaceView } from './CardFaceView.js'
 import { GeneralCard } from './GeneralCard.js'
+import { useDetailStore } from '../stores/detailStore.js'
 import { PromptText } from './PromptText.js'
 import { tr } from '../i18n/zh.js'
 
@@ -195,7 +196,8 @@ function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
       <div style={styles.generals}>
         {generals.map((g) => (
           <GeneralCard key={g} name={g} selected={picked.includes(g)}
-            disabled={!selectable(g)} onClick={() => { if (selectable(g)) toggle(g) }} />
+            disabled={!selectable(g)} onClick={() => { if (selectable(g)) toggle(g) }}
+            onViewDetail={(name) => useDetailStore.getState().openGeneral(name)} />
         ))}
       </div>
       <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
