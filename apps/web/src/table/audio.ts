@@ -82,7 +82,17 @@ export function setVolume(v: number): void { volume = Math.max(0, Math.min(1, v)
 let bgmEl: HTMLAudioElement | null = null
 let bgmWanted = false // a playBgm() was requested; retried on unlock if it was blocked
 let bgmMuted = (() => { try { return localStorage.getItem('fk-bgm-muted') === '1' } catch { return false } })()
-let bgmVolume = (() => { try { const v = Number(localStorage.getItem('fk-bgm-volume')); return v >= 0 && v <= 1 ? v : 0.4 } catch { return 0.4 } })()
+let bgmVolume = (() => {
+  // NB: getItem returns null when unset; Number(null) === 0, which would pass a
+  // `>=0 && <=1` check and silently set volume to 0 (BGM "plays" but inaudible).
+  // Guard the unset/empty case explicitly → default 0.4.
+  try {
+    const raw = localStorage.getItem('fk-bgm-volume')
+    if (raw === null || raw === '') return 0.4
+    const v = Number(raw)
+    return Number.isFinite(v) && v > 0 && v <= 1 ? v : 0.4
+  } catch { return 0.4 }
+})()
 
 export function isBgmMuted(): boolean { return bgmMuted }
 
