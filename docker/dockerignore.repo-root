@@ -81,3 +81,7 @@ FreeKill-sourcecode/image/*
 !FreeKill-sourcecode/image/photo
 !FreeKill-sourcecode/image/card
 !FreeKill-sourcecode/image/anim
+# Game-table background (W1-1 2e): a single top-level file under image/, not in the
+# whitelisted subdirs above — must be re-included explicitly or sync-fk-assets can't
+# find it in the build context (→ /fk/image/gamebg.jpg 404 on the deploy).
+!FreeKill-sourcecode/image/gamebg.jpg

@@ -82,7 +82,15 @@ curl -skI https://你的域名/fk/packages/standard_cards/audio/card/male/disman
 
 # 4. 新增/移牌音效文件也在:
 docker compose exec caddy ls /srv/fk/audio/system/ | grep -E 'drawCard|moveCard|bgm'
+
+# 5. 游戏背景图 + 一个动画帧(2026-06-11 报 gamebg 404 / guding_blade 500;
+#    背景图的 .dockerignore 漏洞已修,务必重新 cp .dockerignore + --build):
+docker compose exec caddy ls -la /srv/fk/image/gamebg.jpg
+docker compose exec caddy ls /srv/fk/packages/maneuvering/image/anim/guding_blade/ | wc -l   # 期望 25
+curl -skI https://你的域名/fk/image/gamebg.jpg | grep -iE 'HTTP|content-type'                  # 期望 200 image/jpeg
 ```
+
+> **重要**:本次修了 `.dockerignore` 的一个漏洞——`gamebg.jpg` 之前被 `FreeKill-sourcecode/image/*` 排除掉了(导致 VPS 上 `/fk/image/gamebg.jpg` 404)。所以更新时**务必先 `cp freekill-web/docker/dockerignore.repo-root .dockerignore` 再 `--build`**,否则背景图仍然进不了镜像。`guding_blade/12.png` 报 500、乐不思蜀语音缺失——本地资源都正常(25 帧 / male+female mp3 都在 audio.json),很可能是上次构建时镜像 `/srv/fk` 不全;干净重建后用上面的命令复验,若仍异常跑取证脚本。
 
 ## 如果音频还是没声(2g 取证)
 

@@ -13,15 +13,18 @@
 set -uo pipefail
 
 BASE="${1:-}"
-# Two card voices that reportedly have no sound on the VPS. NOTE: per-card voices
-# live under the PACKAGE layout (packages/<pkg>/audio/...), NOT the built-in
-# audio/ root — the client reads audio.json and requests the real package URL.
-# (Corrected after VPS forensics 2026-06-11; the prior built-in paths 404'd by design.)
+# Assets reported missing/broken on the VPS. NOTE: per-card voices live under the
+# PACKAGE layout (packages/<pkg>/audio/...), NOT the built-in audio/ root — the
+# client reads audio.json/anim.json and requests the real URL.
+# (Corrected after VPS forensics 2026-06-11; prior built-in audio paths 404'd by design.)
 PROBES=(
   "packages/standard_cards/audio/card/male/dismantlement.mp3"   # 过河拆桥
-  "packages/standard_cards/audio/card/male/indulgence.mp3"      # 乐不思蜀
+  "packages/standard_cards/audio/card/male/indulgence.mp3"      # 乐不思蜀(male)
+  "packages/standard_cards/audio/card/female/indulgence.mp3"    # 乐不思蜀(female)
   "audio/card/common/weapon.mp3"                                # 装备通用音(内置布局,对照)
   "audio/system/bgm.mp3"                                        # BGM(内置布局)
+  "image/gamebg.jpg"                                            # 游戏背景图(2026-06-11 报 404)
+  "packages/maneuvering/image/anim/guding_blade/12.png"         # 古锭刀动画帧(报 500)
 )
 
 line() { printf '\n========== %s ==========\n' "$1"; }
