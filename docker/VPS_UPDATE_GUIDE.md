@@ -69,12 +69,14 @@ docker compose exec asio sh -c 'grep -E "checkClientMd5|webOnly" freekill.server
 #   期望:checkClientMd5: false / webOnly: true
 
 # 2. /fk 音频确实进了镜像(过河拆桥语音 + audio.json):
-docker compose exec caddy ls -la /srv/fk/audio/card/male/dismantlement.mp3
-docker compose exec caddy sh -c 'grep -o "audio/card/male/dismantlement.mp3" /srv/fk/audio.json'
+# 2. /fk 音频确实进了镜像(过河拆桥语音 + audio.json)。注意:per-card 语音在
+#    PACKAGE 布局 packages/<pkg>/audio/...,不是内置 audio/ 根:
+docker compose exec caddy ls -la /srv/fk/packages/standard_cards/audio/card/male/dismantlement.mp3
+docker compose exec caddy sh -c 'grep -o "packages/standard_cards/audio/card/male/dismantlement.mp3" /srv/fk/audio.json'
 #   期望:文件存在 + audio.json 里能 grep 到
 
 # 3. 公网 URL 拉一次音频,确认 200 + audio/mpeg(把 URL 换成你的):
-curl -skI https://你的域名/fk/audio/card/male/dismantlement.mp3 | grep -iE 'HTTP|content-type'
+curl -skI https://你的域名/fk/packages/standard_cards/audio/card/male/dismantlement.mp3 | grep -iE 'HTTP|content-type'
 #   期望:HTTP/.. 200 + content-type: audio/mpeg
 #   若是 text/html 或 404 → 跑 vps-audio-forensics.sh 取证(见下)
 

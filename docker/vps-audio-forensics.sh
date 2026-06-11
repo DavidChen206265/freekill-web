@@ -13,12 +13,15 @@
 set -uo pipefail
 
 BASE="${1:-}"
-# Two card voices that reportedly have no sound on the VPS.
+# Two card voices that reportedly have no sound on the VPS. NOTE: per-card voices
+# live under the PACKAGE layout (packages/<pkg>/audio/...), NOT the built-in
+# audio/ root — the client reads audio.json and requests the real package URL.
+# (Corrected after VPS forensics 2026-06-11; the prior built-in paths 404'd by design.)
 PROBES=(
-  "audio/card/male/dismantlement.mp3"   # 过河拆桥
-  "audio/card/male/indulgence.mp3"      # 乐不思蜀
-  "audio/card/common/weapon.mp3"        # 装备通用音(本地确认能响,做对照)
-  "audio/system/bgm.mp3"                # BGM
+  "packages/standard_cards/audio/card/male/dismantlement.mp3"   # 过河拆桥
+  "packages/standard_cards/audio/card/male/indulgence.mp3"      # 乐不思蜀
+  "audio/card/common/weapon.mp3"                                # 装备通用音(内置布局,对照)
+  "audio/system/bgm.mp3"                                        # BGM(内置布局)
 )
 
 line() { printf '\n========== %s ==========\n' "$1"; }
@@ -34,8 +37,8 @@ for p in "${PROBES[@]}"; do
   out=$($DC exec -T caddy sh -c "ls -la /srv/fk/$p 2>&1" 2>&1)
   echo "  $p -> $out"
 done
-echo "--- /srv/fk/audio/card/male sample (first 10) ---"
-$DC exec -T caddy sh -c 'ls /srv/fk/audio/card/male/ 2>&1 | head' 2>&1 | sed 's/^/  /'
+echo "--- /srv/fk/packages/standard_cards/audio/card/male sample (first 10) ---"
+$DC exec -T caddy sh -c 'ls /srv/fk/packages/standard_cards/audio/card/male/ 2>&1 | head' 2>&1 | sed 's/^/  /'
 echo "--- /srv/fk/audio.json present + size ---"
 $DC exec -T caddy sh -c 'ls -la /srv/fk/audio.json 2>&1' 2>&1 | sed 's/^/  /'
 
