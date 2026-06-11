@@ -11,6 +11,7 @@ import { sampleMemory, type MemSample } from '../diag/memStats.js'
 import { checkAssets, type AssetCheckResult } from '../diag/assetCheck.js'
 import { precacheAll, isPrecacheEnabled, setPrecacheEnabled, type PrecacheResult } from '../diag/assetPrecache.js'
 import { log, setLogLevel, unhandledCommands } from '../diag/log.js'
+import { getPace, setPace } from '../stores/pacing.js'
 import type { LogLevel } from '@freekill-web/shared'
 
 export function VmDebugPanel() {
@@ -29,6 +30,7 @@ export function VmDebugPanel() {
   const [precacheRes, setPrecacheRes] = useState<PrecacheResult | null>(null)
   const [logLevel, setLevelState] = useState<LogLevel>(log.getLevel())
   const [logTick, setLogTick] = useState(0) // force re-render to refresh the log view
+  const [pace, setPaceState] = useState<number>(getPace())
   const readMem = async () => {
     setSampling(true)
     try { setMem(await sampleMemory()) } finally { setSampling(false) }
@@ -49,6 +51,7 @@ export function VmDebugPanel() {
     } finally { setPrecaching(false) }
   }
   const changeLevel = (lvl: LogLevel) => { setLogLevel(lvl); setLevelState(lvl) }
+  const changePace = (x: number) => { setPaceState(setPace(x)) }
   const exportLog = () => {
     const blob = new Blob([log.export()], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -90,6 +93,23 @@ export function VmDebugPanel() {
           <div style={styles.dim}>已加载图片 {mem.imageCount} 张 / {mem.imageMB} MB</div>
         </div>
       )}
+
+      <h4 style={styles.h4}>演出速度(PACE)</h4>
+      <div style={styles.logCtl}>
+        <span style={styles.dim}>慢</span>
+        <input
+          type="range" min={0.3} max={3} step={0.1} value={pace}
+          onChange={(e) => changePace(Number(e.target.value))}
+          style={{ flex: 1 }}
+        />
+        <span style={styles.dim}>快</span>
+        <b style={{ minWidth: 38, textAlign: 'right' }}>{pace.toFixed(1)}×</b>
+        {[0.5, 1, 1.5, 2].map((p) => (
+          <button key={p} onClick={() => changePace(p)}
+            style={{ ...styles.lvlBtn, ...(Math.abs(pace - p) < 0.05 ? styles.lvlActive : {}) }}>{p}×</button>
+        ))}
+      </div>
+      <div style={styles.dim}>命令间演出停顿的倍率(越小越快)。即时生效;持久化 localStorage(fk_pace)。</div>
 
       <h4 style={styles.h4}>资源完整性自检(W1-RES)</h4>
       <button style={styles.btn} onClick={runAssetCheck} disabled={assetChecking}>
