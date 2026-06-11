@@ -229,3 +229,37 @@ export function playDeath(general: string, ext?: string): void {
   if (!general) return
   playCandidates(audioCandidates(general, 'death', ext))
 }
+
+// ---- prefetch (PACE-2) -----------------------------------------------------
+// Warm the audio FILE (not play) for an upcoming performance so the actual play —
+// scheduled a beat later by the pacing queue — resolves from cache instead of racing
+// a cold network fetch on a high-latency link (the "voice can't keep up" symptom).
+// We resolve the real candidate via the manifest (no 404 probing) and issue a GET
+// that the HTTP cache / service worker (CacheFirst /fk/**) retains. Best-effort, never
+// throws, never plays. De-duplicated so the same clip isn't fetched twice per game.
+const prewarmedAudio = new Set<string>()
+function warmUrl(url: string): void {
+  if (prewarmedAudio.has(url)) return
+  prewarmedAudio.add(url)
+  // fetch (not new Audio) so it's a plain cacheable GET with no decode/playback.
+  void fetch(url).catch(() => { /* best-effort */ })
+}
+function warmCandidates(urls: string[]): void {
+  if (urls.length === 0) return
+  void loadAudioManifest().then((manifest) => {
+    if (manifest.size === 0) return // can't tell which exists → skip (play path is best-effort)
+    const url = urls.find((u) => manifest.has(u.startsWith(FK + '/') ? u.slice(FK.length + 1) : u))
+    if (url) warmUrl(url)
+  })
+}
+
+/** Prewarm a skill voice (mirrors playSkillSound candidates). Used by PACE-2 to warm
+ *  a skill's voice when its InvokeSkill banner fires, a beat before the voice plays. */
+export function warmSkillSound(skill: string, general?: string, deputy?: string, ext?: string): void {
+  if (!skill) return
+  const urls: string[] = []
+  if (general) urls.push(...audioCandidates(`${skill}_${general}`, 'skill', ext))
+  if (deputy) urls.push(...audioCandidates(`${skill}_${deputy}`, 'skill', ext))
+  urls.push(...audioCandidates(skill, 'skill', ext))
+  warmCandidates(urls)
+}

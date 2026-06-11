@@ -232,3 +232,20 @@ export function chosenPic(): string {
 export function statePic(state: string): string {
   return `${PHOTO}/state/${state}.png`
 }
+
+// ---- prefetch (PACE-2) -----------------------------------------------------
+// Decode an image URL into the browser cache ahead of render so the WAAPI fly-in a
+// beat later draws real art instead of a placeholder/late pop-in (the "card art can't
+// keep up" symptom on a high-latency link). Best-effort, de-duplicated, never throws.
+const prewarmedImg = new Set<string>()
+/** Prewarm one image URL (Image() so it's decoded + cached, not just fetched). */
+export function warmImage(url: string): void {
+  if (!url || prewarmedImg.has(url)) return
+  prewarmedImg.add(url)
+  try { const img = new Image(); img.src = url } catch { /* SSR / no Image */ }
+}
+/** Prewarm a card's face art (first existing candidate, mirrors cardPicCandidates). */
+export function warmCardPic(name: string, ext?: string): void {
+  const [first] = cardPicCandidates(name, ext)
+  if (first) warmImage(first)
+}

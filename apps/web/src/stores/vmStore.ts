@@ -21,10 +21,11 @@ import { useFocusStore } from './focusStore.js'
 import { useAnimationStore } from './animationStore.js'
 import { useMiscStore } from './miscStore.js'
 import { useCardNoteStore } from './cardNoteStore.js'
-import { playSystem, playByPath, playSkillSound, playDeath, playBgm, stopBgm, playDrawSound, playMoveSound } from '../table/audio.js'
+import { playSystem, playByPath, playSkillSound, playDeath, playBgm, stopBgm, playDrawSound, playMoveSound, warmSkillSound } from '../table/audio.js'
 import { registerTranslations, hasTranslation, tr } from '../i18n/zh.js'
 import { log, noteNotify } from '../diag/log.js'
 import { paceFor } from './pacing.js'
+import { warmCardPic } from '../table/skin.js'
 
 interface VmState {
   vm: ClientVm | null
@@ -149,6 +150,12 @@ function handleAnimate(data: unknown, vm: ClientVm | null): void {
       const name = String(d.name ?? '')
       if (vm && name && !hasTranslation(name)) registerTranslations(vm.translate([name]))
       anim.pushPlayer(Number(d.player), { kind: 'invokeSkill', skillName: tr(name), skillType: String(d.skill_type || 'special') })
+      // PACE-2: the skill banner (1640ms) usually precedes the skill's voice (a later
+      // LogEvent PlaySkillSound, serverplayer.lua:465). Prewarm the voice now — keyed on
+      // the actor's mirror generals (the same fallback playSkillSound uses) — so the
+      // play resolves from cache instead of a cold fetch ("voice can't keep up").
+      const actor = useGameStore.getState().players[Number(d.player)]
+      if (name && actor) warmSkillSound(name, actor.general, actor.deputyGeneral)
       break
     }
     case 'InvokeUltSkill': {
@@ -559,7 +566,18 @@ export const useVmStore = create<VmState>((set, get) => ({
           if (cid > 0 && !cached[cid]) cids.add(cid)
         }
       }
-      if (cids.size > 0) useCardFaceStore.getState().merge(vm.readCards([...cids]))
+      if (cids.size > 0) {
+        const newFaces = vm.readCards([...cids])
+        useCardFaceStore.getState().merge(newFaces)
+        // PACE-2: prewarm each newly-known card's face IMAGE now (Image() decode into
+        // cache). feed() above fetched the face DATA; the bytes aren't fetched until
+        // CardLayer renders the card. A card is known many beats before it flies to the
+        // table, so warming it here means the paced fly-in draws real art instead of a
+        // late pop-in on a high-latency link ("card art can't keep up"). Deduped in skin.
+        for (const f of Object.values(newFaces)) {
+          if (f && f.name) warmCardPic(f.name, f.extension)
+        }
+      }
     } catch (err) {
       console.error('[vm] readCards threw:', err)
     }
