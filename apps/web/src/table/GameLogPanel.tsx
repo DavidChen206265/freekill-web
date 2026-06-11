@@ -19,7 +19,8 @@ function sanitize(html: string): string {
 export function GameLogPanel() {
   const started = useGameStore((s) => s.started)
   const lines = useLogStore((s) => s.lines)
-  const [open, setOpen] = useState(true)
+  // 战报默认折叠(2a):不挡视野,需要时点开。
+  const [open, setOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

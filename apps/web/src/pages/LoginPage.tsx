@@ -25,8 +25,10 @@ function defaultGatewayUrl(): string {
 export function LoginPage() {
   const { connect, status, detail } = useConnectionStore()
   const [url, setUrl] = useState(defaultGatewayUrl())
-  const [user, setUser] = useState('webtester')
-  const [password, setPassword] = useState('web-m0-pass')
+  // 不再预填 webtester 默认账号(3c):避免大家图方便都登同一个账号互相顶号。
+  // 老用户的凭据由 connectionStore 持久化 + tryAutoLogin 回填,不受此空默认影响。
+  const [user, setUser] = useState('')
+  const [password, setPassword] = useState('')
 
   const busy = status === 'connecting' || status === 'logging-in'
 
@@ -51,17 +53,17 @@ export function LoginPage() {
           <input style={styles.input} value={url} onChange={(e) => setUrl(e.target.value)} />
         </label>
         <label style={styles.label}>用户名
-          <input style={styles.input} value={user} onChange={(e) => setUser(e.target.value)} autoComplete="username" />
+          <input style={styles.input} value={user} onChange={(e) => setUser(e.target.value)} autoComplete="username" placeholder="自己起一个用户名" />
         </label>
         <label style={styles.label}>密码
-          <input style={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <input style={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="自己设一个密码" />
         </label>
         <button style={styles.button} disabled={busy} type="submit">
           {busy ? '连接中…' : '登录'}
         </button>
         {status === 'failed' && <p style={styles.error}>登录失败{detail ? `: ${detail}` : ''}</p>}
         {status === 'closed' && <p style={styles.error}>连接已关闭{detail ? `: ${detail}` : ''}</p>}
-        <p style={styles.hint}>首次登录任意密码即自动注册(asio)。</p>
+        <p style={styles.hint}>请创建你自己的账号:首次登录用任意用户名+密码即自动注册。请勿共用账号,否则会互相顶号下线。</p>
       </form>
     </div>
   )

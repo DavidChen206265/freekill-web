@@ -40,8 +40,9 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div style={styles.backdrop} onClick={onClose}>
-      <form style={styles.card} onClick={(e) => e.stopPropagation()} onSubmit={create}>
+    // 点遮罩空白处不关闭(3a):只能用「取消」按钮关,避免填了一半误点丢失。
+    <div style={styles.backdrop}>
+      <form style={styles.card} onSubmit={create}>
         <h2 style={styles.title}>创建房间</h2>
         <label style={styles.label}>房名
           <input style={styles.input} value={name} onChange={(e) => setName(e.target.value)} />
