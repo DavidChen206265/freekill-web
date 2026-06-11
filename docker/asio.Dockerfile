@@ -40,9 +40,27 @@ WORKDIR /app
 COPY --from=build /src/build/freekill-asio ./freekill-asio
 # The freekill-core package set (game rules/cards/generals) + db init.
 COPY FreeKill-release/packages/freekill-core ./packages/freekill-core
+# Extension packs the server must ALSO load (generals/cards/skills the web VM expects).
+# asio discovers a pack when packages/<name>/init.lua exists AND it's not db-disabled
+# (core/util.cpp listEnabledPacks + freekill-core mod_manager.lua loadPackages). The
+# client side already ships these (sync-fk-assets EXTENSION_PACKS + .dockerignore +
+# deploy.sh WEB_UPSTREAM_PACKS) — keep this set in sync with those. Web-only fork skips
+# the client MD5 check, so no FK_MD5 recompute is needed when changing this set.
+COPY FreeKill-release/packages/utility ./packages/utility
+COPY FreeKill-release/packages/standard_ex ./packages/standard_ex
+COPY FreeKill-release/packages/sp ./packages/sp
 # packages.db / init.sql live alongside packages in the release tree.
 COPY FreeKill-release/packages/packages.db ./packages/packages.db
 COPY FreeKill-release/packages/init.sql ./packages/init.sql
+# Ensure the extension packs are ENABLED in the registry (the upstream release db
+# ships some disabled, e.g. sp). asio skips any pack with enabled=0 (PackMan loads
+# it into disabled_packs → mod_manager.lua filters it out), even if its files are
+# present. Flip them on at build time so the baked image is self-consistent and
+# reproducible regardless of the (git-untracked) release db's enabled flags.
+RUN apt-get update && apt-get install -y --no-install-recommends sqlite3 \
+    && sqlite3 ./packages/packages.db \
+         "UPDATE packages SET enabled=1 WHERE name IN ('utility','standard_ex','sp');" \
+    && apt-get purge -y sqlite3 && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 COPY freekill-web/docker/freekill.server.config.json ./freekill.server.config.json
 # DB init scripts asio needs in server/ to create users.db (server/init.sql,
 # c-wrapper.h:13) and game.db (server/gamedb_init.sql, server.cpp:109). server/ is
