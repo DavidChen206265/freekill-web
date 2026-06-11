@@ -147,7 +147,7 @@
 - **IG-5 局内聊天 + 送花/砸蛋** ✅:房间内 `Chat` type=2 聊天 + 气泡 + `$@<Type>:<pid>` 送花/砸蛋飞行动画(复用 PACE animationStore 范式)。
 - **IG-6 选将页右键/长按看武将技能**(追加):新 VM 桥 `GetGeneralDetail(name)`(按武将名,非 player id)+ 选将候选 GeneralCard 接 useLongPress/右键 → 复用 GeneralDetailModal。
 - **IG-7 修复同账号顶号"反向踢"**(追加 bug):新客户端登录反被老客户端踢。fork takeover 方向看似正确,真因(网关 uuid park / socket 回调时序)**待真机复现脚本锁定再最小修复**。
-- **IG-8 修复 VPS 扩展包武将立绘+名称不显示**(追加 bug):名称+立绘同断=客户端 VM 没加载扩展包 lua(本地正常,VPS 部署侧问题)。附带修 verify 盲区(武将立绘不进 images.json/不校验)。**待 VPS 取证锁定断点再修**。
+- **IG-8 ~~修复 VPS 扩展包武将立绘+名称不显示~~**:**误报已撤**(扩展包武将实际正常)。仅留存一个可选 backlog:verify 不校验武将立绘(images.json 漏 generals)。
 
 ## P2 · Web 账户与个性化
 
