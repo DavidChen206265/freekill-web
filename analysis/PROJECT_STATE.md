@@ -3,11 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-11 03:33:09　·　跟踪文件数: 2396
+最后更新: 2026-06-11 03:54:49　·　跟踪文件数: 2398
 
 ## 自上次重建以来的改动
 
-(无)
+- 新增 2: freekill-web/apps/gateway/scripts/w0-3-outdated-probe.mjs, freekill-web/scripts/wsl-w0-3-scenario.sh
+- 修改 2: freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md
 
 ## Spike 验证状态
 
@@ -29,7 +30,7 @@
 ## 服务端 fork(freekill-web-asio,独立仓库)
 
 - ✓ freekill-web-asio(origin: DavidChen206265/freekill-web-asio,upstream: Qsgs-Fans/freekill-asio diff 基线)
-- HEAD: fc03c24 W0-2: downlink Web manifest/capabilities in SetServerSettings
+- HEAD: 5e8a2e3 W0-3: gate room invalidation + IP temp-ban on package change
 
 ## 项目文件结构(自有代码)
 
@@ -140,6 +141,7 @@
     wsl-probe-deps.sh
     wsl-run-asio.sh
     wsl-run-fork.sh
+    wsl-w0-3-scenario.sh
   LICENSE
   package.json
   pnpm-lock.yaml

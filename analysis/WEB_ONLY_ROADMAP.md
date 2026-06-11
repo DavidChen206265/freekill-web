@@ -85,12 +85,11 @@
 - VM 实际加载包集合 == manifest `enabledPacks` == asio 实际加载集合(三者一致探测)。
 - 启用 utility/standard_ex/sp 后,扩展包美术/音频在浏览器被正确探测(不再静默回退)。
 
-### W0-3 关闭 MD5 房间过期踢人(触面较深,后做)
+### W0-3 关闭 MD5 房间过期踢人 ✅(2026-06-11)
 
-源码点(**非小开关,6+ 调用点**):`Room::isOutdated()` `room.cpp:381` / `RoomThread::isOutdated()` `roomthread.cpp:187`,消费者:`room.cpp:910`(开局阻断+踢全员)、`room.cpp:780`(退房踢人)、`room.cpp:665`(gameOver 踢掉线)、`room.cpp:269`(换房 tempBan)、`roomthread.cpp:209`(线程回收)、`server.cpp:_refreshMd5()` 扫描循环。
+源码点(**非小开关,多调用点**):`Room::isOutdated()` `room.cpp:381` / `RoomThread::isOutdated()` `roomthread.cpp:187`。
 
-- **推荐 gate 点:在 `_refreshMd5()` 的 per-room 失效扫描处**按 `invalidateRoomsOnPackageChange` 跳过,从源头中和触发,而非逐个改 6 个消费者(避免 `isOutdated()` 清 `md5` 的副作用扩散)。
-- `tempBanByIp=false` 时,gate `room.cpp:269` 与 `room.cpp:665` 两处 `temporarilyBan` 调用。
+已落地(fork 提交 `5e8a2e3`):**比计划更优的单点 gate**——直接在两个 `isOutdated()` 入口按 `invalidateRoomsOnPackageChange` short-circuit(在 `md5=""` 副作用前 return false),一处覆盖全部消费者(开局/退房/gameOver/线程回收 + lobby.cpp 房列表 outdated 标志,实测比计划列的 6 处更多)。**关键补救**:`_refreshMd5()` 结尾还有个**无条件**踢光大厅的循环(isOutdated 门盖不住),另用 flag 包住。tempBan 两处(`room.cpp:270` 换房 / `room.cpp:672` gameOver)用 `tempBanByIp` 守卫。默认 true=上游行为。**真 asio + 对照验证**:webonly 下 `disable sp` 后大厅玩家留连;upstream 下同命令刷新瞬间踢人。
 
 验收:
 - 改包/重启后等待房间和运行中房间不因 MD5 outdate 被踢。
@@ -214,8 +213,8 @@
 1. **W0-0**:推 fork 仓库 + 配置项落位(默认兼容上游)。✅
 2. **W0-1**:`checkClientMd5` 登录跳过(单点,最小)。✅
 3. **W0-2**:Web manifest/capabilities + 用 manifest 统一包集合、删 ART_PACKS 三处硬编码(同时修 P7-006/P7-032 与 R-ASSET-MISMATCH)。✅
-4. **W0-3**:`invalidateRoomsOnPackageChange`/`tempBanByIp` 房间过期与封禁 gating(触面较深,从 `_refreshMd5` 扫描处中和)。← 下一步
-5. **W0-4**:部署文档去 FK_MD5 主流程 + Docker 源切到 fork。
+4. **W0-3**:`invalidateRoomsOnPackageChange`/`tempBanByIp` 房间过期与封禁 gating(触面较深,从 `_refreshMd5` 扫描处中和)。✅
+5. **W0-4**:部署文档去 FK_MD5 主流程 + Docker 源切到 fork。← 下一步
 6. **W1-1**:Quit 二次确认(AddRobot 显隐已在 W0-2 完成)。
 7. **W1-2/W1-3**:按当前启用扩展包补 QmlMark 点击型 / utility 框。
 8. **W2-1/W2-2**:房间预设和禁将方案。
