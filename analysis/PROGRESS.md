@@ -35,6 +35,9 @@
 
 ## 变更日志
 
+- 2026-06-11 **追加规划 IG-8:VPS 扩展包武将立绘+名称不显示(纯规划+调研,未改产品代码)**。用户报 bug,派只读 Explore 通读两条加载链。**关键判断**:名称(`tr(general)` 走 VM translate 缓存)和立绘(`generalPic(name,ext)`,ext 走 `GetGeneralData.extension`)**都依赖客户端 VM 加载了该扩展包 lua**(由 `/fk/file-list.json` 的 `extra` 决定挂载)——**二者同时缺 = lua 没挂载**(`Fk.generals[sp_xxx]` nil→回退 diaochan→extension 错+翻译查不到),只缺图才是图片文件没同步。本地实测 sync 正常(file-list extra sp:114/standard_ex:51、sp/image/generals 64 张),dockerignore 已放行 sp/standard_ex/utility 全树,故是 **VPS 部署侧问题**(同 2g/gamebg 类)。**发现确定的代码盲区**:`sync-fk-assets.mjs:162` generals copyImages 没传 `record=true`→武将立绘不进 images.json→`verify-fk-assets.mjs`/`enumerate.ts` 完全不校验武将立绘→缺失时静默放过(gamebg 当初同样漏网)。定铁律:**IG-8 第一步 VPS 取证**(file-list 有无 sp extra、`/srv/fk/packages/sp/{lua,image/generals}` 是否齐、立绘 URL 200/404)锁定断点(build 源不全/deploy.sh 没同步/lua 出图没出),**再修部署链 + 根治 verify 盲区**(把 generals 纳入校验,缺则部署失败)。memory 新增 `vps-extension-general-assets-missing`。
+
+
 - 2026-06-11 **追加规划 IG-6/IG-7(纯规划,未改产品代码)**。用户在 FEAT-IG 五项完成后追加两项,按"先读后写"派 2 只读 Explore 核实源码后记入 `FEAT_IG_plan.md` + 路线图 W1-5。**IG-6 选将页右键/长按看武将技能**:核实原版 `ChooseGeneralBox.qml:175` 的 `onRightClicked` 只做 FreeAssign 作弊**不是看技能**;看技能走 `GetGeneralDetail(name)`(`client_util.lua:27-64`,按**武将名**返回技能数组,与现有按 player id 的 `GetPlayerSkills` 不同——选将时还没 player)。故定为 web 友好增强、数据源照搬 GetGeneralDetail:新桥 `__fkGeneralDetail` + 选将候选 GeneralCard 接 useLongPress(已有)/右键 + 复用 GeneralDetailModal(加按武将名模式)。**IG-7 修复同账号顶号"反向踢"bug**:现象=新客户端登录反被老客户端踢。核实 fork `auth.cpp:471-496` 的 takeover 两支(局内 `reconnect`/大厅 `takeoverInLobby`,serverplayer.cpp)**方向都正确(新接管、踢旧)**;网关按 **uuid** park 老连接 25s,uuid 存 localStorage 同浏览器复用、不同客户端不同。**真因未坐实**——agent 的"Router race"是臆测未证。定铁律:**IG-7 第一步必须真机复现脚本(两 WS 同账号不同 uuid)锁定真实踢号路径再最小修复**,不盲改正确的 takeover 主路径。memory 新增 `same-account-takeover-bug`(调研锚点 + 候选真因 + 复现方案)。
 
 

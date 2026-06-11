@@ -70,6 +70,14 @@
 - **再按真因最小修复**,不动正确的 takeover 主路径。可能在网关(park 命中时主动 close 旧 asio 而非仅解绑)或 fork(setState/onDisconnected 时序)。
 - **自验**:复现脚本从"新被踢"转为"旧被踢、新进大厅",且不回归刷新重连(refresh-test)与局内 reconnect。
 
+### IG-8 · 修复:VPS 扩展包武将立绘+名称不显示(用户报 bug,先取证再修)
+- **现象**:VPS 上标准包外(sp/界限突破等)武将**立绘和名称都不显示**,标准包正常;本地正常。
+- **已核实(见 memory `vps-extension-general-assets-missing`)**:名称(`tr(general)` 走 VM translate 缓存)和立绘(`generalPic(name,ext)`,ext 走 `GetGeneralData.extension`)**都依赖客户端 VM 加载了该扩展包 lua**(由 `/fk/file-list.json` 的 `extra` 决定挂载)。**二者同断 = 扩展包 lua 没挂载**(`Fk.generals[sp_xxx]` nil → 回退 diaochan → extension 错+翻译缺);只缺立绘才是图片文件没同步。本地 sync 正常(file-list extra sp:114、sp/image/generals 64 张),故是 VPS 部署侧问题。
+- **确认的代码盲区(无论 VPS 真因都修)**:`sync-fk-assets.mjs:162` generals copyImages 没 `record=true` → 武将立绘**不进 images.json** → `verify-fk-assets.mjs`/`enumerate.ts` 完全不校验武将立绘 → 缺失时静默放过(同 gabmeg 当初漏网)。**修**:把 generals 纳入 images.json + verify 枚举(或单独校验扩展包 generals 非空),让缺资源时部署失败而非静默坏。
+- **第一步必须 VPS 取证**(实现纪律 5,不盲改):VPS 跑 `cat /srv/fk/file-list.json|grep -o '"base":"sp"'`、`ls /srv/fk/packages/sp/lua|head`、`ls /srv/fk/packages/sp/image/generals|wc -l`、浏览器 Network 看 sp 武将立绘 URL 200/404 + SetServerSettings manifest enabledPacks。据此区分:① build 时 `FreeKill-release/packages/{sp,…}` 源不全→sync `[extension] missing pack`;② deploy.sh 没同步扩展包树(2g 同类运维坑);③ lua 出了 image 没出。
+- **再按真因修**:多半在部署链(deploy.sh/Docker 构建源/sync 源回退),配合上面 verify 盲区修复(根治"静默坏")。可参考 `docker/vps-audio-forensics.sh` 写一个 generals 取证脚本。
+- **自验**:VPS 重建后扩展包武将立绘+名称显示;负向测试(藏一个 sp 立绘)verify 能 fail。
+
 ---
 
 ## 风险与边界
