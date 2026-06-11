@@ -3,11 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-11 06:03:11　·　跟踪文件数: 2408
+最后更新: 2026-06-11 06:32:06　·　跟踪文件数: 2414
 
 ## 自上次重建以来的改动
 
-- 修改 3: freekill-web/analysis/PROGRESS.md, freekill-web/docker/vps-audio-forensics.sh, freekill-web/docker/VPS_UPDATE_GUIDE.md
+- 新增 6: freekill-web/analysis/W1-RES_plan.md, freekill-web/apps/web/src/diag/assetCheck.ts, freekill-web/apps/web/src/diag/assetPrecache.ts, freekill-web/packages/assets/scripts/verify-fk-assets.mjs, freekill-web/packages/assets/src/enumerate.ts, freekill-web/packages/assets/test/enumerate.test.ts
+- 修改 9: freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/package.json, freekill-web/apps/web/src/components/VmDebugPanel.tsx, freekill-web/docker/caddy.Dockerfile, freekill-web/docker/dockerignore.repo-root, freekill-web/docker/vps-audio-forensics.sh, freekill-web/docker/VPS_UPDATE_GUIDE.md, freekill-web/packages/assets/package.json, freekill-web/pnpm-lock.yaml
 
 ## Spike 验证状态
 
@@ -62,6 +63,7 @@
     PROJECT_STATE.md
     W0-2_plan.md
     W1-1_plan.md
+    W1-RES_plan.md
     WEB_ONLY_ROADMAP.md
   📁 apps
     📁 gateway
