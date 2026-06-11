@@ -14,7 +14,7 @@ import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
 import { useRef, useState } from 'react'
-import { generalPic, photoBack, rolePic, deathPic, chainPic, markPicCandidates } from './skin.js'
+import { generalPic, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
 import { JudgeArea } from './JudgeArea.js'
@@ -149,18 +149,19 @@ export function Photo({ player, playerNum, isSelf }: {
         <img src={deathPic(player.role)} alt="阵亡" style={styles.death} draggable={false} onError={hideImg} />
       )}
 
-      {/* detail button (top-left) — opens the player/general detail panel. QML uses
-          right-click / long-press (BasicItem.qml); a button is the reliable web
-          equivalent. stopPropagation so it doesn't trigger target selection.
-          showDetail() skips only pid 0/-1 (Photo.qml:521-524) — bots (other
-          negative ids) DO get a detail panel. */}
-      {player.id !== 0 && player.id !== -1 && (
-        <button
-          style={styles.detailBtn}
-          title="查看武将详情"
-          onClick={(e) => { e.stopPropagation(); useDetailStore.getState().open(player.id) }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >ⓘ</button>
+      {/* kingdom icon (top-left) — mirrors GeneralCardItem.qml's faction badge
+          (top-left corner). The general-detail panel opens via right-click /
+          long-press on the photo (openDetail), so the old ⓘ button here is gone
+          and this corner now shows the 势力 icon (W1-1 2d). Hidden until a
+          kingdom is known (general chosen). */}
+      {player.kingdom && (
+        <img
+          src={kingdomIcon(player.kingdom)}
+          alt={player.kingdom}
+          style={styles.kingdomIcon}
+          draggable={false}
+          onError={hideImg}
+        />
       )}
 
       {/* per-player thinking countdown (Photo.qml progressBar, MoveFocus-driven) */}
@@ -271,5 +272,7 @@ const styles: Record<string, React.CSSProperties> = {
   death: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%)', width: 56, height: 56, zIndex: 7 },
   // detail (ⓘ) button, top-left corner — reliable web replacement for QML
   // right-click/long-press. Small, semi-transparent so it doesn't fight the art.
-  detailBtn: { position: 'absolute', left: 0, top: 0, width: 25, height: 25, padding: 0, zIndex: 8, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 12, lineHeight: '18px', cursor: 'pointer', display: 'grid', placeItems: 'center', pointerEvents: 'auto' },
+  // Kingdom faction icon, top-left corner (GeneralCardItem.qml badge). Slightly
+  // inset, above the portrait; non-interactive (detail opens via right-click/long-press).
+  kingdomIcon: { position: 'absolute', left: 1, top: 1, width: 22, height: 22, zIndex: 8, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.6))' },
 }
