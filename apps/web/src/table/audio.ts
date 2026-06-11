@@ -94,9 +94,25 @@ export function playBgm(): void {
     bgmEl.loop = true
     bgmEl.volume = bgmVolume
   }
-  // play() may reject if not yet unlocked; the first user gesture (unlockAudio)
-  // retries this, so BGM starts even when StartGame fired before any click.
-  bgmEl.play().catch(() => { /* autoplay blocked until a user gesture */ })
+  // play() may reject when StartGame fires with no RECENT user gesture (autoplay
+  // policy resets between gestures). If so, retry on the very next gesture — and
+  // keep doing so until it actually starts. (A bare unlockAudio early-returns once
+  // unlocked, so BGM needs its own gesture-retry rather than piggybacking on it.)
+  bgmEl.play().then(() => { bgmRetryArmed = false }).catch(() => armBgmGestureRetry())
+}
+
+let bgmRetryArmed = false
+function armBgmGestureRetry(): void {
+  if (bgmRetryArmed) return
+  bgmRetryArmed = true
+  const retry = () => {
+    bgmRetryArmed = false
+    if (bgmWanted && !bgmMuted) playBgm()
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pointerdown', retry, { once: true })
+    window.addEventListener('keydown', retry, { once: true })
+  }
 }
 
 export function stopBgm(): void {
