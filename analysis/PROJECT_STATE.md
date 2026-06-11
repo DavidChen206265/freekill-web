@@ -3,12 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-11 05:05:50　·　跟踪文件数: 2402
+最后更新: 2026-06-11 05:48:24　·　跟踪文件数: 2408
 
 ## 自上次重建以来的改动
 
-- 新增 4: freekill-web/analysis/W1-1_plan.md, freekill-web/apps/gateway/scripts/w1-a1-takeover-probe.mjs, freekill-web/apps/web/public/fk/image/gamebg.jpg, freekill-web/apps/web/src/table/LoadingRoom.tsx
-- 修改 15: freekill-web/apps/web/public/fk/anim.json, freekill-web/apps/web/public/fk/audio.json, freekill-web/apps/web/public/fk/file-list.json, freekill-web/apps/web/public/fk/images.json, freekill-web/apps/web/scripts/sync-fk-assets.mjs, freekill-web/apps/web/src/components/CreateRoomDialog.tsx, freekill-web/apps/web/src/pages/LobbyPage.tsx, freekill-web/apps/web/src/pages/LoginPage.tsx, freekill-web/apps/web/src/stores/miscStore.ts, freekill-web/apps/web/src/stores/vmStore.ts, freekill-web/apps/web/src/table/audio.ts, freekill-web/apps/web/src/table/GameLogPanel.tsx …
+- 新增 6: freekill-web/apps/web/assets/audio/drawCard.mp3, freekill-web/apps/web/assets/audio/moveCard.mp3, freekill-web/apps/web/public/fk/audio/system/drawCard.mp3, freekill-web/apps/web/public/fk/audio/system/moveCard.mp3, freekill-web/docker/vps-audio-forensics.sh, freekill-web/docker/VPS_UPDATE_GUIDE.md
+- 修改 9: freekill-web/analysis/PROGRESS.md, freekill-web/analysis/W1-1_plan.md, freekill-web/apps/web/public/fk/anim.json, freekill-web/apps/web/public/fk/audio.json, freekill-web/apps/web/public/fk/file-list.json, freekill-web/apps/web/public/fk/images.json, freekill-web/apps/web/scripts/sync-fk-assets.mjs, freekill-web/apps/web/src/stores/vmStore.ts, freekill-web/apps/web/src/table/audio.ts
 
 ## Spike 验证状态
 
@@ -72,6 +72,7 @@
       package.json
       tsconfig.json
     📁 web
+      📁 assets
       📁 public
       📁 scripts
       📁 src
@@ -112,6 +113,8 @@
     freekill.server.config.json
     gateway.Dockerfile
     README.md
+    VPS_UPDATE_GUIDE.md
+    vps-audio-forensics.sh
   📁 packages
     📁 assets
       📁 scripts
