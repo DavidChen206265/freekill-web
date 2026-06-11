@@ -13,7 +13,15 @@
 import { log } from '../diag/log.js'
 
 const FK = '/fk'
-const ART_PKGS = ['standard', 'standard_cards', 'maneuvering']
+// Packages that carry audio. Defaults to the built-in three; the server manifest
+// (W0-2 SetServerSettings → serverManifestStore) replaces this with the real
+// enabled-pack set at login via setAudioPacks(), so extension-pack audio is found
+// instead of silently dropping (P7-032). Stays at defaults under old servers.
+let ART_PKGS: string[] = ['standard', 'standard_cards', 'maneuvering']
+/** Replace the audio-pack candidate set from the server manifest's enabledPacks. */
+export function setAudioPacks(packs: string[]): void {
+  if (Array.isArray(packs) && packs.length > 0) ART_PKGS = [...packs]
+}
 
 let unlocked = false
 let volume = 0.7

@@ -7,6 +7,7 @@
 
 import { useGameStore } from '../stores/gameStore.js'
 import { useConnectionStore } from '../stores/index.js'
+import { useServerManifestStore } from '../stores/serverManifestStore.js'
 import { deriveWaitingState } from './waitingState.js'
 
 export function WaitingRoom() {
@@ -14,10 +15,14 @@ export function WaitingRoom() {
   const selfId = useGameStore((s) => s.selfId)
   const capacity = useGameStore((s) => s.capacity)
   const client = useConnectionStore((s) => s.client)
+  // Server-advertised features (W0-2). undefined until a manifest arrives → keep
+  // current behavior; once received, AddRobot is gated on webFeatures.
+  const received = useServerManifestStore((s) => s.received)
+  const webFeatures = useServerManifestStore((s) => s.webFeatures)
 
   const list = Object.values(players)
   const { playerNum, isFull, showReady, showAddRobot, showStart, startEnabled, isReady } =
-    deriveWaitingState(players, selfId, capacity)
+    deriveWaitingState(players, selfId, capacity, received ? webFeatures : undefined)
 
   const notify = (cmd: string) => () => client?.notify(cmd, '')
 

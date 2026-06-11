@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import {
   generalPic, generalAvatar, cardPic, cardPicCandidates, equipIcon, equipIconCandidates, delayedTrickPic,
   photoBack, rolePic, magatama, shieldPic, deathPic, generalCardBorder, kingdomIcon,
-  chosenPic, delayedTrickSealedPic,
+  chosenPic, delayedTrickSealedPic, setArtPacks,
 } from '../src/table/skin.js'
 
 describe('skin path resolution', () => {
@@ -86,5 +86,29 @@ describe('skin path resolution', () => {
     expect(magatama(9)).toBe('/fk/image/photo/magatama/3.png')
     expect(magatama(-1)).toBe('/fk/image/photo/magatama/0.png')
     expect(magatama(2, true)).toBe('/fk/image/photo/magatama/2-heg.png')
+  })
+
+  it('setArtPacks (W0-2) extends the candidate scan to enabled extension packs (P7-032)', () => {
+    // Before: extension-pack card art is never scanned (only the 3 builtins).
+    expect(cardPicCandidates('dummy')).toEqual([
+      '/fk/packages/standard/image/card/dummy.png',
+      '/fk/packages/standard_cards/image/card/dummy.png',
+      '/fk/packages/maneuvering/image/card/dummy.png',
+    ])
+    // Manifest arrives with the real enabled set → candidates now include utility/sp.
+    setArtPacks(['standard', 'standard_cards', 'maneuvering', 'sp', 'standard_ex', 'utility'])
+    expect(cardPicCandidates('dummy')).toEqual([
+      '/fk/packages/standard/image/card/dummy.png',
+      '/fk/packages/standard_cards/image/card/dummy.png',
+      '/fk/packages/maneuvering/image/card/dummy.png',
+      '/fk/packages/sp/image/card/dummy.png',
+      '/fk/packages/standard_ex/image/card/dummy.png',
+      '/fk/packages/utility/image/card/dummy.png',
+    ])
+    // Empty/invalid is ignored (keeps current set — never wipes to nothing).
+    setArtPacks([])
+    expect(cardPicCandidates('dummy').length).toBe(6)
+    // Restore defaults so other tests are unaffected by this module-level mutation.
+    setArtPacks(['standard', 'standard_cards', 'maneuvering'])
   })
 })

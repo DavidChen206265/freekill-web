@@ -9,8 +9,16 @@
 
 const FK = '/fk'
 const PHOTO = `${FK}/image/photo`
-// Packages that actually carry general/card art (mirrors the sync set).
-const ART_PKGS = ['standard', 'standard_cards', 'maneuvering']
+// Packages that actually carry general/card art. Defaults to the built-in three;
+// the server manifest (W0-2 SetServerSettings → serverManifestStore) replaces this
+// with the real enabled-pack set at login via setArtPacks(), so extension-pack art
+// (utility/sp/standard_ex/…) is found instead of silently falling back (P7-032).
+// Stays at the defaults under old servers that send no manifest.
+let ART_PKGS: string[] = ['standard', 'standard_cards', 'maneuvering']
+/** Replace the art-pack candidate set from the server manifest's enabledPacks. */
+export function setArtPacks(packs: string[]): void {
+  if (Array.isArray(packs) && packs.length > 0) ART_PKGS = [...packs]
+}
 
 // Manifest of per-package card-art paths that exist under /fk (built at sync time,
 // see sync-fk-assets.mjs → images.json). Used to prune candidate lists so the client
@@ -224,5 +232,3 @@ export function chosenPic(): string {
 export function statePic(state: string): string {
   return `${PHOTO}/state/${state}.png`
 }
-
-export { ART_PKGS }

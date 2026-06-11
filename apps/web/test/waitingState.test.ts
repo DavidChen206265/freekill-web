@@ -45,4 +45,24 @@ describe('deriveWaitingState', () => {
     expect(deriveWaitingState(players, 2, 2).isReady).toBe(true)
     expect(deriveWaitingState(players, 1, 2).isReady).toBe(false)
   })
+
+  describe('AddRobot server-feature gate (W0-2 / P4-004)', () => {
+    const owner = { 1: mk(1, { owner: true }) } // owner, not full (capacity 2)
+
+    it('undefined features (old server / pre-login) keeps AddRobot visible', () => {
+      expect(deriveWaitingState(owner, 1, 2, undefined).showAddRobot).toBe(true)
+    })
+
+    it('features including AddRobot keeps it visible', () => {
+      expect(deriveWaitingState(owner, 1, 2, ['AddRobot', 'ChangeRoom']).showAddRobot).toBe(true)
+    })
+
+    it('features omitting AddRobot hides it', () => {
+      expect(deriveWaitingState(owner, 1, 2, ['ChangeRoom']).showAddRobot).toBe(false)
+    })
+
+    it('empty features list hides AddRobot (server explicitly advertised none)', () => {
+      expect(deriveWaitingState(owner, 1, 2, []).showAddRobot).toBe(false)
+    })
+  })
 })

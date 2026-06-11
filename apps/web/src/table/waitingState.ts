@@ -22,6 +22,10 @@ export function deriveWaitingState(
   players: Record<number, GamePlayer>,
   selfId: number | undefined,
   capacity: number,
+  // Server-advertised Web features (W0-2 manifest webFeatures). When undefined,
+  // the server didn't tell us (old server / pre-login) → keep current behavior and
+  // don't hide AddRobot. Only an explicit list that omits "AddRobot" hides it.
+  serverFeatures?: string[],
 ): WaitingState {
   const list = Object.values(players)
   const playerNum = list.length
@@ -30,6 +34,7 @@ export function deriveWaitingState(
   const isOwner = !!self?.owner
   const isReady = !!self?.ready
   const isAllReady = list.filter((p) => !p.owner).every((p) => p.ready)
+  const robotAllowed = serverFeatures === undefined || serverFeatures.includes('AddRobot')
   return {
     playerNum,
     isFull,
@@ -37,7 +42,7 @@ export function deriveWaitingState(
     isReady,
     isAllReady,
     showReady: !isOwner,
-    showAddRobot: isOwner && !isFull,
+    showAddRobot: isOwner && !isFull && robotAllowed,
     showStart: isOwner && isFull,
     startEnabled: isOwner && isFull && isAllReady,
   }

@@ -12,6 +12,9 @@ import { useGameStore } from './gameStore.js'
 import { useTimerStore } from './timerStore.js'
 import { useLogStore } from './logStore.js'
 import { isRoomBootstrap } from './roomRouting.js'
+import { useServerManifestStore, parseManifest } from './serverManifestStore.js'
+import { setArtPacks } from '../table/skin.js'
+import { setAudioPacks } from '../table/audio.js'
 
 // ---- connection ----
 interface ConnectionState {
@@ -360,6 +363,24 @@ function routeEnvelope(env: Envelope): void {
     case 'UpdateRoomList': {
       const rooms = Array.isArray(data) ? data.map(parseRoom).filter((r): r is RoomInfo => r !== null) : []
       useLobbyStore.setState({ rooms })
+      break
+    }
+    case 'SetServerSettings': {
+      // [motd, hiddenPacks, enabledFeatures, manifest?] — the Web-only fork (W0-2)
+      // appends a 4th element with { webOnly, serverBuild, assetVersion,
+      // enabledPacks, webFeatures }. Old servers send only 3 → manifest stays null
+      // and consumers keep current behavior. enabledPacks becomes the single source
+      // of truth for art/audio pack resolution (replaces hardcoded ART_PKGS).
+      if (Array.isArray(data)) {
+        const manifest = parseManifest(data[3])
+        if (manifest) {
+          useServerManifestStore.setState(manifest)
+          if (manifest.enabledPacks.length > 0) {
+            setArtPacks(manifest.enabledPacks)
+            setAudioPacks(manifest.enabledPacks)
+          }
+        }
+      }
       break
     }
     case 'Chat': {
