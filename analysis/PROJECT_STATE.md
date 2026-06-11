@@ -3,7 +3,7 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-10 22:28:29　·　跟踪文件数: 2389
+最后更新: 2026-06-11 03:33:09　·　跟踪文件数: 2396
 
 ## 自上次重建以来的改动
 
@@ -25,6 +25,11 @@
 - ✓ FreeKill-release
 - ✓ FreeKill-sourcecode
 - freekill-core Lua 文件数: 295
+
+## 服务端 fork(freekill-web-asio,独立仓库)
+
+- ✓ freekill-web-asio(origin: DavidChen206265/freekill-web-asio,upstream: Qsgs-Fans/freekill-asio diff 基线)
+- HEAD: fc03c24 W0-2: downlink Web manifest/capabilities in SetServerSettings
 
 ## 项目文件结构(自有代码)
 
@@ -53,9 +58,10 @@
 📁 freekill-web
   📁 analysis
     freekill_web_implementation_plan.md
-    M3-M6_detailed_plan.md
     PROGRESS.md
     PROJECT_STATE.md
+    W0-2_plan.md
+    WEB_ONLY_ROADMAP.md
   📁 apps
     📁 gateway
       📁 scripts
@@ -128,9 +134,12 @@
       package.json
       tsconfig.json
   📁 scripts
+    wsl-build-fork.sh
     wsl-clean-asio-pkgs.sh
+    wsl-fork-foreground.sh
     wsl-probe-deps.sh
     wsl-run-asio.sh
+    wsl-run-fork.sh
   LICENSE
   package.json
   pnpm-lock.yaml

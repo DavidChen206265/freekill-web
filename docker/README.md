@@ -82,7 +82,7 @@ docker run --rm -v freekill-web_asio-server:/s -v "$PWD":/b alpine \
 
 ## 已知限制 / 注意
 
-- **仅 freekill-core**:gateway 的 `FK_MD5` 默认值正好匹配 freekill-core。**若以后加扩展包**,asio 的 flist MD5 会变,握手会被拒——届时需重算 MD5 并在 compose 的 `gateway.environment.FK_MD5` 填新值(或等 M5 的 `computeFlistMd5` 生成器)。
+- **当前上游兼容模式**:gateway 的 `FK_MD5` 默认值匹配 freekill-core。若在未落地 Web-only fork 前加扩展包,asio 的 flist MD5 会变,需重算 MD5 并在 compose 的 `gateway.environment.FK_MD5` 填新值。Web-only P0 落地后此项改由 manifest/capabilities 管资源版本,MD5 仅作诊断。
 - **登录凭据**:浏览器把账号密码明文存 localStorage(R-CRED,为无感重连)。公网生产前建议评估;后续会换 session token。
 - **asio 防退临时封禁**:`tempBanTime: 20`(分钟)——中途退出运行中的游戏会临时封禁该 IP。多人同 NAT 出口共享 IP 时注意(可在 `freekill.server.config.json` 调小或设 0)。
 - **单 asio 进程**:不可横向伸缩(R-SCALE),先单服;容量靠 `config.capacity` + 压测定上限。

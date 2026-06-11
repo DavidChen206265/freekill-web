@@ -1,6 +1,6 @@
 # freekill-web
 
-把 [FreeKill](https://github.com/Notify-ctrl/FreeKill)(开源三国杀)做成**网页版**:不重写任何游戏规则,而是用 **wasmoon 在浏览器里直接托管原版客户端 Lua**(`freekill-core`),React + DOM 只负责渲染,Node 网关做 WSS↔TCP 协议适配,后端仍是原版 `freekill-asio`。
+把 [FreeKill](https://github.com/Notify-ctrl/FreeKill)(开源三国杀)做成**网页版**:不重写任何游戏规则,而是用 **wasmoon 在浏览器里直接托管原版客户端 Lua**(`freekill-core`),React + DOM 只负责渲染,Node 网关做 WSS↔TCP 协议适配,后端当前接 `freekill-asio`,Web-only 路线允许维护 `freekill-web-asio` 小 fork。
 
 ```text
 Browser
@@ -30,14 +30,14 @@ freekill-asio  (C++ / Linux,唯一权威服务端)
 | M2 牌桌 | ✅ | 浏览器内客户端 VM、座位、卡牌飞行动画、出牌交互(ui_emu)、全量请求弹窗、真实卡面/立绘、Photo 子区(血珠/双将/装备/判定/标记)、选将界面、结算 |
 | M3 健壮性 | ✅ | 路由修复 + 断线重连 / 旁观(localStorage 同凭据无感重连触发 asio 全量重发) |
 | M4 体验完备 | ✅ | 交互补全(Poxi/CardsAndChoice/MoveCardInBoard/Interaction 子面板/真拖拽框)+ 视觉动画音频(指示线/Emotion 精灵/受击抖动/濒死阵亡/技能发动框/音频/Toast/桌面牌注脚) |
-| M5 扩展 + i18n + 混连 | 进行中 | **M5-a 单局完整度**(MiscStatus 回合/计时/牌堆数、标记区完整化)✅ · **M5-b 扩展包**(加载 utility+standard_ex+sp、QmlMark 文本标记、ChooseSkillBox)✅(更多 utility 共享框 / 点击查看型 QmlMark 进行中) · **M5-c MD5 manifest**(字节级复现 asio flist MD5,对真 asio 双验证)✅ · M5-d i18n 全量 / M5-e Qt↔Web 混连待做 |
-| M6 生产化 | 计划 | R-CRED 凭据(明文→session token)、压测/容量、横向伸缩 |
+| M5 Web 扩展底座 | 进行中 | **M5-a 单局完整度**(MiscStatus 回合/计时/牌堆数、标记区完整化)✅ · **M5-b 扩展包**(加载 utility+standard_ex+sp、QmlMark 文本标记、ChooseSkillBox)✅(更多 utility 共享框 / 点击查看型 QmlMark 进行中) · **M5-c MD5 算法**(字节级复现 asio flist MD5,对真 asio 双验证)✅,现降级为诊断/兼容工具 |
+| Web-only 路线 | 计划 | `freekill-web-asio` 小 fork、跳过 MD5 准入、manifest/capabilities、账户个性化、生产化、创意工坊/AI |
 
 附:**PWA 化** —— `/fk` 资源经 Service Worker 本地缓存(治偶发缺语音/动画),app 壳可安装。
 
 测试:`web 120` · `protocol 20` · `lua-native 16`(+ shared / assets;gateway 活体握手与 e2e 需本地 asio,默认 skip),全绿。
 
-未完成:i18n 全量(接 VM `Fk:translate`)、Qt↔Web 混连验收、回放/录像/战绩、大厅设置/资料库丰富度。
+未完成:Web-only 服务端小 fork、manifest/capabilities、i18n 全量(接 VM `Fk:translate`)、更多扩展包 UI、回放/录像/战绩、大厅设置/资料库丰富度、账户个性化与生产化。
 
 ## 仓库结构
 
@@ -48,7 +48,7 @@ monorepo(pnpm workspace)。所有代码均为本仓库自有;原版 `freekill-co
 | `packages/protocol` | CBOR packet 编解码(裸帧增量解码、字节串 0x40、Qt-zlib)、packet 类型、envelope 转换、zod schema |
 | `packages/lua-native` | 客户端 `fk.*` 原生面(`fkprelude.lua` + JS 叶子函数)+ boot 序列;node / browser 同构。把原版客户端 Lua 跑起来的关键 shim |
 | `packages/shared` | 前后端共享类型 + 同构结构化 Logger |
-| `packages/assets` | assets-manifest 生成 + asio flist MD5 复现(`computeFlistMd5` / `compute-md5.mjs` CLI) |
+| `packages/assets` | assets-manifest 生成 + asio flist MD5 复现(`computeFlistMd5` / `compute-md5.mjs` CLI,Web-only 后主要作诊断/兼容) |
 | `apps/gateway` | Node + TS 网关:WSS↔asio TCP、登录代理、reply requestId 回填、GameLog 缓冲重放、断线 park 宽限 |
 | `apps/web` | React + Vite 前端:wasmoon 集成、DOM fixed-stage 牌桌、Zustand store、SkinBank 路径解析、PWA |
 | `packages-upstream/` | **上游扩展包镜像**(复刻 FreeKill `packages/` 结构,~1.5GB 内容 gitignore,仅 `.gitkeep`+README 入库保留结构)。sync 优先从这里取包,缺失回退仓库外 `FreeKill-release/packages`。见 `packages-upstream/README.md` |
@@ -88,11 +88,11 @@ pnpm --filter @freekill-web/web dev                          # 默认 :5174
 
 ### 启用更多扩展包
 
-asio 拷入对应包并在 `packages.db` 启用 → web 把包名加进 sync 的 `EXTENSION_PACKS` 重跑 `sync-assets`(各包 lua 挂 VFS,美术/anim/audio 走懒加载)→ 因包集合变更,握手 flist MD5 会变,用 `packages/assets` 的 `compute-md5.mjs` 重算并填入网关 `FK_MD5`。当前已加载 `utility` + `standard_ex` + `sp`。
+asio 拷入对应包并在 `packages.db` 启用 → web 把包名加进 sync 的 `EXTENSION_PACKS` 重跑 `sync-assets`(各包 lua 挂 VFS,美术/anim/audio 走懒加载)。当前上游兼容模式下包集合变化仍会影响握手 flist MD5,可用 `packages/assets` 的 `compute-md5.mjs` 重算并填入网关 `FK_MD5`;Web-only P0 落地后改由 manifest/capabilities 管启用包与资源版本。当前已加载 `utility` + `standard_ex` + `sp`。
 
 ## 部署
 
-Linux VPS + 域名,Docker Compose 一键起全栈(asio + gateway + caddy),Caddy 自动 HTTPS/WSS。完整步骤见 **`docker/README.md`**(含 `.dockerignore` 上下文根、audio/anim 资源、扩展包 MD5、数据卷备份等注意事项)。
+Linux VPS + 域名,Docker Compose 一键起全栈(asio + gateway + caddy),Caddy 自动 HTTPS/WSS。完整步骤见 **`docker/README.md`**(含 `.dockerignore` 上下文根、audio/anim 资源、当前兼容模式 MD5、数据卷备份等注意事项)。
 
 ## 上游参考(只读,不在本仓库)
 
