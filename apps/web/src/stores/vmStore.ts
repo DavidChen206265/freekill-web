@@ -238,7 +238,16 @@ export const useVmStore = create<VmState>((set, get) => ({
         // calls roomScene.activate() (RoomLogic.js), which restarts the bar. The
         // ui_emu click loop (UpdateRequestUI) and non-request notifies do NOT.
         if (ACTIVATE_COMMANDS.has(e.command)) useTimerStore.getState().activate()
-        if (e.command === 'MoveCards') { useCardStore.getState().applyMoveCards(e.data); playMoveCardsSound(e.data) }
+        if (e.command === 'MoveCards') {
+          useCardStore.getState().applyMoveCards(e.data)
+          playMoveCardsSound(e.data)
+          // The VM only emits UpdateDrawPile from RefreshStatusSkills (QML polls it on
+          // a 200ms timer); we have no such poll, so the count would go stale during
+          // play. draw_pile only changes on a move → re-read it from the VM mirror
+          // after each MoveCards (event-driven, avoids a doString-leaking poll). (#2)
+          const vm = get().vm
+          if (vm) { try { useMiscStore.getState().setPileNum(vm.readPileNum()) } catch { /* non-fatal */ } }
+        }
         else if (e.command === 'DestroyTableCard') useCardStore.getState().destroyTableCards((e.data as number[]) ?? [])
         else if (e.command === 'DestroyTableCardByEvent') useCardStore.getState().destroyTableCardsByEvent(Number(e.data) || 0)
         else if (e.command === 'UpdateRequestUI') {

@@ -57,6 +57,18 @@ export function unlockAudio(): void {
     a.muted = true
     a.play().catch(() => { /* ignore */ })
   } catch { /* ignore */ }
+  // If a BGM start was requested before any gesture (e.g. auto-login → StartGame
+  // before the user clicked), kick it now that we're unlocked.
+  if (bgmWanted) playBgm()
+}
+
+// Unlock on the FIRST user gesture anywhere — covers auto-login (no login click)
+// and any flow that reaches the table without going through LoginPage's submit.
+// Browsers only let audio play after a gesture; this guarantees we catch one.
+if (typeof window !== 'undefined') {
+  const onFirstGesture = () => { unlockAudio() }
+  window.addEventListener('pointerdown', onFirstGesture, { once: true })
+  window.addEventListener('keydown', onFirstGesture, { once: true })
 }
 
 export function setVolume(v: number): void { volume = Math.max(0, Math.min(1, v)) }
@@ -68,23 +80,27 @@ export function setVolume(v: number): void { volume = Math.max(0, Math.min(1, v)
 // unlockAudio() (login click) has run; we (re)try on start. Separate volume from
 // SFX, with a mute toggle persisted to localStorage.
 let bgmEl: HTMLAudioElement | null = null
+let bgmWanted = false // a playBgm() was requested; retried on unlock if it was blocked
 let bgmMuted = (() => { try { return localStorage.getItem('fk-bgm-muted') === '1' } catch { return false } })()
 let bgmVolume = (() => { try { const v = Number(localStorage.getItem('fk-bgm-volume')); return v >= 0 && v <= 1 ? v : 0.4 } catch { return 0.4 } })()
 
 export function isBgmMuted(): boolean { return bgmMuted }
 
 export function playBgm(): void {
+  bgmWanted = true
   if (bgmMuted) return
   if (!bgmEl) {
     bgmEl = new Audio(`${FK}/audio/system/bgm.mp3`)
     bgmEl.loop = true
     bgmEl.volume = bgmVolume
   }
-  // play() may reject if not yet unlocked; harmless — next call (after a gesture) wins.
+  // play() may reject if not yet unlocked; the first user gesture (unlockAudio)
+  // retries this, so BGM starts even when StartGame fired before any click.
   bgmEl.play().catch(() => { /* autoplay blocked until a user gesture */ })
 }
 
 export function stopBgm(): void {
+  bgmWanted = false
   if (bgmEl) { bgmEl.pause(); bgmEl.currentTime = 0 }
 }
 
@@ -111,12 +127,12 @@ export function toggleSfxMuted(): boolean {
 
 /** Draw-card sound (cards moving into a hand from the draw pile). User-added (2f). */
 export function playDrawSound(): void {
-  if (sfxMuted || !unlocked) return
+  if (sfxMuted) return
   playUrl(`${FK}/audio/system/drawCard.mp3`)
 }
 /** Generic card-move / discard sound. User-added (2f). */
 export function playMoveSound(): void {
-  if (sfxMuted || !unlocked) return
+  if (sfxMuted) return
   playUrl(`${FK}/audio/system/moveCard.mp3`)
 }
 
