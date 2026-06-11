@@ -59,6 +59,7 @@ export class ClientVm {
   private fnPlayerSkills: ((id: number) => string) | null = null
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
+  private fnReadPileNum: (() => string) | null = null
   private fnChangeSelf: ((pid: number) => string) | null = null
   private fnParseLog: ((hex: string) => string) | null = null
 
@@ -362,6 +363,14 @@ export class ClientVm {
         local cap = (ClientInstance and ClientInstance.capacity) or 0
         return json.encode({ capacity = cap })
       end
+      -- Remaining draw-pile count from the VM mirror (W1-1 2c). UpdateDrawPile is only
+      -- sent on pile changes, so after a reconnect (which doesn't replay it) the count
+      -- stays 0; re-read ClientInstance.draw_pile directly to re-anchor it.
+      function __fkReadPileNum()
+        local ci = ClientInstance
+        local n = (ci and ci.draw_pile and #ci.draw_pile) or 0
+        return json.encode({ pileNum = n })
+      end
       -- Observer perspective switch (RoomPage.qml:512 → client.lua changeSelf): rebind
       -- the VM global Self to player pid and emit notifyUI("ChangeSelf", pid). Purely
       -- client-side (no server round-trip); observers see everything. After this the
@@ -404,6 +413,7 @@ export class ClientVm {
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
     this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
+    this.fnReadPileNum = lua.global.get('__fkReadPileNum') as typeof this.fnReadPileNum
     this.fnChangeSelf = lua.global.get('__fkChangeSelf') as typeof this.fnChangeSelf
     this.fnParseLog = lua.global.get('__fkParseLog') as typeof this.fnParseLog
 
@@ -469,6 +479,13 @@ export class ClientVm {
   resetClientLua(): { capacity: number } {
     if (!this.fnResetClient) return { capacity: 0 }
     try { return JSON.parse(this.fnResetClient()) as { capacity: number } } catch { return { capacity: 0 } }
+  }
+
+  /** Remaining draw-pile count from the VM mirror (W1-1 2c). Re-read after a
+   *  reconnect since UpdateDrawPile isn't replayed. Returns 0 if unavailable. */
+  readPileNum(): number {
+    if (!this.fnReadPileNum) return 0
+    try { return (JSON.parse(this.fnReadPileNum()) as { pileNum: number }).pileNum || 0 } catch { return 0 }
   }
 
   /** Observer perspective switch: rebind VM Self to `pid` (client.lua changeSelf).

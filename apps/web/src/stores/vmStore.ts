@@ -503,6 +503,13 @@ export const useVmStore = create<VmState>((set, get) => ({
     } catch (err) {
       console.error('[vm] readPlayers threw:', err)
     }
+    // After a reconnect (Reconnect packet), the server doesn't replay UpdateDrawPile,
+    // so the pile count would stay 0 until the next pile change. Re-read it from the
+    // VM mirror now (W1-1 2c). The elapsed-time clock re-anchors via the persisted
+    // miscStore anchor when StartGame replays (2b).
+    if (env.command === 'Reconnect') {
+      try { useMiscStore.getState().setPileNum(vm.readPileNum()) } catch { /* non-fatal */ }
+    }
     // Fetch faces for any cards now present that we haven't cached (faces are
     // static per cid). Covers card areas + players' equip/judge cards.
     try {
@@ -613,6 +620,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useAnimationStore.getState().reset()
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
+    useMiscStore.getState().clearClock() // back-to-room after GameOver → next game's clock is fresh (2b)
     useTimerStore.getState().deactivate()
     set({ notifyCounts: {}, recent: [], totalFed: 0 })
   },
