@@ -92,6 +92,22 @@ curl -skI https://你的域名/fk/image/gamebg.jpg | grep -iE 'HTTP|content-type
 
 > **重要**:本次修了 `.dockerignore` 的一个漏洞——`gamebg.jpg` 之前被 `FreeKill-sourcecode/image/*` 排除掉了(导致 VPS 上 `/fk/image/gamebg.jpg` 404)。所以更新时**务必先 `cp freekill-web/docker/dockerignore.repo-root .dockerignore` 再 `--build`**,否则背景图仍然进不了镜像。`guding_blade/12.png` 报 500、乐不思蜀语音缺失——本地资源都正常(25 帧 / male+female mp3 都在 audio.json),很可能是上次构建时镜像 `/srv/fk` 不全;干净重建后用上面的命令复验,若仍异常跑取证脚本。
 
+## 资源完整性校验(W1-RES,新增)
+
+**构建期已自动校验**:`caddy.Dockerfile` 在 `sync-assets` 后、`build` 前会跑 `verify-fk-assets.mjs`——若任何 manifest 引用的资源缺失(如 gamebg),**构建直接失败并列出缺哪些**,镜像根本出不来。所以一旦 `docker compose up -d --build` 成功,就说明 `/srv/fk` 资源是齐的(gamebg 这类不会再静默漏网)。
+
+**部署后可再手动验一遍**(对运行容器里的 `/srv/fk`):
+```bash
+# 在 caddy 容器里直接跑校验脚本(它在 web 构建镜像里,运行镜像可能没有 node;
+# 更简单的是从构建阶段已校验过 → 这里用一条 find 抽查目录结构):
+docker compose exec caddy sh -c 'ls /srv/fk/image/gamebg.jpg && wc -l < /srv/fk/audio.json >/dev/null && echo OK'
+# 或在宿主机的源码 checkout 上跑完整校验(node 环境):
+cd ~/freekill/freekill-web && node packages/assets/scripts/verify-fk-assets.mjs apps/web/public/fk
+#   期望:最后一行 "OK — all referenced assets present"(空文件警告可忽略)
+```
+
+**浏览器端自检**(最直观):打开站点 → 进房 → 右上角「VM 调试」面板 → 点「**检查资源完整性**」。它对所有应有资源发 HEAD,几秒列出任何 404/500。全绿即资源齐全;有问题会直接给出 URL + 状态码,贴回来即可定位。
+
 ## 如果音频还是没声(2g 取证)
 
 跑取证脚本,把**完整输出**贴回给开发端(主仓 Claude Code):
