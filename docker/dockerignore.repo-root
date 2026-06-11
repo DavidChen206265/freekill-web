@@ -1,8 +1,9 @@
 # .dockerignore — keep the build context small. The Dockerfiles only need:
-#   freekill-asio/ (source), freekill-web/ (workspace),
+#   freekill-web-asio/ (Web-only server fork source), freekill-web/ (workspace),
 #   FreeKill-release/packages/{freekill-core, packages.db, init.sql},
 #   FreeKill-sourcecode/ (for sync-fk-assets: image/photo, fonts, lua/json).
-# Everything else (esp. the 1.5GB of unused FreeKill-release packages) is excluded.
+# Everything else (esp. the 1.5GB of unused FreeKill-release packages, and the
+# read-only upstream freekill-asio baseline) is excluded.
 
 # Node / build outputs (reinstalled/rebuilt inside the image)
 **/node_modules
@@ -24,8 +25,12 @@ freekill-web-spike/
 freekill-web/analysis/
 freekill-web/audit/
 
-# asio local build artifacts (rebuilt in the image)
-freekill-asio/build/
+# asio fork build artifacts (rebuilt in the image) + its gitignored runtime packages
+# (the image copies packages from FreeKill-release, not from the fork tree).
+freekill-web-asio/build/
+freekill-web-asio/packages/
+# The upstream freekill-asio is only a read-only diff baseline — not a build source.
+freekill-asio/
 
 # All FreeKill-release packages EXCEPT the ones we ship (core-only deploy).
 # (Negation keeps freekill-core + the two db/sql files.)
@@ -52,7 +57,8 @@ FreeKill-release/packages/maneuvering/*
 # Extension packs (M5-b): ship the FULL tree (lua + image + anim + audio) — unlike
 # the core art-packs above (whose lua lives in freekill-core), extension packs carry
 # their own code that BOTH asio and the web VM need. Keep these in sync with
-# sync-fk-assets EXTENSION_PACKS + the asio enabled pack set (and recompute FK_MD5).
+# sync-fk-assets EXTENSION_PACKS + the asio enabled pack set. (Web-only fork skips
+# the client MD5 check, so no FK_MD5 recompute is needed when changing this set.)
 !FreeKill-release/packages/utility
 !FreeKill-release/packages/standard_ex
 !FreeKill-release/packages/sp

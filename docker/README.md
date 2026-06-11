@@ -1,6 +1,7 @@
 # 部署 FreeKill Web 到 VPS(Docker Compose)
 
 > 目标:Linux VPS + 域名,Docker Compose 一键起全栈,Caddy 自动 HTTPS。
+> 服务端:**`freekill-web-asio`(Web-only fork)**,默认 `checkClientMd5:false` —— 不再需要重算 FK_MD5。
 > 包集合:仅 `freekill-core`(基础身份局)。
 
 ## 架构
@@ -21,9 +22,10 @@
 1. **Linux VPS**,装好 Docker + Docker Compose v2(`docker compose version`)。
 2. **一个域名**,A/AAAA 记录指向 VPS 公网 IP。
 3. VPS 防火墙放行 **80 + 443**(TCP;443 也放 UDP 给 HTTP/3,可选)。
-4. 把**整个仓库**(`E:/Games/freekill/` 对应的目录树:`freekill-asio/`、`freekill-web/`、`FreeKill-release/`、`FreeKill-sourcecode/`)传到 VPS。
+4. 把**整个仓库**(`E:/Games/freekill/` 对应的目录树:`freekill-web-asio/`、`freekill-web/`、`FreeKill-release/`、`FreeKill-sourcecode/`)传到 VPS。
+   - asio 镜像从 **`freekill-web-asio/`**(Web-only fork)编译,不再用上游 `freekill-asio/`(后者仅作只读 diff 基线,`.dockerignore` 已排除,不必传)。
    - `FreeKill-release/packages/` 有 1.5GB,但 `.dockerignore` 只放行 `freekill-core` + `packages.db` + `init.sql` + `standard`/`standard_cards`/`maneuvering` 的 `image/`+`audio/`。**传之前可只传这些**(其余 packages 不需要),能省大量上传。
-   - `freekill-web/node_modules`、`freekill-asio/build/`、`分析/`、`audit/`、`freekill-web-spike/` 都不需要传(`.dockerignore` 已排除)。
+   - `freekill-web/node_modules`、`freekill-web-asio/build/`、`freekill-web-asio/packages/`、`analysis/`、`audit/`、`freekill-web-spike/` 都不需要传(`.dockerignore` 已排除)。
    - **音频/动画资源(M4 切片 V)**:web 的 `sync-fk-assets` 在镜像内从 `FreeKill-sourcecode/audio`+`image/anim` 和各包 `audio/`+`image/anim/` 生成音效与精灵帧。**这些目录必须随仓库传到 VPS**,否则构建出的 web 无声音、无技能/出牌精灵动画(浏览器静默 404)。
    - **`.dockerignore` 必须在构建上下文根**(= `freekill-web` 的上一级,即 `E:/Games/freekill/`)。仓库里 `git pull` 拿不到它(它在 freekill-web 之外)。本仓库存了一份权威副本 `freekill-web/docker/dockerignore.repo-root`——**每次 `git pull` 后把它复制到上下文根**:
      ```bash
@@ -82,9 +84,9 @@ docker run --rm -v freekill-web_asio-server:/s -v "$PWD":/b alpine \
 
 ## 已知限制 / 注意
 
-- **当前上游兼容模式**:gateway 的 `FK_MD5` 默认值匹配 freekill-core。若在未落地 Web-only fork 前加扩展包,asio 的 flist MD5 会变,需重算 MD5 并在 compose 的 `gateway.environment.FK_MD5` 填新值。Web-only P0 落地后此项改由 manifest/capabilities 管资源版本,MD5 仅作诊断。
+- **Web-only 服务端(无需 FK_MD5)**:asio fork 以 `checkClientMd5:false` 运行(见 `docker/freekill.server.config.json`),登录**跳过** flist MD5 校验 —— 增删扩展包不再需要重算并填 `FK_MD5`。资源/启用包版本由 `SetServerSettings` 的 manifest(`enabledPacks`/`assetVersion`)下发给 Web。`compute-md5.mjs` 仅作诊断/兼容工具保留。(若要恢复上游严格校验:把 config 的 `checkClientMd5` 设回 `true`,并在 compose 的 `gateway.environment.FK_MD5` 填重算值。)
+- **改包不踢房 / 不封 IP**:fork 以 `invalidateRoomsOnPackageChange:false` + `tempBanByIp:false` 运行,改包/重启不踢在场玩家,中途退出运行局也不临时封禁 IP(多人共享 NAT 出口 IP 时尤其重要)。要恢复上游行为把这两项设回 `true`。
 - **登录凭据**:浏览器把账号密码明文存 localStorage(R-CRED,为无感重连)。公网生产前建议评估;后续会换 session token。
-- **asio 防退临时封禁**:`tempBanTime: 20`(分钟)——中途退出运行中的游戏会临时封禁该 IP。多人同 NAT 出口共享 IP 时注意(可在 `freekill.server.config.json` 调小或设 0)。
 - **单 asio 进程**:不可横向伸缩(R-SCALE),先单服;容量靠 `config.capacity` + 压测定上限。
 - **首次 asio 启动**会在 `asio-server` 卷里生成 `users.db`/`game.db`/RSA 密钥。**不要删这个卷**,否则账号和服务器身份(RSA)全丢。
 

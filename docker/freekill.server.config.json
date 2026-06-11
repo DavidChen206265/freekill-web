@@ -9,5 +9,11 @@
   "disabledFeatures": [],
   "enableWhitelist": false,
   "roomCountPerThread": 2000,
-  "maxPlayersPerDevice": 50
+  "maxPlayersPerDevice": 50,
+
+  "_comment_webonly": "Web-only fork 开关(W0):跳过 MD5 登录校验、改包不踢房、不按 IP 临时封禁。资源版本改由 SetServerSettings manifest 下发。",
+  "webOnly": true,
+  "checkClientMd5": false,
+  "invalidateRoomsOnPackageChange": false,
+  "tempBanByIp": false
 }

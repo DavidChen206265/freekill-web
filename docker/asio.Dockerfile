@@ -1,6 +1,9 @@
-# freekill-asio — build the C++ game server and run it with the freekill-core package.
-# Build context = repo root (E:/Games/freekill) so we can COPY the freekill-asio
-# source AND the FreeKill-release packages (siblings of freekill-web).
+# freekill-web-asio — build the Web-only C++ game server fork and run it with the
+# freekill-core package. Build context = repo root (E:/Games/freekill) so we can COPY
+# the freekill-web-asio source AND the FreeKill-release packages (siblings of
+# freekill-web). The fork (vs upstream freekill-asio) adds the Web-only config
+# switches (webOnly / checkClientMd5 / invalidateRoomsOnPackageChange / tempBanByIp)
+# + the SetServerSettings Web manifest. See freekill-web/analysis/WEB_ONLY_ROADMAP.md.
 #
 #   docker compose build asio   (context: repo root, see docker-compose.yml)
 
@@ -16,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
-COPY freekill-asio/ ./
+COPY freekill-web-asio/ ./
 RUN rm -rf build && mkdir build && cd build && cmake .. && make -j"$(nproc)"
 
 # ---- runtime stage ----

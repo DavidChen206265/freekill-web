@@ -1,7 +1,8 @@
 # docker-compose.yml — FreeKill Web full stack.
 # Run from this directory (freekill-web/docker/). Build context is the REPO ROOT
 # (../../ = E:/Games/freekill) so images can reach the sibling repos
-# (freekill-asio, FreeKill-release, FreeKill-sourcecode) + the freekill-web workspace.
+# (freekill-web-asio = the Web-only server fork, FreeKill-release, FreeKill-sourcecode)
+# + the freekill-web workspace.
 #
 #   FK_DOMAIN=play.example.com docker compose up -d --build
 #
@@ -34,17 +35,13 @@ services:
       # asio is reachable by service name on the compose network.
       ASIO_HOST: asio
       ASIO_PORT: "9527"
-      # MD5 of the shipped package set. The default in config.ts is freekill-core's
-      # flist MD5 — correct for a core-only deploy. If you add packages, recompute and
-      # set FK_MD5 here (otherwise asio rejects the handshake with "MD5 check failed").
-      # Recompute from the asio container's packages dir with the assets helper
-      # (byte-exact reproduction of asio calcFileMD5, verified against the server):
-      #   docker compose exec asio sh -c 'ls packages'   # confirm the package set
-      #   node freekill-web/packages/assets/scripts/compute-md5.mjs <path-to-packages>
-      # Examples (verified byte-exact against asio server.getMd5()):
-      #   core-only ...................... e48d6db7c1ea5c6efddcc06fe3071eeb (config.ts default)
-      #   core + utility+standard_ex+sp .. 8efa2ccfcfc10ffb84a010f9e87920f6
-      # FK_MD5: "<recomputed-md5>"
+      # Web-only fork: asio runs with checkClientMd5=false (see
+      # docker/freekill.server.config.json), so it IGNORES the client MD5 the gateway
+      # sends — no FK_MD5 recompute needed when you add/remove packages. The gateway's
+      # config.ts default value is still sent but not validated. Resource/pack version
+      # is conveyed by the SetServerSettings manifest instead. (Only set FK_MD5 here if
+      # you flip checkClientMd5 back to true for upstream-compatible strict checking;
+      # recompute with freekill-web/packages/assets/scripts/compute-md5.mjs.)
       FK_VERSION: "0.5.20"
     expose:
       - "9528"
