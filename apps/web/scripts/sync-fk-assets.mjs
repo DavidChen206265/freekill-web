@@ -264,6 +264,22 @@ accAudio(copyAudioTree(path.join(SOURCECODE, 'audio'), path.join(FK_ROOT, 'audio
 for (const pkg of ART_PACKS) {
   accAudio(copyAudioTree(path.join(PACKAGES, pkg, 'audio'), path.join(FK_ROOT, 'packages', pkg, 'audio')))
 }
+// Project-owned, USER-ADDED sounds (W1-1 2f: draw/move card SFX — FreeKill has no
+// generic ones). Tracked in apps/web/assets/audio, copied to /fk/audio/system so
+// audio.ts resolves them like built-in system sounds.
+{
+  const customDir = path.join(WEB, 'assets', 'audio')
+  const destSys = path.join(FK_ROOT, 'audio', 'system')
+  if (fs.existsSync(customDir)) {
+    for (const name of fs.readdirSync(customDir)) {
+      if (path.extname(name).toLowerCase() !== '.mp3') continue
+      fs.mkdirSync(destSys, { recursive: true })
+      fs.copyFileSync(path.join(customDir, name), path.join(destSys, name))
+      audioManifest.push(`audio/system/${name}`)
+      audioFiles++
+    }
+  }
+}
 // audio.json: a set of every audio path that exists under /fk, so the client can
 // pick the one real candidate and issue a single GET instead of probing N URLs and
 // eating 404s (each miss is logged as a console error in the browser).
