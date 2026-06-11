@@ -3,7 +3,7 @@
 // render-component durations, and that the localStorage pace multiplier clamps.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { paceFor, getPace, setPace, nextBeat } from '../src/stores/pacing.js'
+import { paceFor, getPace, setPace, waitBeat } from '../src/stores/pacing.js'
 
 // Minimal localStorage stub for node (vitest default env has none). pacing.ts reads
 // it through try/catch, so absence is safe; we install one to test the round-trip.
@@ -71,20 +71,21 @@ describe('pacing.getPace / setPace', () => {
   })
 })
 
-describe('pacing.nextBeat', () => {
+describe('pacing.waitBeat', () => {
   beforeEach(() => { installLocalStorage() })
   afterEach(() => { delete (globalThis as unknown as { localStorage?: Storage }).localStorage })
 
-  it('resolves immediately for 0-beat commands (no timer)', async () => {
+  it('resolves immediately for a 0 / negative base beat (no timer)', async () => {
     const start = Date.now()
-    await nextBeat('PropertyUpdate', {})
+    await waitBeat(0)
+    await waitBeat(-5)
     expect(Date.now() - start).toBeLessThan(20)
   })
 
-  it('waits ~beat*pace for a visual command', async () => {
+  it('waits ~base*pace for a positive beat', async () => {
     setPace(0.1) // 500ms * 0.1 = 50ms — keep the test fast
     const start = Date.now()
-    await nextBeat('MoveCards', { merged: [] })
+    await waitBeat(paceFor('MoveCards', { merged: [] }))
     const elapsed = Date.now() - start
     expect(elapsed).toBeGreaterThanOrEqual(40)
     expect(elapsed).toBeLessThan(200)

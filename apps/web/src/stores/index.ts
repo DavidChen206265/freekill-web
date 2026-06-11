@@ -12,6 +12,7 @@ import { useGameStore } from './gameStore.js'
 import { useTimerStore } from './timerStore.js'
 import { useLogStore } from './logStore.js'
 import { isRoomBootstrap } from './roomRouting.js'
+import { waitBeat } from './pacing.js'
 import { useServerManifestStore, parseManifest } from './serverManifestStore.js'
 import { setArtPacks } from '../table/skin.js'
 import { setAudioPacks } from '../table/audio.js'
@@ -242,8 +243,23 @@ function resetRoutingState(): void {
 
 function feedVmOrdered(env: Envelope): void {
   // Serialize VM feeds so packets are applied in arrival order despite async.
+  // Performance beat (PACE-1): feed() returns the performance beat (ms) for the packet
+  // — the max animation duration among the notifyUI commands it emitted (MoveCards/
+  // Animate/Indicate/Emotion/InvokeSkill/Damage…). We pause that long before the next
+  // packet feeds, reintroducing the cadence the original Qt client gets for free from
+  // QML `Behavior` interpolation (memory game-pacing-server-vs-client). The beat is
+  // computed inside the VM dispatch where data is clean JSON — NOT from the raw
+  // envelope, whose data.type is a CBOR byte string (cbor-x-asio gotcha). The wait runs
+  // AFTER feed() so the state mirror is already applied; only the START of the next
+  // command is delayed. State-mirror / audio-only packets return 0 (no pause).
+  // REQUEST packets ALSO get no pause: feed() returns their beat too, but a request's
+  // commands are non-visual, and even if not, the player's prompt must appear at once —
+  // so we hard-skip the wait for requests (fast path).
   feedChain = feedChain
-    .then(() => useVmStore.getState().feed(env))
+    .then(async () => {
+      const beat = await useVmStore.getState().feed(env)
+      if (env.kind !== 'request') await waitBeat(beat)
+    })
     .catch((err) => onVmError(`feed ${env.command}`, err))
 }
 
@@ -309,8 +325,8 @@ function routeEnvelope(env: Envelope): void {
     useLobbyStore.setState({ enteredRoomId: -1 })
     feedChain = feedChain
       .then(() => useVmStore.getState().bootIfNeeded())
-      .then(() => useVmStore.getState().feed(loginSetup ?? env)) // Setup first if present
-      .then(() => { if (loginSetup) return useVmStore.getState().feed(env) })
+      .then(async () => { await useVmStore.getState().feed(loginSetup ?? env) }) // Setup first if present
+      .then(async () => { if (loginSetup) await useVmStore.getState().feed(env) }) // bootstrap packets don't pace
       .catch((err) => onVmError('enter room', err))
     return
   }

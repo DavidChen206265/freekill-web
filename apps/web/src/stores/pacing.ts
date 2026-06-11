@@ -92,12 +92,14 @@ export function setPace(x: number): number {
   return v
 }
 
-/** Resolve to the actual wait (beat * pace) for a command; 0 → resolves immediately
- *  (no microtask churn / no setTimeout(0) drift). */
-export function nextBeat(command: string, data: unknown): Promise<void> {
-  const base = paceFor(command, data)
-  if (base <= 0) return Promise.resolve()
-  const ms = base * getPace()
+/** Resolve a base beat (ms) to an actual wait, applying the user pace multiplier.
+ *  0 (or less) → resolves immediately (no microtask churn / no setTimeout(0) drift).
+ *  The base beat is computed by paceFor() during the VM's notifyUI dispatch, where
+ *  the command data is clean JSON (string fields are plain strings) — NOT from the
+ *  raw envelope, whose data.type is a CBOR byte string (cbor-x-asio gotcha). */
+export function waitBeat(baseMs: number): Promise<void> {
+  if (!(baseMs > 0)) return Promise.resolve()
+  const ms = baseMs * getPace()
   if (ms <= 0) return Promise.resolve()
   return new Promise((resolve) => setTimeout(resolve, ms))
 }

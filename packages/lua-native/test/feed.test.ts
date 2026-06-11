@@ -11,6 +11,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { LuaFactory } from 'wasmoon'
 import { createNatives, bootClient } from '../src/index.js'
+import { paceFor } from '../../../apps/web/src/stores/pacing.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO = path.resolve(__dirname, '..', '..', '..', '..')
@@ -112,6 +113,76 @@ describe('client VM packet feed', () => {
     // functional ones; deferred is visual-only).
     const unhandled = emitted.filter((c) => !HANDLED_EXPLICIT.has(c) && !MIRROR_DRIVEN.has(c) && !KNOWN_DEFERRED.has(c))
     expect(unhandled).toEqual([])
+    lua.global.close()
+  }, 30_000)
+
+  it.skipIf(!ready)('PACE-1: paceFor reads the VM clean-JSON notifyUI data (data.type is a plain string)', async () => {
+    // 实现纪律-5 verification for the pacing wiring. The captured envelope path has
+    // data.type as a CBOR byte string (cbor-x-asio gotcha) — a probe proved paceFor on
+    // the envelope only matched MoveCards, silently missing Animate/LogEvent. The fix
+    // computes the beat inside the VM's notifyUI dispatch, where data is CLEAN JSON. This
+    // replays the real captured stream through a booted VM and asserts paceFor — applied
+    // to the SAME clean events the web dispatch sees — correctly beats MoveCards, the
+    // visual Animate sub-types (Indicate/Emotion/InvokeSkill), and LogEvent Damage/Death,
+    // while pacing state-mirror / audio-only commands to 0.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const feed: Array<{ command: string; data: unknown }> = []
+    const natives = createNatives({ emfs: FS as never, onNotifyUI: (e) => feed.push(e), log: () => {} })
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives, preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    lua.global.set('__setup', JSON.stringify({ gameMode: 'aaa_role_mode', disabledPack: [], disabledGenerals: [] }))
+    await lua.doString(`
+      ClientCallback(ClientInstance, "EnterRoom", cbor.encode({ 2, 15, json.decode(__setup) }), false)
+      ClientCallback(ClientInstance, "AddPlayer", cbor.encode({ 2, "Bob", "liubei", true }), false)
+    `)
+    const packets: Array<{ to: number; command: string; dataHex: string; kind: string }> =
+      JSON.parse(fs.readFileSync(CAPTURED, 'utf8'))
+    const stream = packets.filter((p) => p.to === 1)
+    lua.global.set('__cmds', stream.map((p) => p.command))
+    lua.global.set('__hex', stream.map((p) => p.dataHex))
+    lua.global.set('__req', stream.map((p) => p.kind === 'request'))
+    await lua.doString(`
+      local function fromHex(h) return (h:gsub("..", function(cc) return string.char(tonumber(cc,16)) end)) end
+      for i = 1, #__cmds do pcall(ClientCallback, ClientInstance, __cmds[i], fromHex(__hex[i] or ""), __req[i] == true) end
+    `)
+
+    // The VM emits notifyUI with CLEAN JSON: Animate/LogEvent data.type is a plain
+    // string here (not a byte string). Confirm the contract paceFor depends on.
+    const anyAnimate = feed.find((e) => e.command === 'Animate') as { data: { type?: unknown } } | undefined
+    expect(anyAnimate).toBeTruthy()
+    expect(typeof anyAnimate!.data.type).toBe('string') // clean string, NOT a byte string
+
+    // Run the REAL paceFor over the clean stream; tally beats per command/type.
+    let moveBeats = 0, animateBeats = 0, logBeats = 0, zeroBeats = 0
+    const animateTypesBeated = new Set<string>()
+    for (const e of feed) {
+      const ms = paceFor(e.command, e.data)
+      if (ms <= 0) { zeroBeats++; continue }
+      if (e.command === 'MoveCards') moveBeats++
+      else if (e.command === 'Animate') { animateBeats++; animateTypesBeated.add(String((e.data as { type?: unknown }).type)) }
+      else if (e.command === 'LogEvent') logBeats++
+    }
+    // MoveCards always beats (card fly-in).
+    expect(moveBeats).toBeGreaterThan(0)
+    // Animate now beats too (the envelope path missed these) — at least Indicate.
+    expect(animateBeats).toBeGreaterThan(0)
+    expect(animateTypesBeated.has('Indicate')).toBe(true)
+    // LogEvent Damage/Death beat; audio-only LogEvent (PlaySound/PlaySkillSound) do not.
+    // The captured game has Damage events, so at least one LogEvent beats.
+    expect(logBeats).toBeGreaterThan(0)
+    // State-mirror / audio-only commands pace to 0 (the bulk of the stream).
+    expect(zeroBeats).toBeGreaterThan(moveBeats + animateBeats + logBeats)
+    // Audio-only LogEvent sub-types must NOT beat (would stall on every sound).
+    expect(paceFor('LogEvent', { type: 'PlaySound' })).toBe(0)
+    expect(paceFor('LogEvent', { type: 'PlaySkillSound' })).toBe(0)
     lua.global.close()
   }, 30_000)
 

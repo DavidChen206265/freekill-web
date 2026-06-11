@@ -24,6 +24,7 @@ import { useCardNoteStore } from './cardNoteStore.js'
 import { playSystem, playByPath, playSkillSound, playDeath, playBgm, stopBgm, playDrawSound, playMoveSound } from '../table/audio.js'
 import { registerTranslations, hasTranslation, tr } from '../i18n/zh.js'
 import { log, noteNotify } from '../diag/log.js'
+import { paceFor } from './pacing.js'
 
 interface VmState {
   vm: ClientVm | null
@@ -41,7 +42,7 @@ interface VmState {
   /** Routes a VM reply (ReplyToServer) to the gateway; set by connectionStore. */
   serverReply?: (data: unknown) => void
   bootIfNeeded: () => Promise<void>
-  feed: (env: Envelope) => Promise<void>
+  feed: (env: Envelope) => Promise<number>
   /** Drive a UI interaction into the VM (click card/target/button). */
   interact: (elemType: string, id: string | number, action: string, data: unknown) => Promise<void>
   setServerSender: (fn: (command: string, data: unknown) => void) => void
@@ -109,6 +110,16 @@ function defaultPrompt(vm: ClientVm | null, key: string, arg: string): string {
   if (vm && need.length > 0) registerTranslations(vm.translate(need))
   return tr(key).replace(/%1/g, tr(arg))
 }
+
+// PACE-1 performance-beat accumulator. The VM's notifyUI callback fires SYNCHRONOUSLY
+// inside vm.feedPacket(); one server packet may emit several notifyUI commands. We
+// accumulate the MAX performance beat (ms) across them here — computed from the CLEAN
+// JSON data the VM emits (string fields are plain strings; the raw envelope's
+// data.type is a CBOR byte string, cbor-x-asio gotcha, so paceFor must run HERE, not
+// on the envelope). feed() reads + clears it after feedPacket so the router can wait
+// that long before the next packet. See stores/pacing.ts + index.ts feedVmOrdered.
+let pendingBeatMs = 0
+function takePendingBeat(): number { const b = pendingBeatMs; pendingBeatMs = 0; return b }
 
 // Animate dispatch — mirrors RoomLogic.js callbacks["Animate"] (1310-1372). Routes
 // each animation type to the animationStore (per-player or scene channel). The data
@@ -470,6 +481,10 @@ export const useVmStore = create<VmState>((set, get) => ({
         // dynamically-added popup commands; HANDLED_EXPLICIT/MIRROR_DRIVEN cover the
         // rest (see diag/log.ts). Also feeds the structured comms log.
         noteNotify(e.command, e.data, popupHandled)
+        // PACE-1: accumulate the performance beat for this command (clean JSON data),
+        // taking the max across all commands emitted by this packet. feed() drains it.
+        const beat = paceFor(e.command, e.data)
+        if (beat > pendingBeatMs) pendingBeatMs = beat
         set((s) => ({
           notifyCounts: { ...s.notifyCounts, [e.command]: (s.notifyCounts[e.command] ?? 0) + 1 },
           recent: [e, ...s.recent].slice(0, RECENT_CAP),
@@ -495,10 +510,10 @@ export const useVmStore = create<VmState>((set, get) => ({
 
   feed: async (env: Envelope) => {
     const vm = get().vm
-    if (!vm) return
+    if (!vm) return 0
     // Only server request/notify packets carry raw CBOR for the VM.
     const raw = (env as NotifyEnvelope | RequestEnvelope).raw
-    if (!raw) return
+    if (!raw) return 0
     const isRequest = env.kind === 'request'
     const bytes = base64ToBytes(raw)
     log.debug('vm-feed', `${env.command}${isRequest ? ' [req]' : ''} ${bytes.length}B`, env.command)
@@ -577,6 +592,10 @@ export const useVmStore = create<VmState>((set, get) => ({
     } catch (err) {
       console.error('[vm] translate threw:', err)
     }
+    // PACE-1: return the accumulated performance beat (ms) for this packet so the
+    // router (feedVmOrdered) can pause before the next packet. Drained here regardless
+    // of which notifyUI commands fired; 0 for state-mirror/request/audio-only packets.
+    return takePendingBeat()
   },
 
   interact: async (elemType, id, action, data) => {
