@@ -3,11 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-11 04:04:15　·　跟踪文件数: 2398
+最后更新: 2026-06-11 05:05:50　·　跟踪文件数: 2402
 
 ## 自上次重建以来的改动
 
-- 修改 7: freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md, freekill-web/docker/asio.Dockerfile, freekill-web/docker/docker-compose.yml, freekill-web/docker/dockerignore.repo-root, freekill-web/docker/freekill.server.config.json, freekill-web/docker/README.md
+- 新增 4: freekill-web/analysis/W1-1_plan.md, freekill-web/apps/gateway/scripts/w1-a1-takeover-probe.mjs, freekill-web/apps/web/public/fk/image/gamebg.jpg, freekill-web/apps/web/src/table/LoadingRoom.tsx
+- 修改 15: freekill-web/apps/web/public/fk/anim.json, freekill-web/apps/web/public/fk/audio.json, freekill-web/apps/web/public/fk/file-list.json, freekill-web/apps/web/public/fk/images.json, freekill-web/apps/web/scripts/sync-fk-assets.mjs, freekill-web/apps/web/src/components/CreateRoomDialog.tsx, freekill-web/apps/web/src/pages/LobbyPage.tsx, freekill-web/apps/web/src/pages/LoginPage.tsx, freekill-web/apps/web/src/stores/miscStore.ts, freekill-web/apps/web/src/stores/vmStore.ts, freekill-web/apps/web/src/table/audio.ts, freekill-web/apps/web/src/table/GameLogPanel.tsx …
 
 ## Spike 验证状态
 
@@ -29,7 +30,7 @@
 ## 服务端 fork(freekill-web-asio,独立仓库)
 
 - ✓ freekill-web-asio(origin: DavidChen206265/freekill-web-asio,upstream: Qsgs-Fans/freekill-asio diff 基线)
-- HEAD: 5e8a2e3 W0-3: gate room invalidation + IP temp-ban on package change
+- HEAD: ebcf6a7 W1-1 A1: same-account lobby re-login takes over instead of deadlocking
 
 ## 项目文件结构(自有代码)
 
@@ -61,6 +62,7 @@
     PROGRESS.md
     PROJECT_STATE.md
     W0-2_plan.md
+    W1-1_plan.md
     WEB_ONLY_ROADMAP.md
   📁 apps
     📁 gateway
