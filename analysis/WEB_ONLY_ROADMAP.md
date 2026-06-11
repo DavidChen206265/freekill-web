@@ -136,6 +136,16 @@
 - 手牌禁用原因 `prohibitReason`。
 - LimitSkillArea / banner 若 VM 镜像已含状态则低成本补渲染。
 
+### W1-5 局内体验四项(FEAT-IG,详规见 `FEAT_IG_plan.md`)
+
+用户验收 PACE 后提出,已逐项读 freekill 源码核实机制(见详规):
+
+- **IG-1 开局前设置面板**:CreateRoomDialog 暴露思考时间 `timeout` / 选将数 `generalNum` / 选将超时 / 手气卡次数 `luckTime` / 副将等数值项(协议已通,仅缺 UI;禁包禁将选择器较重,数值项先做、禁将并入 W2-2)。
+- **IG-2 手气卡可用**:`luckTime>0` 时开局 `AskForLuckCard`(=AskForSkillInvoke)换牌回路 + prompt 本地化。
+- **IG-3 身份猜测标注**:照搬 `RoleComboBox.qml`,未公开身份 icon 点击本地标注反贼/忠臣/内奸(纯客户端、不发服务器、回房清空)。
+- **IG-4 玩家详情补装备/判定牌**:GeneralDetailModal 补装备区/判定区牌(含虚拟牌原牌花色点数,走 `GetVirtualEquipData.subcards[1]`)。
+- **IG-5 局内聊天 + 送花/砸蛋**:房间内 `Chat` type=2 聊天 + 气泡 + `$@<Type>:<pid>` 送花/砸蛋飞行动画(复用 PACE animationStore 范式)。
+
 ## P2 · Web 账户与个性化
 
 目标:先用现有数据库能力做产品闭环,不等大账户系统。
