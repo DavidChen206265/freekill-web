@@ -57,6 +57,7 @@ export class ClientVm {
   private fnCardFitPattern: ((argsJson: string) => string) | null = null
   private fnVirtualEquipNames: ((argsJson: string) => string) | null = null
   private fnPlayerSkills: ((id: number) => string) | null = null
+  private fnPlayerCards: ((id: number) => string) | null = null
   private fnGameSummary: (() => string) | null = null
   private fnResetClient: (() => string) | null = null
   private fnReadPileNum: (() => string) | null = null
@@ -317,6 +318,34 @@ export class ClientVm {
         end
         return json.encode({ r = out })
       end
+      -- IG-4: the player's VISIBLE equip + judge cards for the detail panel
+      -- (PlayerDetail.qml:291-312). For each cid in getPlayerEquips ∪ getPlayerJudges
+      -- that passes CardVisibility, return the PHYSICAL card (name/suit/number — this is
+      -- the "original card" for a virtual one, e.g. 大乔's 乐不思蜀's real suit/number)
+      -- plus the virtual name when GetVirtualEquipData applies. Description is the
+      -- ":"+name translation key (resolved client-side via tr). Hidden cards are counted.
+      function __fkPlayerCards(id)
+        local out, unknown = {}, 0
+        local p = ClientInstance:getPlayerById(id)
+        if not p then return json.encode({ cards = {}, unknown = 0 }) end
+        local ej = {}
+        for _, cid in ipairs(p:getCardIds("e") or {}) do ej[#ej+1] = cid end
+        for _, cid in ipairs(p:getCardIds("j") or {}) do ej[#ej+1] = cid end
+        for _, cid in ipairs(ej) do
+          if CardVisibility(cid) then
+            local t = GetCardData(cid)
+            local entry = { cid = cid, name = t.name, suit = t.suit, number = t.number }
+            local vok, v = pcall(GetVirtualEquipData, id, cid)
+            if vok and type(v) == "table" and v.name then
+              entry.virtName = v.name        -- e.g. 乐不思蜀 (the transformed name)
+            end
+            out[#out+1] = entry
+          else
+            unknown = unknown + 1
+          end
+        end
+        return json.encode({ cards = out, unknown = unknown })
+      end
       -- Virtual-equip names for MoveCardInBoardBox (RoomLogic.js:1114
       -- getVirtualEquipData(playerId, cid).name). argsJson = {pairs:[[playerId,cid]..]}
       -- → { r: { "<cid>": "<virtName>" } } only for cids that ARE virtual equips.
@@ -411,6 +440,7 @@ export class ClientVm {
     this.fnCardFitPattern = lua.global.get('__fkCardFitPattern') as typeof this.fnCardFitPattern
     this.fnVirtualEquipNames = lua.global.get('__fkVirtualEquipNames') as typeof this.fnVirtualEquipNames
     this.fnPlayerSkills = lua.global.get('__fkPlayerSkills') as typeof this.fnPlayerSkills
+    this.fnPlayerCards = lua.global.get('__fkPlayerCards') as typeof this.fnPlayerCards
     this.fnGameSummary = lua.global.get('__fkGameSummary') as typeof this.fnGameSummary
     this.fnResetClient = lua.global.get('__fkResetClient') as typeof this.fnResetClient
     this.fnReadPileNum = lua.global.get('__fkReadPileNum') as typeof this.fnReadPileNum
@@ -598,6 +628,14 @@ export class ClientVm {
     try { return JSON.parse(this.fnPlayerSkills(id)) as { name: string; description: string }[] } catch { return [] }
   }
 
+  /** IG-4: a player's visible equip + judge cards for the detail panel. Each entry is
+   *  the physical card (name/suit/number — the "original" for a virtual one) + optional
+   *  virtName (the transformed name, e.g. 乐不思蜀). `unknown` counts hidden cards. */
+  playerCards(id: number): { cards: PlayerCardInfo[]; unknown: number } {
+    if (!this.fnPlayerCards) return { cards: [], unknown: 0 }
+    try { return JSON.parse(this.fnPlayerCards(id)) as { cards: PlayerCardInfo[]; unknown: number } } catch { return { cards: [], unknown: 0 } }
+  }
+
   /** GameOver per-player summary rows (GameOverBox.qml getSummary): turn/recover/
    *  damage/damaged/kill joined with each seat's general/deputy/role. [] if absent. */
   gameSummary(): GameSummaryRow[] {
@@ -634,6 +672,16 @@ export interface GameSummaryRow {
 export interface GeneralInfo {
   extension: string
   kingdom: string
+}
+
+// IG-4: a player's visible equip/judge card for the detail panel. name/suit/number are
+// the PHYSICAL card (the original for a virtual one); virtName is the transformed name.
+export interface PlayerCardInfo {
+  cid: number
+  name: string
+  suit: string
+  number: number
+  virtName?: string
 }
 
 export interface CardFace {

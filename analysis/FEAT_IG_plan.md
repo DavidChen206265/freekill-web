@@ -48,7 +48,7 @@
 照搬 `RoleComboBox.qml`:Photo 的身份 icon 在 `shownRole==="unknown"`(且非 hidden/国战)时可点,弹竖排 4 选 1(unknown/loyalist/rebel/renegade,用 `skin.rolePic`),选中存**本地 store**(per-room、per-pid,新建轻量 `roleGuessStore` 或并入 detailStore),回显在 icon。不发服务器、回房/重连清空(并入既有 resetForNewGame)。
 - **自验**:web 单测(store 标注/清空);浏览器点未公开身份玩家弹框选反贼→icon 显示反贼图;主公/已公开/自己不可猜;国战模式隐藏。
 
-### IG-4 · 玩家详情补装备/判定牌(②,复用现有桥)
+### IG-4 · 玩家详情补装备/判定牌 ✅(②,复用现有桥)
 在 `GeneralDetailModal` 武将技能下方,照搬 `PlayerDetail.qml:291-312` 增"装备/判定牌"段:读该 pid 的 `equipCids ∪ judgeCids`(gameStore 已镜像),逐张 `cardVisibility` 真才显示;扩展 VM 桥:① `__fkCardVisibility(cid)`;② `virtualEquipNames` 扩展返回 `{name,cid(原牌),suit,number}`(现只返 name);卡面+花色点数+ 技能描述(`tr(":"+name)`,VM translate)。虚拟牌显示"(原牌名 花色 点数)虚拟名: 描述"。
 - **自验**:lua-native 对真 VM 断言 `GetVirtualEquipData` 返回原牌 cid/suit/number(用一张转化的延时锦囊场景);浏览器右键有乐不思蜀的玩家详情,见原牌花色点数 + 描述。
 

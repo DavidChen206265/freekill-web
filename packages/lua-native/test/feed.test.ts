@@ -542,6 +542,84 @@ describe('client VM packet feed', () => {
     lua.global.close()
   }, 30_000)
 
+  it.skipIf(!ready)('IG-4: __fkPlayerCards + virtual-original lookup (GetVirtualEquipData)', async () => {
+    // PlayerDetail.qml:291-312 — visible equip/judge cards; for a VIRTUAL card (e.g. a
+    // 乐不思蜀 transformed from another card via getVirtualEquip), the displayed
+    // (name,suit,number) is the ORIGINAL physical card and virtName is the transformed
+    // name. The IG-4-specific risk is the original-card lookup, so we assert that
+    // directly against the real VM (GetCardData = original physical card; GetVirtual-
+    // EquipData.name = transformed name), plus the bridge's shape + visibility gate.
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      for (const full of collect(path.join(CORE, sub))) {
+        factory.mountFileSync(luaModule, `${VFS_CORE}/${path.relative(CORE, full).replace(/\\/g, '/')}`, fs.readFileSync(full))
+      }
+    }
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({ lua: lua as never, natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }), preludeLua: fs.readFileSync(PRELUDE, 'utf8') })
+    // Bridge copied verbatim from clientVm.ts __fkPlayerCards.
+    await lua.doString(`
+      function __fkPlayerCards(id)
+        local out, unknown = {}, 0
+        local p = ClientInstance:getPlayerById(id)
+        if not p then return json.encode({ cards = {}, unknown = 0 }) end
+        local ej = {}
+        for _, cid in ipairs(p:getCardIds("e") or {}) do ej[#ej+1] = cid end
+        for _, cid in ipairs(p:getCardIds("j") or {}) do ej[#ej+1] = cid end
+        for _, cid in ipairs(ej) do
+          if CardVisibility(cid) then
+            local t = GetCardData(cid)
+            local entry = { cid = cid, name = t.name, suit = t.suit, number = t.number }
+            local vok, v = pcall(GetVirtualEquipData, id, cid)
+            if vok and type(v) == "table" and v.name then entry.virtName = v.name end
+            out[#out+1] = entry
+          else
+            unknown = unknown + 1
+          end
+        end
+        return json.encode({ cards = out, unknown = unknown })
+      end
+    `)
+    const playerCards = lua.global.get('__fkPlayerCards') as (id: number) => string
+    await lua.doString(`ClientCallback(ClientInstance,"Setup",cbor.encode({1,"me","caocao",0}),false)`)
+    // Set up a real physical card in Self's judge area, then make it a virtual 乐不思蜀
+    // (clone indulgence, subcards = {physicalCid} → getVirtualEquip resolves it).
+    const probe = JSON.parse(await lua.doString(`
+      local function fid(n) for _,c in ipairs(Fk.cards) do if c.name==n and c.suit~=Card.NoSuit then return c.id end end end
+      local pid = fid("slash")
+      Self.player_cards[Player.Judge] = { pid }
+      local ind = Fk:cloneCard("indulgence"); ind.subcards = { pid }
+      Self.virtual_equips = { ind }
+      -- the IG-4 original-card lookup: physical card data + transformed virtual name
+      local t = GetCardData(pid)
+      local v = GetVirtualEquipData(1, pid)
+      return json.encode({
+        pid = pid,
+        physName = t.name, physSuit = t.suit, physNumber = t.number,
+        virtName = (type(v)=="table" and v.name or "NIL"),
+        bridgeJudgeCount = #Self:getCardIds("j"),
+      })
+    `) as string) as { pid: number; physName: string; physSuit: string; physNumber: number; virtName: string; bridgeJudgeCount: number }
+    // The displayed card data is the ORIGINAL physical card (slash's suit/number)...
+    expect(probe.physName).toBe('slash')
+    expect(['spade', 'heart', 'club', 'diamond']).toContain(probe.physSuit)
+    expect(probe.physNumber).toBeGreaterThan(0)
+    // ...and the transformed (virtual) name is 乐不思蜀 (indulgence) — this is exactly
+    // "what is 大乔's 乐不思蜀's original card / suit / number".
+    expect(probe.virtName).toBe('indulgence')
+    expect(probe.bridgeJudgeCount).toBe(1)
+    // The bridge returns a well-formed {cards,unknown} object; in this minimal harness
+    // cardVisible() is false without full game state, so the card is counted as unknown
+    // (the gate is faithfully applied — it never crashes and never leaks a hidden card).
+    const res = JSON.parse(playerCards(1)) as { cards: unknown[]; unknown: number }
+    expect(Array.isArray(res.cards)).toBe(true)
+    expect(res.cards.length + res.unknown).toBe(1)
+    lua.global.close()
+  }, 30_000)
+
   it.skipIf(!ready)('VM poxi bridge: feasible respects min/max (M4 anti-illegal-selection)', async () => {
     // M4 切片 I: AskForPoxi was downgraded to a min0..maxAll pick that could permit
     // illegal selections. The fix routes selection rules through the VM's
