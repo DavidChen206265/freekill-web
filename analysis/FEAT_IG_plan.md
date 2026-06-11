@@ -44,7 +44,7 @@
 基于 IG-1 能传 `luckTime>0`。核实手气卡请求在 web 端的呈现:`AskForLuckCard` 是 `AskForSkillInvoke`(InteractionBar OK/Cancel),需把 prompt `#AskForLuckCard:::N` 本地化(i18n "你想使用手气卡吗?还可使用 %arg 次")+ 确认 OK→换牌、Cancel→保留 的回路在 web 真打通(摸到新起手牌)。
 - **自验**:真 asio 开 `luckTime=2` 起一局,开局收到手气卡询问,点"使用"→起手牌变化、次数递减;点"取消"→保留。lua-native 或双 WS E2E 验证换牌。
 
-### IG-3 · 身份猜测标注(①,纯客户端本地状态)
+### IG-3 · 身份猜测标注 ✅(①,纯客户端本地状态)
 照搬 `RoleComboBox.qml`:Photo 的身份 icon 在 `shownRole==="unknown"`(且非 hidden/国战)时可点,弹竖排 4 选 1(unknown/loyalist/rebel/renegade,用 `skin.rolePic`),选中存**本地 store**(per-room、per-pid,新建轻量 `roleGuessStore` 或并入 detailStore),回显在 icon。不发服务器、回房/重连清空(并入既有 resetForNewGame)。
 - **自验**:web 单测(store 标注/清空);浏览器点未公开身份玩家弹框选反贼→icon 显示反贼图;主公/已公开/自己不可猜;国战模式隐藏。
 

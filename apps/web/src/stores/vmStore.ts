@@ -18,6 +18,7 @@ import { usePopupStore } from './popupStore.js'
 import { useLogStore } from './logStore.js'
 import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
+import { useRoleGuessStore } from './roleGuessStore.js'
 import { useAnimationStore } from './animationStore.js'
 import { useMiscStore } from './miscStore.js'
 import { useCardNoteStore } from './cardNoteStore.js'
@@ -684,6 +685,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
     useMiscStore.getState().clearClock() // back-to-room after GameOver → next game's clock is fresh (2b)
+    useRoleGuessStore.getState().reset() // IG-3: clear local role guesses for the next game
     stopBgm() // game ended → stop BGM until next StartGame
     useTimerStore.getState().deactivate()
     set({ notifyCounts: {}, recent: [], totalFed: 0 })

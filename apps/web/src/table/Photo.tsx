@@ -12,6 +12,7 @@ import { useInteractionStore } from '../stores/interactionStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
+import { useRoleGuessStore, GUESS_ROLES } from '../stores/roleGuessStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
 import { useRef, useState } from 'react'
 import { generalPic, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
@@ -40,6 +41,8 @@ export function Photo({ player, playerNum, isSelf }: {
   const interact = useVmStore((s) => s.interact)
   const observing = useGameStore((s) => s.observing)
   const switchViewpoint = useVmStore((s) => s.switchViewpoint)
+  const roleGuesses = useRoleGuessStore((s) => s.guesses)
+  const pickerOpen = useRoleGuessStore((s) => s.pickerOpen)
 
   const ext = (name: string) => generals[name]?.extension
   const hasGeneral = !!player.general && player.general !== ''
@@ -104,9 +107,35 @@ export function Photo({ player, playerNum, isSelf }: {
       <div style={styles.hp}><HpBar hp={player.hp ?? 0} maxHp={player.maxHp ?? 0} shield={player.shield ?? 0} /></div>
 
       {/* role pic (top-right). RoleComboBox.qml value logic:
-          hidden -> hidden; role_shown -> role; else roleVisible(pid) ? role : "unknown". */}
-      {player.role && player.role !== 'hidden' && (
-        <img src={rolePic(shownRole(player))} alt="" style={styles.role} draggable={false} onError={hideImg} />
+          hidden -> hidden; role_shown -> role; else roleVisible(pid) ? role : "unknown".
+          IG-3: when the role is "unknown" the icon is a click target to tag a local
+          guess (RoleComboBox.qml assumptionBox) — pure client state, not sent. */}
+      {player.role && player.role !== 'hidden' && (() => {
+        const actual = shownRole(player)
+        const guess = roleGuesses[player.id]
+        const display = actual === 'unknown' ? (guess ?? 'unknown') : actual
+        const guessable = actual === 'unknown'
+        return (
+          <img
+            src={rolePic(display)} alt="" draggable={false} onError={hideImg}
+            style={{ ...styles.role, ...(guessable ? styles.roleGuessable : {}) }}
+            onClick={guessable ? (e) => { e.stopPropagation(); useRoleGuessStore.getState().openPicker(player.id) } : undefined}
+            title={guessable ? '点击标注身份猜测' : undefined}
+          />
+        )
+      })()}
+      {/* role-guess picker (RoleComboBox.qml optionPopupBox): a vertical 4-choice
+          column of role icons; clicking sets the local guess. */}
+      {pickerOpen === player.id && (
+        <div style={styles.rolePicker} onClick={(e) => e.stopPropagation()}>
+          {GUESS_ROLES.map((r) => (
+            <img
+              key={r} src={rolePic(r)} alt={r} draggable={false} onError={hideImg}
+              style={styles.rolePickerItem}
+              onClick={(e) => { e.stopPropagation(); useRoleGuessStore.getState().setGuess(player.id, r) }}
+            />
+          ))}
+        </div>
       )}
 
       {/* text mark area (Photo.qml MarkArea): `name value`, name already translated
@@ -248,6 +277,9 @@ const styles: Record<string, React.CSSProperties> = {
   // 20px name bar (a deviation: QML puts the name at top): 27 → 47.
   hp: { position: 'absolute', left: 5, bottom: 27, zIndex: 4 },
   role: { position: 'absolute', top: -2, right: -2, width: 30, height: 33, zIndex: 4 },
+  roleGuessable: { cursor: 'pointer' },
+  rolePicker: { position: 'absolute', top: 32, right: -2, display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: 'rgba(0,0,0,.8)', borderRadius: 5, zIndex: 20 },
+  rolePickerItem: { width: 30, height: 33, cursor: 'pointer' },
   equip: { position: 'absolute', left: 22, right: 3, bottom: 40, zIndex: 3 },
   // MarkArea: x:23, anchored just above the equip strip (Photo.qml). @-marks as
   // outlined white text on a dark translucent backing.
