@@ -36,6 +36,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@freekill-web/assets':
+        specifier: workspace:*
+        version: link:../../packages/assets
       '@freekill-web/lua-native':
         specifier: workspace:*
         version: link:../../packages/lua-native

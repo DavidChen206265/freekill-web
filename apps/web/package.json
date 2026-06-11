@@ -14,6 +14,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@freekill-web/assets": "workspace:*",
     "@freekill-web/lua-native": "workspace:*",
     "@freekill-web/protocol": "workspace:*",
     "@freekill-web/shared": "workspace:*",

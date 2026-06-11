@@ -8,6 +8,7 @@ import { useTimerStore } from '../stores/timerStore.js'
 import { useFocusStore } from '../stores/focusStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
 import { sampleMemory, type MemSample } from '../diag/memStats.js'
+import { checkAssets, type AssetCheckResult } from '../diag/assetCheck.js'
 import { log, setLogLevel, unhandledCommands } from '../diag/log.js'
 import type { LogLevel } from '@freekill-web/shared'
 
@@ -18,11 +19,21 @@ export function VmDebugPanel() {
   const detailPid = useDetailStore((s) => s.pid)
   const [mem, setMem] = useState<MemSample | null>(null)
   const [sampling, setSampling] = useState(false)
+  const [assetRes, setAssetRes] = useState<AssetCheckResult | null>(null)
+  const [assetChecking, setAssetChecking] = useState(false)
+  const [assetProgress, setAssetProgress] = useState({ done: 0, total: 0 })
   const [logLevel, setLevelState] = useState<LogLevel>(log.getLevel())
   const [logTick, setLogTick] = useState(0) // force re-render to refresh the log view
   const readMem = async () => {
     setSampling(true)
     try { setMem(await sampleMemory()) } finally { setSampling(false) }
+  }
+  const runAssetCheck = async () => {
+    setAssetChecking(true); setAssetRes(null); setAssetProgress({ done: 0, total: 0 })
+    try {
+      const res = await checkAssets({ onProgress: (done, total) => setAssetProgress({ done, total }) })
+      setAssetRes(res)
+    } finally { setAssetChecking(false) }
   }
   const changeLevel = (lvl: LogLevel) => { setLogLevel(lvl); setLevelState(lvl) }
   const exportLog = () => {
@@ -64,6 +75,29 @@ export function VmDebugPanel() {
           {mem.method === 'performance.memory' && <div>JS 堆 <b>{mem.jsHeapMB} MB</b> <span style={styles.dim}>({mem.detail})</span></div>}
           {mem.method === 'unavailable' && <div style={styles.dim}>{mem.detail}</div>}
           <div style={styles.dim}>已加载图片 {mem.imageCount} 张 / {mem.imageMB} MB</div>
+        </div>
+      )}
+
+      <h4 style={styles.h4}>资源完整性自检(W1-RES)</h4>
+      <button style={styles.btn} onClick={runAssetCheck} disabled={assetChecking}>
+        {assetChecking ? `检查中… ${assetProgress.done}/${assetProgress.total}` : '检查资源完整性'}
+      </button>
+      {assetRes && (
+        <div style={styles.stats}>
+          <div>
+            检查 <b>{assetRes.checked}</b> 项 · 用时 {assetRes.ms}ms ·{' '}
+            {assetRes.problems.length === 0
+              ? <span style={{ color: '#7CFC8C' }}>全部可用 ✓</span>
+              : <span style={styles.err}>{assetRes.problems.length} 项异常</span>}
+          </div>
+          {assetRes.problems.length > 0 && (
+            <div style={styles.assetProblems}>
+              {assetRes.problems.slice(0, 60).map((p) => (
+                <div key={p.url} style={styles.dim}><b style={{ color: '#f48771' }}>{p.status}</b> {p.url}</div>
+              ))}
+              {assetRes.problems.length > 60 && <div style={styles.dim}>… 还有 {assetRes.problems.length - 60} 项</div>}
+            </div>
+          )}
         </div>
       )}
 
@@ -130,6 +164,7 @@ const styles: Record<string, React.CSSProperties> = {
   dim: { color: '#888' },
   err: { color: '#f48771' },
   counts: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  assetProblems: { maxHeight: 180, overflowY: 'auto', marginTop: 4, fontSize: 11, fontFamily: 'monospace', lineHeight: 1.5 },
   chip: { background: '#2a2a30', borderRadius: 4, padding: '2px 8px', fontSize: 12 },
   feed: { maxHeight: 240, overflowY: 'auto', fontFamily: 'ui-monospace, monospace', fontSize: 11 },
   line: { padding: '2px 0', borderBottom: '1px solid #262630', wordBreak: 'break-all' },
