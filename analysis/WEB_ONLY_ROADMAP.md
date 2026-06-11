@@ -95,11 +95,13 @@
 - 改包/重启后等待房间和运行中房间不因 MD5 outdate 被踢。
 - Web 玩家中途退出运行局不再连带 IP 封禁(同机共用 IP 场景)。
 
-### W0-4 调整 Web 部署说明
+### W0-4 调整 Web 部署说明 ✅(2026-06-11)
 
-- `docker/README.md`、`docker-compose.yml`、`packages-upstream/README.md` 去掉“必须重算 FK_MD5 才能登录”的主流程,改为 Web-only 配置说明。
-- `packages/assets/compute-md5`(`packages/assets/src/index.ts:79-118`)保留为兼容/诊断工具,不再是部署必需步骤。
-- Docker 构建源从只读 `freekill-asio` 切到 `freekill-web-asio` fork。
+已落地(`freekill-web` 提交 `4dc2ce2`):
+- `asio.Dockerfile` 构建源从 `freekill-asio/` 切到 `freekill-web-asio/`(fork);`dockerignore.repo-root` 放行 fork、排除 fork `build/`+`packages/` 与只读基线 `freekill-asio/`。
+- `docker/freekill.server.config.json` 落 Web-only 四开关(`webOnly`/`checkClientMd5:false`/`invalidateRoomsOnPackageChange:false`/`tempBanByIp:false`)——部署即跳过 MD5、改包不踢、不封 IP。
+- `docker-compose.yml`、`docker/README.md` 去掉“必须重算 FK_MD5”主流程,改为 Web-only 说明;`compute-md5` 仅作诊断/兼容保留。
+- **未在本机 docker build**(daemon 不可用);fork 用与 Dockerfile 同款 cmake/make 已在 WSL 反复验证可编译,所有 COPY 源路径核实存在,config JSON 解析正确。VPS 上 `docker compose up -d --build` 实测留作真机验收点。
 
 ## P1 · 扩展包 UI 和局内缺口收尾
 
@@ -214,7 +216,7 @@
 2. **W0-1**:`checkClientMd5` 登录跳过(单点,最小)。✅
 3. **W0-2**:Web manifest/capabilities + 用 manifest 统一包集合、删 ART_PACKS 三处硬编码(同时修 P7-006/P7-032 与 R-ASSET-MISMATCH)。✅
 4. **W0-3**:`invalidateRoomsOnPackageChange`/`tempBanByIp` 房间过期与封禁 gating(触面较深,从 `_refreshMd5` 扫描处中和)。✅
-5. **W0-4**:部署文档去 FK_MD5 主流程 + Docker 源切到 fork。← 下一步
-6. **W1-1**:Quit 二次确认(AddRobot 显隐已在 W0-2 完成)。
+5. **W0-4**:部署文档去 FK_MD5 主流程 + Docker 源切到 fork。✅(W0 全部完成)
+6. **W1-1**:Quit 二次确认(AddRobot 显隐已在 W0-2 完成)。← 下一步(进入 P1)
 7. **W1-2/W1-3**:按当前启用扩展包补 QmlMark 点击型 / utility 框。
 8. **W2-1/W2-2**:房间预设和禁将方案。

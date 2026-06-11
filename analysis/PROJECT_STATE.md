@@ -3,12 +3,11 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-11 03:54:49　·　跟踪文件数: 2398
+最后更新: 2026-06-11 04:04:15　·　跟踪文件数: 2398
 
 ## 自上次重建以来的改动
 
-- 新增 2: freekill-web/apps/gateway/scripts/w0-3-outdated-probe.mjs, freekill-web/scripts/wsl-w0-3-scenario.sh
-- 修改 2: freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md
+- 修改 7: freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md, freekill-web/docker/asio.Dockerfile, freekill-web/docker/docker-compose.yml, freekill-web/docker/dockerignore.repo-root, freekill-web/docker/freekill.server.config.json, freekill-web/docker/README.md
 
 ## Spike 验证状态
 

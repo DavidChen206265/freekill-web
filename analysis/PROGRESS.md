@@ -4,9 +4,9 @@
 
 ## 当前阶段
 
-**M2 ✅ → M3 ✅(路由+重连/旁观)→ M4 ✅(交互补全 + 视觉动画/音频)→ M5 已完成关键底座 → Web-only 计划经源码审计核实 → W0-0/W0-1/W0-2/W0-3 ✅(fork 仓库 + Web-only 配置 + 跳过 MD5 登录 + manifest/capabilities + 房间过期/封禁 gating,均真 asio 对照验证)。下一步:W0-4 部署文档去 FK_MD5 + Docker 源切到 fork。**
+**M2 ✅ → M3 ✅(路由+重连/旁观)→ M4 ✅(交互补全 + 视觉动画/音频)→ M5 已完成关键底座 → Web-only 计划经源码审计核实 → W0 全部完成(W0-0 fork+配置 / W0-1 跳过 MD5 登录 / W0-2 manifest+统一包集合 / W0-3 房间过期+封禁 gating / W0-4 部署去 FK_MD5+Docker 源切 fork)。下一步:P1 扩展包 UI 与局内缺口收尾(W1-1 起:Quit 二次确认等;AddRobot 显隐已在 W0-2 完成)。**
 
-基础身份局浏览器完整跑通,核心架构全实证,M3/M4 全部真机验收通过,已部署 VPS(`docker compose`,Caddy HTTPS/WSS)。Web-only 决策后,不再追求原版 asio 零改动、Qt 客户端直连或 Qt↔Web 混连;已完成的 `computeFlistMd5` 保留为诊断/兼容工具,不再作为部署主流程门槛。**服务端改动进独立 fork `freekill-web-asio`(GitHub `DavidChen206265/freekill-web-asio`,项目内目录 `freekill-web-asio/`,自带 git:origin=fork,upstream=Qsgs-Fans diff 基线;基线 `edb3e43` + W0-1 `fcde646` + W0-2 `fc03c24` + W0-3 `5e8a2e3`,均未 push 待批),`freekill-asio/` 留作只读基线。Git 工作流:定期 commit、push 须经用户允许(见 CLAUDE.md)。** 长期/短期计划以 `freekill_web_implementation_plan.md` + `WEB_ONLY_ROADMAP.md` 为准。
+基础身份局浏览器完整跑通,核心架构全实证,M3/M4 全部真机验收通过,已部署 VPS(`docker compose`,Caddy HTTPS/WSS)。Web-only 决策后,不再追求原版 asio 零改动、Qt 客户端直连或 Qt↔Web 混连;已完成的 `computeFlistMd5` 保留为诊断/兼容工具,不再作为部署主流程门槛。**服务端改动进独立 fork `freekill-web-asio`(GitHub `DavidChen206265/freekill-web-asio`,项目内目录 `freekill-web-asio/`,自带 git:origin=fork,upstream=Qsgs-Fans diff 基线;基线 `edb3e43` + W0-1 `fcde646` + W0-2 `fc03c24` + W0-3 `5e8a2e3`),`freekill-asio/` 留作只读基线。Docker 构建源已切到 fork(W0-4)。两仓均有未 push 提交,push 须经用户允许(见 CLAUDE.md「Git 工作流」)。** 长期/短期计划以 `freekill_web_implementation_plan.md` + `WEB_ONLY_ROADMAP.md` 为准。
 
 **M4 切片 V 完成记录(2026-06-09,已合 master 推送,提交 fe260d0…5524f8a)**:V-0 总闸+animationStore / V-1 Indicate 连线 / V-2 Emotion 精灵 / V-3 tremble+濒死/阵亡 / V-4 技能发动框 / V-5 音频(原生 Audio,非 Howler)/ V-6 Toast+桌面牌注脚;逐行审计修 5 处还原错误;验收反馈修复:技能横幅淡出、桌面结算区参考系归位+居中、即时结算牌飞行(Destroy 改延后 vanish 1.5s 照搬 TablePile.qml vanishTimer)、Processing→Discard 保位(照搬 moveCards SKIP 守卫)、摸牌动画(lastMoved 累积防批处理丢失)、photo 动画居中、装备/对手手牌飞入、指示线箭头+红环、StrictMode oncancel bug、部署 audio/anim 缺失。**方法论铁律(已沉淀 memory)**:别拿单测当真实验证——先 probe 真实 VM/CBOR 数据契约再下结论。
 
@@ -16,7 +16,7 @@
 
 **Web-only 路线已取代旧 M5/M6 混连路线。当前执行顺序见 `WEB_ONLY_ROADMAP.md`(审计后重排):**
 
-- **W0 Web-only 服务端小 fork**:✅ W0-0(fork 仓库 + 4 配置项)、✅ W0-1(`checkClientMd5` 登录跳过)、✅ W0-2(manifest/capabilities + 统一包集合删 ART_PACKS[修 P7-006/P7-032+R-ASSET-MISMATCH] + AddRobot 按 webFeatures 显隐[修 P4-004])、✅ W0-3(`invalidateRoomsOnPackageChange`/`tempBanByIp` 房间过期/封禁 gating,真 asio 对照验证)。待做:**W0-4** 部署文档去 FK_MD5 主流程 + Docker 构建源从 `freekill-asio` 切到 fork。
+- **W0 Web-only 服务端小 fork**:✅ 全部完成 —— W0-0(fork 仓库 + 4 配置项)、W0-1(`checkClientMd5` 登录跳过)、W0-2(manifest/capabilities + 统一包集合删 ART_PACKS[修 P7-006/P7-032+R-ASSET-MISMATCH] + AddRobot 按 webFeatures 显隐[修 P4-004])、W0-3(`invalidateRoomsOnPackageChange`/`tempBanByIp` 房间过期/封禁 gating)、W0-4(部署 config 落 Web-only 开关 + Docker 构建源切 fork + 去 FK_MD5 主流程)。**遗留真机验收点**:VPS `docker compose up -d --build`(本机 docker daemon 不可用,未在本地构镜像)。
 - **P1 扩展包 UI 与局内缺口收尾**:Quit 二次确认、AddRobot 按 manifest `webFeatures` 显隐、QmlMark 点击查看型、更多 utility 共享框、DetailedChoice/DetailedCheckBox、手牌禁用原因、LimitSkillArea/banner。(ART_PACKS 已并入 W0。)
 - **P2 Web 账户与个性化**:先用 `globalSaves`(现成异步 API)做房间预设、禁将/禁包方案、UI 偏好、最近包集合;再接好友/黑名单(`friendinfo` 空表绿地)、等级/成就、个人资料页。
 - **P3 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
@@ -34,6 +34,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-11 **W0-4 落地 + W0 全部完成:部署切到 Web-only fork、去 FK_MD5 主流程(纯 docker/文档,`freekill-web` 提交 `4dc2ce2`)**。严格走工作流(先读 docker/ 全部文件 → 改 → 校验 COPY 源路径存在 + config JSON 解析 → commit)。改动:①`asio.Dockerfile` 构建源 `COPY freekill-asio/`→`COPY freekill-web-asio/`(Web-only fork);②`docker/freekill.server.config.json` 落 Web-only 四开关(`webOnly`/`checkClientMd5:false`/`invalidateRoomsOnPackageChange:false`/`tempBanByIp:false`)——部署即跳过 MD5 登录、改包不踢房、不按 IP 封禁;③`docker-compose.yml` 删掉 FK_MD5 重算指引,改注释说明 asio 现忽略客户端 MD5(FK_MD5 仅在翻回 checkClientMd5=true 时才需要);④`dockerignore.repo-root` 放行 `freekill-web-asio/`、排除其 `build/`+`packages/` 与只读基线 `freekill-asio/`;⑤`docker/README.md` 重写:Web-only 部署说明(无需重算 MD5、改包不踢不封、传 fork 而非上游)。**自验**:本机 docker daemon 不可用,**未做 docker build**(已如实记录);但 fork 用与 Dockerfile 同款 `cmake .. && make` 已在 WSL 跨 W0-1~W0-3 反复验证可编译,9 个 COPY 源路径全部核实存在,config JSON 解析出四开关正确。VPS 真机 `docker compose up -d --build` 留作验收点。**至此 W0(Web-only 服务端小 fork)全部完成**:W0-0 fork+配置 / W0-1 跳过 MD5 登录 / W0-2 manifest+统一包集合 / W0-3 房间过期+封禁 gating / W0-4 部署。下一步进 P1(W1-1 起)。提交未 push,待用户批准。
 
 - 2026-06-11 **Git 工作流入指南 + W0-3 房间过期/封禁 gating(改 fork,真 asio 对照验证)**。**①工作流**:用户要求"定期 commit + push 须经允许",写入 `CLAUDE.md`/`AGENTS.md` 新增「Git 工作流」节(每个自验通过的切片就地 commit、不攒;commit 不必等用户;`git push` 任一仓库一律先问)。据此把本会话累积的 web 改动按切片提交进 `freekill-web`(W0-2 web 代码 `6742302` / WSL 脚本 `cfd1701` / 文档计划 `a8f9808`)。**②W0-3**(fork 提交 `5e8a2e3`):`invalidateRoomsOnPackageChange`/`tempBanByIp` 接行为。**比计划更优的单点 gate**——直接在 `Room::isOutdated()`/`RoomThread::isOutdated()` 入口按 flag short-circuit(在 `md5=""` 副作用前 return false),一处覆盖全部消费者(开局/退房/gameOver/线程回收 + lobby.cpp 房列表 outdated 标志,实测比计划列的 6 处更多)。**关键补救**:`_refreshMd5()` 结尾有个**无条件**踢光大厅所有人的循环(包变即踢,不看 isOutdated),isOutdated 门盖不住 → 必须另用 flag 包住,否则 Web-only 下改包仍踢全大厅。tempBan 两处(`room.cpp:270` 换房 / `:672` gameOver)用 `tempBanByIp` 守卫,gameOver 保留 else 正常踢人。默认 true=上游行为。**自验(真 asio + 对照,非单测)**:写 `wsl-w0-3-scenario.sh`(命令**直喂 server stdin**,不用 fifo——后台 `tail -f fifo|server` 在本 harness 投递不可靠,踩坑)分别跑 webonly/upstream 两模式,node 大厅探针 `w0-3-outdated-probe.mjs` 计时记录是否被踢:**webonly 下真 `disable sp`(→refreshMd5)后大厅玩家留连 40s 不掉;upstream 下同命令在刷新瞬间(探针计时 9.2s=server 20s)踢人**——证明 gate 真实有效且上游行为保留。fork 编译通过。两仓提交均**未 push,待用户批准**。下一步 W0-4。
 
