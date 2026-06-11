@@ -11,6 +11,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./enumerate": {
+      "types": "./dist/enumerate.d.ts",
+      "default": "./dist/enumerate.js"
     }
   },
   "files": ["dist"],

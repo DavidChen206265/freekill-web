@@ -17,7 +17,9 @@ RUN pnpm install --frozen-lockfile \
  && pnpm --filter @freekill-web/shared build \
  && pnpm --filter @freekill-web/protocol build \
  && pnpm --filter @freekill-web/lua-native build \
+ && pnpm --filter @freekill-web/assets build \
  && pnpm --filter @freekill-web/web sync-assets \
+ && node packages/assets/scripts/verify-fk-assets.mjs apps/web/public/fk \
  && pnpm --filter @freekill-web/web build
 
 # ---- caddy runtime ----
