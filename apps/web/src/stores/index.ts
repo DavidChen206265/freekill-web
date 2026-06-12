@@ -10,12 +10,13 @@ import { useVmStore } from './vmStore.js'
 import { usePopupStore } from './popupStore.js'
 import { useGameStore } from './gameStore.js'
 import { useTimerStore } from './timerStore.js'
+import { useMiscStore } from './miscStore.js'
 import { useLogStore } from './logStore.js'
 import { isRoomBootstrap } from './roomRouting.js'
 import { waitBeat } from './pacing.js'
 import { useServerManifestStore, parseManifest } from './serverManifestStore.js'
 import { setArtPacks } from '../table/skin.js'
-import { setAudioPacks } from '../table/audio.js'
+import { setAudioPacks, stopBgm } from '../table/audio.js'
 
 // ---- connection ----
 interface ConnectionState {
@@ -350,6 +351,12 @@ function routeEnvelope(env: Envelope): void {
   if (env.kind === 'notify' && (env as NotifyEnvelope).command === 'EnterLobby') {
     inRoom = false
     useVmStore.getState().reset()
+    // Leaving a room ends any game clock. vmStore.reset() keeps the persisted clock
+    // anchor (so a mid-game RECONNECT resumes elapsed time), but a return to the lobby
+    // is NOT a reconnect — clear it so the NEXT game's timer starts from 0 instead of
+    // inheriting a stale anchor (the reported "右上角计时器不对"). Reconnect replays
+    // Setup/StartGame in-room and never passes through EnterLobby.
+    useMiscStore.getState().clearClock()
     useLobbyStore.setState({ enteredRoomId: undefined })
     return
   }
@@ -369,6 +376,10 @@ function routeEnvelope(env: Envelope): void {
   ) {
     duplicateLoginKick = true
     useConnectionStore.setState({ kickedMessage: '你的账号已在别处登录，此客户端已断开。', reconnecting: false })
+    // Kicked in-game: the socket closes but we don't reconnect (no takeover war) and
+    // vmStore.reset() isn't called on this path, so the game BGM would keep looping.
+    // Stop it explicitly, like leave/GameOver do via vmStore.reset() → stopBgm().
+    stopBgm()
   }
 
   if (inRoom) {

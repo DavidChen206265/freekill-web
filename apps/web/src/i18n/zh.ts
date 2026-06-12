@@ -8,6 +8,13 @@ const ZH: Record<string, string> = {
   m_1v1_mode: '1v1模式',
   m_2v2_mode: '2v2模式',
   testmode: '测试模式',
+  // Card-choose box area labels: client.lua:303-305 emits $Hand/$Equip/$Judge as the
+  // card_data group names; values from lua/client/i18n/zh_CN.lua:373-375. These are
+  // fixed client-UI i18n strings (not VM card/general content), so the static dict
+  // owns them — without these tr() fell back to the raw "$Hand"/"$Equip" key.
+  $Hand: '手牌区',
+  $Equip: '装备区',
+  $Judge: '判定区',
 }
 
 // Runtime cache filled from the VM's Fk:translate (cards/generals/skills/...).
