@@ -85,12 +85,13 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - 差异: 整个换肤交互未实现（功能性缺口，非纯视觉）。
 
 ### D11 PhotoBase::座位移动动画(Behavior on x/y)
-- 状态: 还原错误
+- 状态: 完全还原
 - 原版: PhotoBase.qml:189-195 (Behavior on x/y, NumberAnimation 600ms InOutQuad)
-- web : seatLayout.ts:102 / Photo.tsx:81 (left/top 绝对定位，无过渡)
+- web : Photo.tsx:288 (styles.wrap transition left/top 600ms)
 - 原版行为: 换座/重排时 photo 平滑滑动 600ms。
-- web 行为: left/top 直接跳变，无 transition。
-- 差异: 缺座位移动补间动画（ArrangeSeats 后会瞬移）。
+- web 行为: styles.wrap 加 `transition: left 600ms cubic-bezier(0.455,0.03,0.515,0.955), top 600ms ...`，换座/重排时平滑滑动，与原版一致（scale 变换不参与过渡）。
+- 差异: （已消除）
+- 修复: 已修复并验证 (Photo.tsx styles.wrap 加 left/top transition,照搬 PhotoBase.qml:189-195 的 600ms InOutQuad≈cubic-bezier(0.455,0.03,0.515,0.955);typecheck/build/150 测试全绿,2026-06-12)
 
 ---
 
@@ -551,17 +552,17 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 27 | D1,D2,D3,D9,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67 |
+| 完全还原 | 30 | D1,D2,D3,D9,D11,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67 |
 | 简化还原 | 18 | D5,D7,D8,D13,D14,D15,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53 |
-| 还原错误 | 1 | D11 |
+| 还原错误 | 0 | （D11 已修复并验证 2026-06-12，升级为完全还原） |
 | 未还原 | 19 | D4,D6,D10,D12,D16,D17,D18,D19,D20,D23,D30,D31,D32,D37,D44,D45,D51,D56,D59 |
 
-（注：计数含 D1–D67 共 67 项；"完全还原" 实列 29 项 D1..D67 中标注者，下表以实际标注为准。）
+（注：计数含 D1–D67 共 67 项。）
 
 实际四态计数（按各条目"状态"字段）：
-- 完全还原：29（D1,D2,D3,D9,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67）
+- 完全还原：30（D1,D2,D3,D9,D11,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67）
 - 简化还原：18（D5,D7,D8,D13,D14,D15,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53）
-- 还原错误：1（D11）
+- 还原错误：0（D11 已修复并验证 2026-06-12）
 - 未还原：19（D4,D6,D10,D12,D16,D17,D18,D19,D20,D23,D30,D31,D32,D37,D44,D45,D51,D56,D59）
 - 合计：67
 
@@ -588,8 +589,8 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - D56 LimitSkillArea 限定技/觉醒/转换技标记区
 - D59 SkinArea gif/mp4 动态皮肤
 
-**还原错误（1）**：
-- D11 座位移动动画 — left/top 直接跳变，缺 600ms 平滑滑动补间
+**还原错误（0）**：
+- （无；D11 座位移动补间动画 已于 2026-06-12 修复并验证，状态升级为完全还原）
 
 ## 最关键 3 缺口
 

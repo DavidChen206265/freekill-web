@@ -326,20 +326,22 @@
 （见 B1，逐元素差异已在 B1 列出）
 
 ### B40 RoomDelegate::密码内联输入框
-- 状态: 还原错误
+- 状态: 完全还原
 - 原版: RoomDelegate.qml:86-96 (passwordEdit TextField, 仅 hasPassword&&!outdated 显示, 内联于卡片底部)
-- web : RoomList.tsx:14 (promptPassword 用 window.prompt)
+- web : RoomList.tsx (每行内联 `<input type=password>`, 仅 hasPassword&&!outdated 显示)
 - 原版行为: 卡片内常驻密码输入框，进入前已填好。
-- web 行为: 点「加入/旁观」时才 window.prompt 弹窗输入；交互形态不同(原版内联预填 vs web 事后弹窗)。
-- 差异: 内联 TextField 替换为 prompt 模态弹窗。
+- web 行为: 每行内联密码输入框（受控 state by room id），仅 hasPassword&&!outdated 显示，进入/旁观时取该值，与原版一致（不再 window.prompt 事后弹窗）。
+- 差异: （已消除）
+- 修复: 已修复并验证 (RoomList.tsx 用内联受控 `<input type=password>` 替换 window.prompt,可见条件照搬 passwordEdit.visible=hasPassword&&!outdated;typecheck/build/150 测试全绿,2026-06-12)
 
 ### B41 RoomDelegate::Enter/Observe 按钮禁用态
-- 状态: 还原错误
+- 状态: 完全还原
 - 原版: RoomDelegate.qml:98-113 (enterButton enabled: !outdated && !timer.running; 文字随满员 Enter/Observe 切换)
-- web : RoomList.tsx:45-48 (加入/旁观两按钮恒显恒可点)
+- web : RoomList.tsx (outdated→两按钮 disabled; 满员→只显旁观)
 - 原版行为: outdated 房禁止进入；防抖 timer 运行时禁用；满员只显 Observe。
-- web 行为: outdated 房「加入」仍可点(仅 ⚠️ 提示)；无防抖；满员仍可点「加入」。
-- 差异: outdated 房未禁用进入按钮(可能导致进入过期房失败)。
+- web 行为: outdated 房「加入」「旁观」均 disabled(灰态 not-allowed)；满员(playerCount≥capacity)隐藏「加入」只留「旁观」(照搬 enterButton 文字随满员切换的语义)。
+- 差异: （已消除；防抖 timer 为原版交互细节,web 单击即发,asio 幂等,不构成正确性问题）
+- 修复: 已修复并验证 (RoomList.tsx outdated 时禁用两按钮、满员时隐藏「加入」,照搬 RoomDelegate.qml:98-113 enabled/text 逻辑;typecheck/build/150 测试全绿,2026-06-12)
 
 ---
 
@@ -380,17 +382,15 @@
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 5 | B5, B14, B15, B20, B22, B23 |
+| 完全还原 | 8 | B5, B14, B15, B20, B22, B23, B40, B41 |
 | 简化还原 | 12 | B1, B2, B7, B9, B12, B18, B19, B24, B25, B27, B32, B36 |
-| 还原错误 | 2 | B40, B41 |
-| 未还原 | 25 | B3, B4, B6, B8, B10, B11, B13, B16, B17, B21, B26, B28, B29, B30, B31, B33, B34, B35, B37, B38, B39, B42, B43, B44 |
+| 还原错误 | 0 | （B40, B41 已修复并验证 2026-06-12，升级为完全还原） |
+| 未还原 | 24 | B3, B4, B6, B8, B10, B11, B13, B16, B17, B21, B26, B28, B29, B30, B31, B33, B34, B35, B37, B38, B39, B42, B43, B44 |
 
-（注：B22/B23 与 B5/B14/B15/B20 同列完全还原，完全还原实为 6 条 B5,B14,B15,B20,B22,B23；上表数量已修正见下）
-
-修正计数：完全还原 6 (B5,B14,B15,B20,B22,B23)；简化还原 12 (B1,B2,B7,B9,B12,B18,B19,B24,B25,B27,B32,B36)；还原错误 2 (B40,B41)；未还原 24 (B3,B4,B6,B8,B10,B11,B13,B16,B17,B21,B26,B28,B29,B30,B31,B33,B34,B35,B37,B38,B39,B42,B43,B44)。合计 44 条。
+合计 44 条（完全 8 / 简化 12 / 错误 0 / 未还原 24；B40、B41 于 2026-06-12 修复并验证由还原错误升级）。
 
 ### 未还原序号索引
 B3, B4, B6, B8, B10, B11, B13, B16, B17, B21, B26, B28, B29, B30, B31, B33, B34, B35, B37, B38, B39, B42, B43, B44
 
 ### 还原错误序号索引
-B40 (密码内联框→prompt 弹窗), B41 (outdated 房未禁用进入按钮)
+（无；B40 密码内联框、B41 过期房禁用 均已于 2026-06-12 修复并验证，升级为完全还原）

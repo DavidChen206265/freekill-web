@@ -285,7 +285,11 @@ function seatChr(seat?: number): string {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  wrap: { position: 'absolute', width: PHOTO_W, height: PHOTO_H, color: '#eee', fontFamily: 'system-ui, sans-serif' },
+  // transition on left/top mirrors PhotoBase.qml:189-195 `Behavior on x/y`
+  // (NumberAnimation 600ms InOutQuad) so a seat rearrange (ArrangeSeats) slides
+  // photos instead of jumping. InOutQuad ≈ cubic-bezier(0.455,0.03,0.515,0.955).
+  // Only left/top transition; the scale transform is left immediate.
+  wrap: { position: 'absolute', width: PHOTO_W, height: PHOTO_H, color: '#eee', fontFamily: 'system-ui, sans-serif', transition: 'left 600ms cubic-bezier(0.455,0.03,0.515,0.955), top 600ms cubic-bezier(0.455,0.03,0.515,0.955)' },
   photo: { position: 'absolute', inset: 0, borderRadius: 8, overflow: 'hidden', background: '#14110c' },
   back: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
   portraitClip: { position: 'absolute', left: 4, top: 3, right: 4, bottom: 22, borderRadius: 6, overflow: 'hidden', display: 'flex' },
