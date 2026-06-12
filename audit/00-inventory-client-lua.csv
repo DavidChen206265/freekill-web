@@ -1,0 +1,72 @@
+command,direction,registered_at,web_vm_has_handler
+18:  self:addCallback("NetworkDelayTest",server->client, self.sendSetupPacket),no
+19:  self:addCallback("Setup",server->client, self.setup),no
+20:  self:addCallback("Heartbeat",server->client, self.heartbeat),no
+22:  self:addCallback("EnterRoom",server->client, self.enterRoom, true),no
+23:  self:addCallback("ChangeRoom",server->client, self.changeRoom, true),no
+24:  self:addCallback("EnterLobby",server->client, self.quitRoom, true),no
+25:  self:addCallback("AddPlayer",server->client, self.addPlayer),no
+26:  self:addCallback("RemovePlayer",server->client, self.removePlayer),no
+27:  self:addCallback("AddObserver",server->client, self.addObserver),no
+28:  self:addCallback("RemoveObserver",server->client, self.removeObserver),no
+29:  self:addCallback("SetCardFootnote",server->client, self.setCardFootnote),no
+29:  self:addCallback("UpdateGameData",server->client, self.updateGameData, true),no
+30:  self:addCallback("AddTotalGameTime",server->client, self.addTotalGameTime),no
+30:  self:addCallback("PlayCard",server->client, self.playCard),no
+31:  self:addCallback("AskForCardChosen",server->client, self.askForCardChosen),no
+31:  self:addCallback("NetStateChanged",server->client, self.changeNetState, true),no
+32:  self:addCallback("MoveCards",server->client, self.moveCards),no
+32:  self:addCallback("ReadyChanged",server->client, self.changeReady, true),no
+33:  self:addCallback("RoomOwner",server->client, self.changeRoomOwner, true),no
+33:  self:addCallback("ShowCard",server->client, self.showCard),no
+34:  self:addCallback("Chat",server->client, self.chat),no
+34:  self:addCallback("LoseSkill",server->client, self.loseSkill),no
+35:  self:addCallback("AddSkill",server->client, self.addSkill),no
+36:  self:addCallback("AddStatusSkill",server->client, self.addStatusSkill),no
+36:  self:addCallback("StartGame",server->client, self.startGame),no
+37:  self:addCallback("AskForSkillInvoke",server->client, self.askForSkillInvoke),no
+38:  self:addCallback("ArrangeSeats",server->client, self.arrangeSeats),no
+38:  self:addCallback("AskForUseActiveSkill",server->client, self.askForUseActiveSkill),no
+39:  self:addCallback("AskForUseCard",server->client, self.askForUseCard),no
+39:  self:addCallback("SetPlayerMark",server->client, self.handleSetPlayerMark),no
+40:  self:addCallback("AskForResponseCard",server->client, self.askForResponseCard),no
+40:  self:addCallback("SetBanner",server->client, self.handleSetBanner),no
+41:  self:addCallback("Reconnect",server->client, self.reconnect),no
+41:  self:addCallback("SetCurrent",server->client, self.handleSetCurrent),no
+42:  self:addCallback("Observe",server->client, self.observe),no
+42:  self:addCallback("SetCardMark",server->client, self.setCardMark),no
+43:  self:addCallback("LogEvent",server->client, self.logEvent),no
+44:  self:addCallback("AddCardUseHistory",server->client, self.addCardUseHistory),no
+44:  self:addCallback("PropertyUpdate",server->client, self.propertyUpdate),no
+45:  self:addCallback("GameLog",server->client, self.appendLog),no
+45:  self:addCallback("SetCardUseHistory",server->client, self.setCardUseHistory),no
+45:  self:addCallback("reconnect",server->client, self.playerReconnect),no
+46:  self:addCallback("AddSkillUseHistory",server->client, self.addSkillUseHistory),no
+46:  self:addCallback("observe",server->client, self.addObserver),no
+47:  self:addCallback("AddNpc",server->client, self.addNpc),no
+47:  self:addCallback("AddSkillBranchUseHistory",server->client, self.addSkillBranchUseHistory),no
+47:  self:addCallback("leave",server->client, self.removeObserver),no
+48:  self:addCallback("SetSkillUseHistory",server->client, self.setSkillUseHistory),no
+48:  self:addCallback("surrender",server->client, self.handleSurrender),no
+49:  self:addCallback("GameOver",server->client, self.gameOver),no
+49:  self:addCallback("SetSkillBranchUseHistory",server->client, self.setSkillBranchUseHistory),no
+50:  self:addCallback("AddVirtualEquip",server->client, self.addVirtualEquip),no
+51:  self:addCallback("RemoveVirtualEquip",server->client, self.removeVirtualEquip),no
+52:  self:addCallback("ChangeSelf",server->client, self.changeSelf),no
+53:  self:addCallback("UpdateQuestSkillUI",server->client, self.updateQuestSkillUI),no
+54:  self:addCallback("UpdateMarkArea",server->client, self.UpdateMarkArea),no
+55:  self:addCallback("PrintCard",server->client, self.handlePrintCard),no
+56:  self:addCallback("AddBuddy",server->client, self.addBuddy),no
+57:  self:addCallback("RmBuddy",server->client, self.rmBuddy),no
+58:  self:addCallback("PrepareDrawPile",server->client, self.prepareDrawPile),no
+59:  self:addCallback("ShuffleDrawPile",server->client, self.handleShuffleDrawPile),no
+60:  self:addCallback("SyncDrawPile",server->client, self.syncDrawPile),no
+61:  self:addCallback("ChangeCardArea",server->client, self.handleChangeCardArea),no
+62:  self:addCallback("SetPlayerPile",server->client, self.setPlayerPile),no
+63:  self:addCallback("FilterCard",server->client, self.handleFilterCard),no
+64:  self:addCallback("ShowVirtualCard",server->client, self.showVirtualCard),no
+65:  self:addCallback("ChangeSkin",server->client, self.changeSkin),no
+67:  self:addCallback("AddNpc",server->client, self.addNpc),no
+79:  self:addCallback("prelight",server->client, self.handlePrelight),no
+80:  self:addCallback("updatemini",server->client, self.handleUpdateMini),no
+81:  self:addCallback("changeskin",server->client, self.handleChangeSkin),no

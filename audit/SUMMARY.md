@@ -1,0 +1,100 @@
+# FreeKill-Web 还原审计 · 全局汇总（SUMMARY）
+
+> 本汇总由 16 个 Phase（A–P）报告聚合而成。所有结论基于逐行实读原版 FreeKill 源码（git `37f8c12` / v0.5.20）与 freekill-web 实现，**未采信任何旧 audit/analysis 内容**。审计范围 = 客户端还原面 + 协议契约面（服务端 server lua / C++ 引擎由 freekill-web-asio fork 复用，不作还原对象）。
+
+## 1. 总体计数
+
+| 维度 | 数量 |
+|---|---|
+| 审计条目总数 | **459** |
+| 未还原 | **160** |
+| 简化还原 | **124** |
+| 还原错误 | **10** |
+| 完全还原 | **165** |
+
+> 完全还原率 165/459 ≈ 36%；存在缺陷或缺失（未还原+简化+错误）294/459 ≈ 64%。
+
+## 2. 分 Phase 状态分布
+
+| Phase | 主题 | 未还原 | 简化 | 错误 | 完全 | 小计 |
+|---|---|---:|---:|---:|---:|---:|
+| A | 启动/全局 shell/登录连服 | 13 | 6 | 0 | 8 | 27 |
+| B | 大厅/建房/筛选/个人设置/包管理 | 24 | 12 | 2 | 6 | 44 |
+| C | 等待房/房间外壳 | 12 | 11 | 1 | 6 | 30 |
+| D | 玩家位 Photo 全栈 | 19 | 18 | 1 | 29 | 67 |
+| E | 手牌/卡牌/牌桌牌堆 | 14 | 6 | 1 | 17 | 38 |
+| F | 技能区/技能交互控件 | 7 | 7 | 0 | 5 | 19 |
+| G | 请求弹窗（所有 Box） | 0 | 9 | 0 | 14 | 23 |
+| H | 动画/特效/聊天动画 | 6 | 12 | 1 | 8 | 27 |
+| I | 聊天/弹幕/日志/倒计时 | 1 | 9 | 1 | 7 | 18 |
+| J | 总览/详情/筛选/战绩页 | 23 | 3 | 0 | 0 | 26 |
+| K | 基础控件层（Widgets+Base） | 14 | 11 | 0 | 9 | 34 |
+| L | 作弊/调试面板（Cheat） | 13 | 3 | 0 | 3 | 19 |
+| M | 角色推测/mark/标记系统 | 4 | 5 | 1 | 7 | 17 |
+| N | 资源/皮肤/音频/字体/i18n 管线 | 4 | 11 | 2 | 17 | 34 |
+| O | 内容包客户端呈现（标/标卡/军争） | 0 | 0 | 0 | 11 | 11 |
+| P | 协议契约一致性 | 6 | 1 | 0 | 18 | 25 |
+| **合计** | | **160** | **124** | **10** | **165** | **459** |
+
+## 3. 还原错误（10 条 — 行为与原版不一致，最高优先级修复）
+
+这些是 web 端有对应实现、但行为/视觉/语义与原版**不一致**的条目，比单纯缺失更危险（用户看到的是错误而非空白）。
+
+| 序号 | 元素 | 错误本质 |
+|---|---|---|
+| **M3** | 牌堆标记 `@$`(游戏牌)/`@&`(武将牌) 计数 | 落入通用文字分支，显示「逐项翻译拼接的牌名」而非「张数」；数组长时文本异常膨胀、语义错误 |
+| **N2** | 双将分屏立绘 (dual/) | 从不取 `generals/dual/<name>.jpg`，双将永远拉伸普通整图而非专绘半身像 |
+| **N20** | 聊天投掷动画精灵 (egg/flower/shoe/wine) | 五种共用单 emoji 飞行，丢失各自 7 发齐射/旋转/碎裂帧/命中帧/多音效（与 H20–H24 联动） |
+| **B41** | RoomDelegate Enter/Observe 按钮禁用态 | outdated 过期房在 web 仍可点「加入」，原版禁用——可让用户进入版本不匹配的房 |
+| **B40** | RoomDelegate 密码内联输入框 | 密码房交互与原版不一致 |
+| **C29** | UpdateGameData 战绩更新 | VM 内执行但 web 无战绩字段渲染（与 C3 缺面板联动） |
+| **D11** | 座位移动补间动画 | 原版 600ms Behavior on x/y 补间，web left/top 直接跳变 |
+| **E9** | 卡牌禁用变灰 | 遮罩由 `enabled` 驱动而非原版 `selectable`，视觉一致但语义来源不同 |
+| **H6** | Indicate 目标红环脉冲 (TargetPulse) | web 自创了原版没有的红环脉冲特效（多余渲染） |
+| **I8** | 旁观者聊天进弹幕 | 原版无 photo 的旁观者发言走弹幕，web 一律 append 进面板并挂气泡，且缺 `{emojiN}`→`<img>` 替换与 hideObserverChatter |
+
+## 4. 高优先级未还原缺口（按对局影响排序）
+
+### 4.1 影响对局可玩性 / 正确性（P0 — 缺了会卡住或误导对局）
+- **F14 + F15 + D56 + M14/M15 限定技/觉醒技/转换技/Banner/MarkArea 整套**：`UpdateLimitSkill`、`SetBanner`、`UpdateMarkArea` 三命令被列入 `KNOWN_DEFERRED`，Photo 无 LimitSkillArea，限定技「已用 X」、转换技阴/阳态、觉醒技触发显隐、全局顶部横幅、标记区显隐全无呈现。标准三包不触发（O 阶段确认），但任何扩展包对局会缺关键信息。
+- **P 协议上报 6 项**：投降（PushRequest surrender）、托管（Trust）、房主踢人（KickPlayer）、prelight 预亮（F7）、changeskin 换肤、ChangeRoom 改房——asio 支持但 web 前端无入口，对局内无法投降/托管/踢人。
+- **C20 投降 + C19 游戏内菜单 overlay**：对局中无菜单按钮组，连带投降/设置/一览/录像入口全无。
+- **E14/E15/E17 手牌出牌交互**：拖拽出牌、超级拖拽、双击使用全缺，web 手牌仅支持点击选中（功能可用但操作方式残缺）。
+- **D32 + D24 对手手牌速览 / 手牌上限**：HandcardViewer 浮窗未实现，手牌数无 `n/maxCard` 与 ∞ 逻辑。
+
+### 4.2 影响信息完整度（P1 — 看得了但信息缺失）
+- **D12/D20/D22 行动者高亮 + 翻面 + 垂死贴图**：无 playing 光环（不知轮到谁）、faceturned/saveme 未渲染（dying/faceup 数据已同步未消费）。
+- **J 总览/详情/战绩页族（23 条全未还原）**：武将一览、卡牌一览、武将筛选、武将池、战绩列表、统计页 web 零实现零入口；`pages/` 仅 LobbyPage+LoginPage。
+- **B 筛选 + 建房子系统**：FilterRoom 整套（B4/B17）、Lua 动态设置 UI（B28）、卡包设置（B29）、禁将方案（B30）未还原。
+- **B 个人设置族（B31–B39）**：改头像、改密码、音频/控制/UI/背景设置、资料卡均无入口。
+- **C2/C3/C4 等待房 WaitingPhoto**：立绘/边框/三态准备角标、战绩面板、房间配置面板用纯文本替代或省略。
+
+### 4.3 影响观感（P2 — 视觉降级，不影响功能）
+- **H9 大招 UltSkillAnimation**：原版全屏黑幕+双层滚动台词+立绘三段飞入，web 仅一行大字缩放淡入。
+- **H20–H24 + N20 五种送礼动画**：塌缩成单 emoji 飞行（见 §3 N20）。
+- **H2–H4 Photo 循环状态光环**：playing/selected/selectable 精灵动画替换为静态描边。
+- **I9 + B13 弹幕 Danmu 整组件**：大厅/旁观/广播/胜负公告通道全无。
+- **N1 资源美化包 + N field 内嵌字体**：enabledResourcePacks 皮肤包机制缺失；FZLE/FZLBGBK/simli 字体退化为 system-ui。
+- **L Cheat 查看面板族（13 条）**：游戏内 cheat 容器、查看牌堆/将堆/卡牌详情、自由选将/同名替换/皮肤选择未实现（VmDebugPanel 是开发工具，不计 cheat 还原）。
+- **K 设置/偏好控件族 + Config**：web 无设置页，ActionRow/PreferencePage/Slider 等控件族未还原，Config 简化到仅 uuid+bgm。
+
+## 5. 完全还原的核心系统（已验证一致，无需返工）
+- **P 协议透传层**：gateway 是纯 CBOR↔Envelope 桥，70 个 server→client 命令整体到达浏览器并喂入原版 client.lua addCallback 表，零丢弃零改写（18/25 完全还原）。
+- **O 标准三包客户端呈现**：standard/standard_cards/maneuvering 的立绘/血量/势力/身份、技能 banner+配音、卡牌花色点数虚拟名、判定区延时锦囊、装备序列帧、mark 多态前缀分类逐项还原（11/11 完全）。
+- **G 请求弹窗骨架**：21 个 Box + 5 个 request_type 全部至少有可用 port，核心规则桥（poxiFilter/Feasible/Prompt、chooseGeneralFilter、choiceFilter、cardFitPattern、防作弊 shuffle）全部存在且签名匹配（0 未还原/0 错误）。
+- **D Photo 数据快照层 + E 卡牌移动逻辑**：syncPlayers 读 roster/seat/general/hp/marks，MoveCards 区域归属、vanishTimer、goBack 归位、footnote/虚拟牌名忠实还原。
+- **N 资源寻址核心**：SkinBank/RoomLogic 路径规则重实现为 skin.ts+audio.ts，audio.json/images.json/anim.json 清单查表等价替代运行时读盘；系统音效/技能阵亡配音多候选 fallback/BGM 完全还原。
+- **M 角色推测链路**：RoleComboBox/assumptionBox/optionPopupBox 1:1 还原。
+
+## 6. 报告导航
+- `AUDIT_PLAN.md` — 审计规划、范围边界、架构事实、记录格式。
+- `00-phase0-inventory.md` + `00-inventory-*.csv` — 独立枚举的命令契约与文件清单。
+- `A-`…`P-` 共 16 份 Phase 报告 — 逐条记录（状态/原版位置/web 位置/差异）。
+- 各 Phase 报告结尾均有该阶段状态计数表 + 未还原/还原错误序号索引。
+
+## 7. 自检结果（AUDIT_PLAN §9）
+- 禁用模糊词扫描：`等等`/`之类`/`以及其他`/`若干` 全 0 命中（已修正 C9 一处「若干」为精确差值表述）。
+- QML 文件计数 = 151（Phase 0 校验通过）。
+- 条目总数 459 = 各 Phase 之和（A27+B44+C30+D67+E38+F19+G23+H27+I18+J26+K34+L19+M17+N34+O11+P25）。
+
+
