@@ -3,12 +3,11 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-12 19:49:09　·　跟踪文件数: 223
+最后更新: 2026-06-12 20:07:56　·　跟踪文件数: 223
 
 ## 自上次重建以来的改动
 
-- 新增 1: freekill-web/apps/web/src/table/ChatText.tsx
-- 修改 13: freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/src/components/RoomList.tsx, freekill-web/apps/web/src/stores/roomChatStore.ts, freekill-web/apps/web/src/stores/vmStore.ts, freekill-web/apps/web/src/table/Photo.tsx, freekill-web/apps/web/src/table/RoomChatPanel.tsx, freekill-web/apps/web/src/table/skin.ts, freekill-web/apps/web/test/roomChatStore.test.ts, freekill-web/audit/B-lobby.md, freekill-web/audit/D-photo.md, freekill-web/audit/I-chat-log-timer.md, freekill-web/audit/N-assets-pipeline.md …
+- 修改 6: freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/src/stores/gameStore.ts, freekill-web/apps/web/src/table/WaitingRoom.tsx, freekill-web/apps/web/src/vm/clientVm.ts, freekill-web/audit/C-waiting-room-shell.md, freekill-web/audit/SUMMARY.md
 
 ## 上游参考仓库(只读,不跟踪改动)
 
