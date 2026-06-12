@@ -3,22 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-11 06:32:06　·　跟踪文件数: 2414
+最后更新: 2026-06-12 18:00:44　·　跟踪文件数: 222
 
 ## 自上次重建以来的改动
 
-- 新增 6: freekill-web/analysis/W1-RES_plan.md, freekill-web/apps/web/src/diag/assetCheck.ts, freekill-web/apps/web/src/diag/assetPrecache.ts, freekill-web/packages/assets/scripts/verify-fk-assets.mjs, freekill-web/packages/assets/src/enumerate.ts, freekill-web/packages/assets/test/enumerate.test.ts
-- 修改 9: freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/package.json, freekill-web/apps/web/src/components/VmDebugPanel.tsx, freekill-web/docker/caddy.Dockerfile, freekill-web/docker/dockerignore.repo-root, freekill-web/docker/vps-audio-forensics.sh, freekill-web/docker/VPS_UPDATE_GUIDE.md, freekill-web/packages/assets/package.json, freekill-web/pnpm-lock.yaml
-
-## Spike 验证状态
-
-- ✅ gate1 引擎启动
-- ✅ gate2 ClientInstance
-- ✅ gate3 增量展开+QML查询
-- ✅ gate4 ui_emu 请求循环
-- 计时(ms): {"boot":59,"client":4,"total":173}
-- 引擎内容: {"skills":132,"cards":160,"generals":29,"packages":4,"modes":1}
-- 来源: freekill-web-spike/spike-result.json (2026-06-03T07:44:04.076Z)
+- 修改 3: freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md, freekill-web/analysis/freekill_web_implementation_plan.md
+- 删除 5: freekill-web/analysis/FEAT_IG_plan.md, freekill-web/analysis/PACE_plan.md, freekill-web/analysis/W0-2_plan.md, freekill-web/analysis/W1-1_plan.md, freekill-web/analysis/W1-RES_plan.md
 
 ## 上游参考仓库(只读,不跟踪改动)
 
@@ -30,40 +20,16 @@
 ## 服务端 fork(freekill-web-asio,独立仓库)
 
 - ✓ freekill-web-asio(origin: DavidChen206265/freekill-web-asio,upstream: Qsgs-Fans/freekill-asio diff 基线)
-- HEAD: ebcf6a7 W1-1 A1: same-account lobby re-login takes over instead of deadlocking
+- HEAD: aa89286 W1-1 A1 fix: lobby takeover must send ErrorDlg so the old client stops reconnecting
 
 ## 项目文件结构(自有代码)
 
 ```text
-📁 freekill-web-spike
-  📁 src
-    fknatives.mjs
-    fkprelude.lua
-    gate4_playcard.lua
-    native_audit.mjs
-    perf_run.mjs
-    perf_spike.mjs
-    replay_spike.mjs
-    server_fkprelude.lua
-    server_spike.mjs
-    spike.mjs
-    vm_run.mjs
-    vm_spike.mjs
-  native-audit.json
-  package-lock.json
-  package.json
-  perf-result.json
-  README.md
-  spike-result.json
-  vm-result.json
 📁 freekill-web
   📁 analysis
     freekill_web_implementation_plan.md
     PROGRESS.md
     PROJECT_STATE.md
-    W0-2_plan.md
-    W1-1_plan.md
-    W1-RES_plan.md
     WEB_ONLY_ROADMAP.md
   📁 apps
     📁 gateway
@@ -83,27 +49,30 @@
       tsconfig.json
       vite.config.ts
   📁 audit
-    freekill-web-independent-audit-plan.md
-    phase1-startup-global-audit.md
-    phase2-network-protocol-audit.md
-    phase2b-lobby-room-command-audit.md
-    phase2c-task-rpc-vm-replay-audit.md
-    phase2d-room-notify-ui-audit.md
-    phase3-lobby-common-pages-audit.md
-    phase4-waiting-room-shell-audit.md
-    phase5-table-ui-components-audit.md
-    phase6-lua-package-code-audit.md
-    phase7-assets-audio-font-path-audit.md
-    phase8-replay-record-debug-test-tooling-audit.md
-    phase9-overview-detail-filter-pages-audit.md
-    source-assets-inventory.csv
-    source-cpp-inventory.csv
-    source-lua-inventory.csv
-    source-packages-code-inventory.csv
-    source-ui-qml-inventory.csv
-    web-apps-code-inventory.csv
-    web-packages-code-inventory.csv
-    web-public-fk-inventory.csv
+    00-inventory-client-lua.csv
+    00-inventory-notifyui.csv
+    00-inventory-qml.csv
+    00-inventory-web.csv
+    00-phase0-inventory.md
+    A-startup-login.md
+    AUDIT_PLAN.md
+    B-lobby.md
+    C-waiting-room-shell.md
+    D-photo.md
+    E-cards.md
+    F-skills.md
+    G-request-boxes.md
+    H-animation.md
+    I-chat-log-timer.md
+    J-overview-detail.md
+    K-widgets-base.md
+    L-cheat-debug.md
+    M-marks.md
+    N-assets-pipeline.md
+    O-content-packs.md
+    P-protocol-contract.md
+    README.md
+    SUMMARY.md
   📁 docker
     asio-entrypoint.sh
     asio.Dockerfile
@@ -116,6 +85,7 @@
     README.md
     VPS_UPDATE_GUIDE.md
     vps-audio-forensics.sh
+    vps-cache-forensics.sh
   📁 packages
     📁 assets
       📁 scripts

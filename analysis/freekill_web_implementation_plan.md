@@ -41,7 +41,7 @@ freekill-web-asio
 - **不让 React 算规则。** React 消费 VM 镜像和 `notifyUI`;可点状态走客户端 Lua `ui_emu`。
 - **服务端 fork 小步改。** 优先配置开关/API/manifest,不重写房间线程、Lua RPC、CBOR wire。
 - **扩展包逻辑跟 Lua。** Web 工作主要是补 UI/资源/弹窗/标记渲染。
-- **审计报告是缺口底账。** `freekill-web/audit/phase*.md` 继续作为还原范围和缺口来源。
+- **审计报告是缺口底账。** `freekill-web/audit/SUMMARY.md` + 16 份 Phase 报告(2026-06-12 全量重做)是还原范围和缺口的唯一来源;旧 `phase*.md` 已删除(GitHub 留存)。
 
 ## 4. Web-Only 带来的规划变化
 
@@ -67,25 +67,28 @@ freekill-web-asio
 - **M2**:等待房间 + 基础对局完整跑通。
 - **M3**:路由修复、断线重连、旁观。
 - **M4**:交互补全、视觉动画/音频、日志/notifyUI 探测器。
-- **M5 已完成部分**:
-  - MiscStatus/标记区。
-  - utility+standard_ex+sp 扩展包加载。
-  - QmlMark 文本型。
-  - ChooseSkillBox。
-  - `computeFlistMd5` 算法和 live 验证。
-  - PWA `/fk` 资源缓存。
+- **M5 已完成部分**:MiscStatus/标记区、utility+standard_ex+sp 扩展包加载、QmlMark 文本型、ChooseSkillBox、`computeFlistMd5` 算法和 live 验证、PWA `/fk` 资源缓存。
+- **W0 Web-only 服务端 fork(全部完成,已部署)**:W0-0 fork 仓库+4 配置项 / W0-1 跳过 MD5 登录 / W0-2 manifest+统一包集合 / W0-3 房间过期+IP 封禁 gating / W0-4 部署 config 落 Web-only 开关+Docker 源切 fork。
+- **PACE 客户端演出节奏队列**:feedChain 按动画时长节流、演出资源预取、可调速度。
+- **FEAT-IG 局内体验(IG-1~7)**:开局前设置面板、手气卡、身份猜测标注、玩家详情补装备/判定牌、局内聊天+送花/砸蛋、选将页右键/长按看技能、同账号顶号反向踢修复。
+- **W1-RES 资源完整性三层防护**:部署侧 verify-fk-assets 构建期 gate + 客户端自检按钮 + 可选全量预缓存;同构 `enumerate.ts` 枚举器。
+- **已上线**:VPS `docker compose`(asio + gateway + Caddy),HTTPS/WSS,https://sgs.davidchen.me。
 
 MD5 算法成果保留为诊断/兼容工具,但不再是 Web-only 主流程。
 
+> **2026-06-12 完成一次完整还原审计**(`freekill-web/audit/`,459 条):逐行对照原版 v0.5.20。结论——客户端逻辑层 = wasmoon 跑原版 client.lua(非重写),只 QML→TS 渲染层被重新实现;协议透传层(P)与标准三包呈现(O)健壮,缺口集中在 UI 表现层。**audit/SUMMARY.md 取代旧 phase*.md 成为缺口底账**(旧 phase*.md 已删,GitHub 留存)。
+
 ## 6. 短期路线
 
-近期执行计划见 `WEB_ONLY_ROADMAP.md`。权威排序:
+近期执行计划见 `WEB_ONLY_ROADMAP.md`(已据 2026-06-12 审计重排)。当前优先级:
 
-1. **P0 Web-only 服务端小 fork**:配置开关、跳过 MD5、禁用 MD5 房间过期、manifest/capabilities、部署文档更新。
-2. **P1 扩展包 UI 收尾**:ART_PACKS bug、Quit 确认、AddRobot feature、QmlMark 点击查看、utility 共享框、DetailedChoice/prohibitReason。
-3. **P2 Web 账户与个性化**:利用 `globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
-4. **P3 生产化**:session token、数据卷备份、管理后台、监控、压测。
-5. **P4 创意工坊与 AI 提升**:审核包发布、沙盒测试、Lua AI 策略、headless 评测。
+1. ~~**P0 Web-only 服务端小 fork**~~:✅ 全部完成(W0-0~W0-4,已部署)。
+2. **P1 对局正确性缺口(审计 §4.1,最高优先)**:还原错误 10 条(audit §3,尤其双将立绘 N2、牌堆标记计数 M3)+ 限定/觉醒/转换技显示(UpdateLimitSkill/SetBanner/UpdateMarkArea 解除 KNOWN_DEFERRED)+ 投降/托管/踢人上报入口 + 出牌交互(拖拽/双击)。
+3. **P2 信息完整度缺口(审计 §4.2)**:行动者高亮/翻面/垂死贴图、总览/详情/战绩页族、建房筛选/禁将子系统、个人设置族、等待房 WaitingPhoto。
+4. **P3 Web 账户与个性化**:利用 `globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
+5. **P4 生产化**:session token、数据卷备份、管理后台、监控、压测。
+6. **P5 观感打磨(审计 §4.3)**:大招动画、送礼动画、状态光环、弹幕、美化包/字体、Cheat 查看面板。
+7. **P6 创意工坊与 AI 提升**:审核包发布、沙盒测试、Lua AI 策略、headless 评测。
 
 ## 7. 服务端小 fork 设计
 
@@ -141,7 +144,7 @@ Web-only:
 
 - Web 显隐功能(`webFeatures` 驱动 AddRobot 等)。
 - 资源同步和缓存失效(`assetVersion`)。
-- **成为 Web 端包集合的单一真相源**:替换 `skin.ts:13`/`audio.ts:16` 的 `ART_PKGS` 与 `sync-fk-assets.mjs:43` 的 `ART_PACKS` 三处硬编码(同时修 P7-006/P7-032)。
+- **成为 Web 端包集合的单一真相源**:替换 `skin.ts:13`/`audio.ts:16` 的 `ART_PKGS` 与 `sync-fk-assets.mjs:43` 的 `ART_PACKS` 三处硬编码(已于 W0-2 完成,修复旧审计 P7-006/P7-032 包集合不一致)。
 - 房间列表展示包集合;后续创意工坊/沙盒能力声明。
 
 ## 8. 资源与扩展包
@@ -162,24 +165,27 @@ Web-only 后的目标:
 
 ## 9. 审计缺口纳入路线
 
-### P1 局内优先
+缺口底账 = `freekill-web/audit/SUMMARY.md`(459 条:未还原 160 / 简化 124 / 还原错误 10 / 完全 165)。按对局影响纳入:
 
-- P7-006/P7-032:ART_PACKS 不一致。
-- P5-013:QmlMark 点击查看牌堆/武将堆。
-- P5-018:DetailedChoice/DetailedCheckBox。
-- P5-003:手牌禁用原因。
-- P4-013:QuitRoom 二次确认。
-- P4-004:AddRobot 按 serverFeatures 显隐。
-- P2D-022:LimitSkillArea。
-- `SetBanner`:顶部 banner。
+### P1 对局正确性(最高优先)
+- **还原错误 10 条**(audit §3):双将分屏立绘 N2、牌堆标记 `@$`/`@&` 计数显示 M3、座位移动补间 D11、旁观者聊天进弹幕 I8、Indicate 多余红环 H6、卡牌禁用语义 E9、RoomDelegate 过期房可点 B41/密码框 B40、UpdateGameData 战绩 C29、送礼动画退化 N20。
+- **限定/觉醒/转换技显示**:`UpdateLimitSkill`/`SetBanner`/`UpdateMarkArea` 解除 KNOWN_DEFERRED,补 LimitSkillArea + 顶部 banner + 标记区显隐(D56/F14/F15/M14/M15)。标准三包不触发,扩展包必需。
+- **对局上报入口**:投降(PushRequest surrender)、托管(Trust)、房主踢人(KickPlayer)——asio 支持、web 无入口(P 阶段)。
+- **出牌交互**:手牌拖拽/超级拖拽/双击使用(E14/E15/E17);对手手牌速览 HandcardViewer + 手牌上限 n/maxCard(D32/D24)。
 
-### P2/P3 产品化
+### P2 信息完整度
+- 行动者 playing 高亮、翻面 faceturned、垂死 saveme 贴图(D12/D20/D22,数据已镜像未消费)。
+- 总览/详情/战绩页族(J 阶段 23 条:武将一览、卡牌一览、武将筛选、武将池、战绩、统计)。
+- 建房筛选 FilterRoom(B4/B17)、Lua 动态设置(B28)、卡包设置(B29)、禁将方案(B30)。
+- 个人设置族(B31~B39:改头像、改密码、音频/控制/UI/背景设置、资料卡)。
+- 等待房 WaitingPhoto 立绘/准备角标/战绩面板/房间配置面板(C2/C3/C4)。
 
-- Phase 3:大厅设置、建房丰富度、个人资料、服务器信息。
-- Phase 8:回放/录像/战绩。
-- Phase 9:武将/卡牌资料库、筛选、收藏、音频/统计。
+### P5 观感打磨
+- 大招 UltSkillAnimation(H9)、五种送礼动画(H20~H24+N20)、Photo 循环状态光环(H2~H4)。
+- 弹幕 Danmu(I9/B13)、资源美化包(N1)、内嵌字体 FZLE/FZLBGBK/simli(N 阶段)。
+- Cheat 查看面板族(L 阶段 13 条)、设置/偏好控件族 + Config(K 阶段)。
 
-这些不阻塞 Web-only 转向,按产品优先级立项。
+这些不阻塞已上线运营,按上述优先级立项。
 
 ## 10. 账户与数据
 
@@ -273,4 +279,4 @@ SmartAI 策略注册层被 stub 成 no-op,无 aiLevel、无 self-play harness—
 
 ## 15. 历史参考
 
-旧路线中已完成的 MD5 算法、Qt 协议握手、包 flist 复现、混连准备仍作为参考能力保留,但从主路线中降级为兼容/诊断资料。旧详细计划 `M3-M6_detailed_plan.md` 已删除,当前近期路线以 `WEB_ONLY_ROADMAP.md` 为准。
+旧路线中已完成的 MD5 算法、Qt 协议握手、包 flist 复现、混连准备仍作为参考能力保留,但从主路线中降级为兼容/诊断资料。旧详细计划 `M3-M6_detailed_plan.md` 及 5 个已完成切片计划(`W0-2_plan`/`W1-1_plan`/`W1-RES_plan`/`PACE_plan`/`FEAT_IG_plan`)已删除(成果记于 `PROGRESS.md` 变更日志,GitHub 留存),当前近期路线以 `WEB_ONLY_ROADMAP.md` 为准。

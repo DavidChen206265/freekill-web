@@ -4,23 +4,26 @@
 
 ## 当前阶段
 
-**M2 ✅ → M3 ✅(路由+重连/旁观)→ M4 ✅(交互补全 + 视觉动画/音频)→ M5 已完成关键底座 → Web-only 计划经源码审计核实 → W0 全部完成(W0-0 fork+配置 / W0-1 跳过 MD5 登录 / W0-2 manifest+统一包集合 / W0-3 房间过期+封禁 gating / W0-4 部署去 FK_MD5+Docker 源切 fork)。下一步:P1 扩展包 UI 与局内缺口收尾(W1-1 起:Quit 二次确认等;AddRobot 显隐已在 W0-2 完成)。**
+**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:下一步 N1 对局正确性缺口(还原错误 10 条 → 限定/觉醒/转换技显示 → 投降/托管/踢人入口 → 出牌交互),执行顺序见 `WEB_ONLY_ROADMAP.md`。
 
-基础身份局浏览器完整跑通,核心架构全实证,M3/M4 全部真机验收通过,已部署 VPS(`docker compose`,Caddy HTTPS/WSS)。Web-only 决策后,不再追求原版 asio 零改动、Qt 客户端直连或 Qt↔Web 混连;已完成的 `computeFlistMd5` 保留为诊断/兼容工具,不再作为部署主流程门槛。**服务端改动进独立 fork `freekill-web-asio`(GitHub `DavidChen206265/freekill-web-asio`,项目内目录 `freekill-web-asio/`,自带 git:origin=fork,upstream=Qsgs-Fans diff 基线;基线 `edb3e43` + W0-1 `fcde646` + W0-2 `fc03c24` + W0-3 `5e8a2e3`),`freekill-asio/` 留作只读基线。Docker 构建源已切到 fork(W0-4)。两仓均有未 push 提交,push 须经用户允许(见 CLAUDE.md「Git 工作流」)。** 长期/短期计划以 `freekill_web_implementation_plan.md` + `WEB_ONLY_ROADMAP.md` 为准。
+基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;完全还原率 165/459≈36%。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
 
-**M4 切片 V 完成记录(2026-06-09,已合 master 推送,提交 fe260d0…5524f8a)**:V-0 总闸+animationStore / V-1 Indicate 连线 / V-2 Emotion 精灵 / V-3 tremble+濒死/阵亡 / V-4 技能发动框 / V-5 音频(原生 Audio,非 Howler)/ V-6 Toast+桌面牌注脚;逐行审计修 5 处还原错误;验收反馈修复:技能横幅淡出、桌面结算区参考系归位+居中、即时结算牌飞行(Destroy 改延后 vanish 1.5s 照搬 TablePile.qml vanishTimer)、Processing→Discard 保位(照搬 moveCards SKIP 守卫)、摸牌动画(lastMoved 累积防批处理丢失)、photo 动画居中、装备/对手手牌飞入、指示线箭头+红环、StrictMode oncancel bug、部署 audio/anim 缺失。**方法论铁律(已沉淀 memory)**:别拿单测当真实验证——先 probe 真实 VM/CBOR 数据契约再下结论。
+服务端改动进独立 fork `freekill-web-asio`(GitHub `DavidChen206265/freekill-web-asio`,项目内目录 `freekill-web-asio/`,自带 git;`freekill-asio/` 留作只读 diff 基线);Docker 构建源已切到 fork。fork HEAD 见 PROJECT_STATE.md。push 须经用户允许(见 CLAUDE.md「Git 工作流」)。长期/短期计划以 `freekill_web_implementation_plan.md` + `WEB_ONLY_ROADMAP.md` 为准。
 
-**通信日志系统可用于后续 debug**:`localStorage.fk_log='debug'`(web)/ `FK_LOG=debug`(gateway)开全量结构化日志;VmDebugPanel 可导出 JSON;notifyUI 未消费命令探测器(`notifyCommands.ts`)防五谷类回归。
+**运维(2026-06-12 变更)**:auto-deploy systemd timer 已移除,改手动 `bash ~/.freekill-deploy/deploy.sh`(SHA 门控)。部署树 `freekill-web/` 已 git init 关联 origin。
+
+**通信日志系统可用于后续 debug**:`localStorage.fk_log='debug'`(web)/ `FK_LOG=debug`(gateway)开全量结构化日志;VmDebugPanel 可导出 JSON + 「检查资源完整性」按钮;notifyUI 未消费命令探测器(`notifyCommands.ts`)防五谷类回归。
 
 ## 待办(下一步)
 
-**Web-only 路线已取代旧 M5/M6 混连路线。当前执行顺序见 `WEB_ONLY_ROADMAP.md`(审计后重排):**
+**已完成 W0/PACE/FEAT-IG/W1-RES;现进入审计驱动的缺口收尾。执行顺序见 `WEB_ONLY_ROADMAP.md`(2026-06-12 据 audit 重排):**
 
-- **W0 Web-only 服务端小 fork**:✅ 全部完成 —— W0-0(fork 仓库 + 4 配置项)、W0-1(`checkClientMd5` 登录跳过)、W0-2(manifest/capabilities + 统一包集合删 ART_PACKS[修 P7-006/P7-032+R-ASSET-MISMATCH] + AddRobot 按 webFeatures 显隐[修 P4-004])、W0-3(`invalidateRoomsOnPackageChange`/`tempBanByIp` 房间过期/封禁 gating)、W0-4(部署 config 落 Web-only 开关 + Docker 构建源切 fork + 去 FK_MD5 主流程)。**遗留真机验收点**:VPS `docker compose up -d --build`(本机 docker daemon 不可用,未在本地构镜像)。
-- **P1 扩展包 UI 与局内缺口收尾**:Quit 二次确认、AddRobot 按 manifest `webFeatures` 显隐、QmlMark 点击查看型、更多 utility 共享框、DetailedChoice/DetailedCheckBox、手牌禁用原因、LimitSkillArea/banner。(ART_PACKS 已并入 W0。)
-- **P2 Web 账户与个性化**:先用 `globalSaves`(现成异步 API)做房间预设、禁将/禁包方案、UI 偏好、最近包集合;再接好友/黑名单(`friendinfo` 空表绿地)、等级/成就、个人资料页。
-- **P3 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
-- **P4 创意工坊与 AI 提升**:公共服只跑审核包;未审核包进入隔离沙盒/单人测试;AI 是**研究级长线**(SmartAI 策略注册被 stub、无 aiLevel、无 self-play harness)——MVP 限定 取消 stub + ~10 高频策略 + 最小 headless 评测。
+- **N1 对局正确性(最高优先)**:① 还原错误 10 条(audit §3:双将立绘 N2、牌堆标记计数 M3、座位补间 D11、旁观聊天 I8、多余红环 H6、禁用语义 E9、过期房可点 B41/密码框 B40、战绩 C29、送礼退化 N20);② 限定/觉醒/转换技显示(解除 UpdateLimitSkill/SetBanner/UpdateMarkArea 的 KNOWN_DEFERRED + LimitSkillArea/banner/标记区);③ 投降/托管/踢人上报入口 + 对局菜单 overlay;④ 出牌交互(拖拽/双击)+ 手牌速览/上限。
+- **N2 信息完整度**:行动者高亮/翻面/垂死(数据已镜像未消费,低成本)、总览/详情/战绩页族(audit J 23 条)、建房筛选/禁将子系统、个人设置族、等待房 WaitingPhoto。
+- **N3 Web 账户与个性化**:`globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
+- **N4 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
+- **N5 观感打磨**:大招动画、送礼动画(5 种精灵)、状态光环、弹幕、美化包/字体、Cheat 查看面板、设置控件族。
+- **N6 创意工坊与 AI 提升**:公共服只跑审核包;AI 是研究级长线(SmartAI stub、无 aiLevel、无 self-play)——MVP 限定 取消 stub + ~10 策略 + 最小 headless 评测。
 
 ## 决策记录
 
@@ -34,6 +37,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-12 **完整还原审计 + 工作流部署/优化 + 计划重构(本次会话)**。① **审计**:逐行对照原版 v0.5.20 与 web 实现,16 个 Phase(A~P)+ Phase 0 inventory,共 **459 条**(未还原 160 / 简化 124 / 还原错误 10 / 完全 165),产出 `audit/`(SUMMARY/README/各 Phase/4 个 inventory CSV),旧 phase*.md 全删(GitHub 留存)。**关键架构事实**:web 跑原版 client.lua(wasmoon),只 QML→TS 渲染层被重写;协议透传(P 18/25)+ 标准三包(O 11/11)健壮,缺口集中 UI 层;命令有 delta/快照两种消费,判未还原须分清。已推 GitHub master `8a55fce`。② **运维**:auto-deploy systemd timer 彻底移除,改手动 `bash ~/.freekill-deploy/deploy.sh`;部署树 `freekill-web/` git init 关联 origin(HTTPS)。③ **工作流**:部署开发机打包的 Claude Code 工作流(SessionStart hook + /sync skill + 派生 memory)到项目根,并据 VPS 实情优化——`project-state.mjs` TRACKED 收到 `['freekill-web']`(apps/packages 嵌于其内、spike 不存在)、删死 Spike 段;`settings.local.json` 155→79(删 WSL/spike/Windows 路径产物);删 `AGENTS.md`(Codex 镜像、无 .codex);CLAUDE.md/SKILL.md 去 spike/greenfield 陈述。④ **计划重构(本条所在)**:删 5 个已完成切片计划(W0-2/W1-1/W1-RES/PACE/FEAT_IG,成果见本日志下方各条);`freekill_web_implementation_plan.md`(远期)+ `WEB_ONLY_ROADMAP.md`(近期)据审计重写——P0/P1 标完成,近期改为审计驱动的 N1~N6 缺口优先级(N1 对局正确性=还原错误 10 条+限定技显示+投降/托管/踢人入口+出牌交互),缺口底账从 phase*.md 切到 audit/SUMMARY.md。
 
 - 2026-06-11 **追加规划 IG-8:VPS 扩展包武将立绘+名称不显示(纯规划+调研,未改产品代码)**。用户报 bug,派只读 Explore 通读两条加载链。**关键判断**:名称(`tr(general)` 走 VM translate 缓存)和立绘(`generalPic(name,ext)`,ext 走 `GetGeneralData.extension`)**都依赖客户端 VM 加载了该扩展包 lua**(由 `/fk/file-list.json` 的 `extra` 决定挂载)——**二者同时缺 = lua 没挂载**(`Fk.generals[sp_xxx]` nil→回退 diaochan→extension 错+翻译查不到),只缺图才是图片文件没同步。本地实测 sync 正常(file-list extra sp:114/standard_ex:51、sp/image/generals 64 张),dockerignore 已放行 sp/standard_ex/utility 全树,故是 **VPS 部署侧问题**(同 2g/gamebg 类)。**发现确定的代码盲区**:`sync-fk-assets.mjs:162` generals copyImages 没传 `record=true`→武将立绘不进 images.json→`verify-fk-assets.mjs`/`enumerate.ts` 完全不校验武将立绘→缺失时静默放过(gamebg 当初同样漏网)。定铁律:**IG-8 第一步 VPS 取证**(file-list 有无 sp extra、`/srv/fk/packages/sp/{lua,image/generals}` 是否齐、立绘 URL 200/404)锁定断点(build 源不全/deploy.sh 没同步/lua 出图没出),**再修部署链 + 根治 verify 盲区**(把 generals 纳入校验,缺则部署失败)。memory 新增 `vps-extension-general-assets-missing`。
 

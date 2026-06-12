@@ -1,27 +1,21 @@
 # Web-Only Roadmap · 近期执行计划
 
-> 2026-06-11 建立,2026-06-11 经源码审计修订。依据:当前 `PROGRESS.md`、`freekill_web_implementation_plan.md`、2026-06-10 全量 audit 报告、Web-only 转向判断,以及对 `freekill-asio` C++/SQL/Lua 源码的逐符号审计。
+> 2026-06-11 建立,2026-06-12 据完整还原审计(`freekill-web/audit/`)重排。依据:`PROGRESS.md`、`freekill_web_implementation_plan.md`、2026-06-12 audit 报告(459 条)、Web-only 转向判断。
 >
-> 决策变化:放弃“原版 asio 不改 + Qt/Web 混连”目标,在 **`freekill-web-asio` 独立 fork 仓库**(`https://github.com/DavidChen206265/freekill-web-asio`,项目内目录 `freekill-web-asio/`)维护 Web-only 改动;`freekill-asio/` 保留为只读 diff 基线。保留原版 Lua 规则与客户端 VM,但服务端/网关/资源发布按 Web 产品优化。
+> 决策:在 **`freekill-web-asio` 独立 fork 仓库**维护 Web-only 改动;`freekill-asio/` 保留为只读 diff 基线。保留原版 Lua 规则与客户端 VM(wasmoon 跑原版 client.lua),只重新实现 QML→TS 渲染层;服务端/网关/资源发布按 Web 产品优化。
 
-## 审计结论(2026-06-11,先读后写)
+## 已完成(2026-06-12 前)
 
-对 Codex 初版计划逐符号核实,结论:**方向正确,服务端/DB 层符号几乎全部命中,但有 1 处治理冲突、1 处架构缺口、2 处工作量误标**,已在下方修订。源码锚点:
+- **M2/M3/M4**:基础身份局可玩、断线重连/旁观、交互补全、视觉动画音频。
+- **W0 服务端 fork(W0-0~W0-4,已部署)**:fork 仓库+4 配置项、跳过 MD5 登录、manifest/capabilities+统一包集合、房间过期+IP 封禁 gating、Docker 源切 fork。
+- **PACE 演出节奏队列**:feedChain 按动画时长节流 + 资源预取 + 可调速度。
+- **FEAT-IG(IG-1~7)**:开局前设置面板、手气卡、身份猜测标注、玩家详情补装备/判定牌、局内聊天+送花/砸蛋、选将页右键/长按看技能、同账号顶号反向踢修复。
+- **W1-RES**:部署侧 verify-fk-assets 构建期 gate + 客户端自检 + 可选预缓存。
+- **已上线**:VPS docker compose,HTTPS/WSS,https://sgs.davidchen.me。
 
-- ✅ `AuthManager::checkMd5()` 真实存在,`auth.cpp:251-265`,**单一调用点**,加 `checkClientMd5` 开关是 3 处小改(struct + loadConf + 1 个 if 守卫)。
-- ✅ `Room::isOutdated()`(`room.cpp:381`)/`RoomThread::isOutdated()`(`roomthread.cpp:187`)真实存在,但**被 6+ 处生命周期调用**且有副作用(命中即清 `md5=""` 使后续永远 outdate)——不是小开关,见 W0-3。
-- ✅ `SetServerSettings` 在 `user_manager.cpp:211-218`,当前是 positional CBOR 数组 `{motd, hiddenPacks, enabledFeatures}`,**追加字段安全**(不可中插)。
-- ✅ `globalSaves(uid,key,data)` 表 + 完整异步 C++ API(`serverplayer.cpp:376-423`)真实可用;`gameSaves`/`userinfo`/`usergameinfo`/`pWinRate`/`gWinRate`/`runRate` 名称全部命中。
-- ⚠️ `friendinfo` 表存在(`init.sql:50-54`)但**零引用、无任何现成逻辑**——W2-3 是空表上的绿地开发,不是“接好友逻辑”。
-- ⚠️ `tempBan` 真名 `Server::temporarilyBan`(`server.cpp:292`),默认 20 分钟,2 处触发点(`room.cpp:269` 换房 / `room.cpp:665` 掉线),gating 确实局部。
-- ⚠️ AI(P4)路径对(`lua/lunarltk/server/ai/`),但 SmartAI 策略注册被 stub 成 no-op(`smart_ai.lua:165/201/217` 全是 `do return end`),**无 `aiLevel` 概念、无 self-play harness**——是研究级长线,非“小改 + 填模板”。
+## 审计结论(2026-06-12,缺口底账)
 
-## 当前事实
-
-- M2/M3/M4 已完成并真机验收通过:基础身份局可玩、断线重连/旁观可用、交互补全、视觉动画音频可用。
-- M5-a/b/c 已部分完成:单局 MiscStatus/标记区、utility+standard_ex+sp 加载、QmlMark 文本、ChooseSkillBox、MD5 算法和 PWA 缓存。
-- 旧路线的剩余项“Qt↔Web 混连”和“客户端 MD5 严格对齐”不再作为目标。
-- audit 真缺口集中在:扩展弹窗/标记查看、i18n、Web 产品化账户/大厅/资料库/回放、生产化和少量 UI bug。
+完整还原审计 459 条:**未还原 160 / 简化 124 / 还原错误 10 / 完全 165**(完全还原率 ~36%)。关键架构事实:客户端逻辑 = wasmoon 跑原版 client.lua(非重写),只 QML→TS 渲染层被重新实现;**协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,缺口集中在 UI 表现层**。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0)。详见 `freekill-web/audit/SUMMARY.md`。
 
 ## 工作纪律
 
@@ -29,207 +23,84 @@
 2. VM 仍是状态真相源;React 不重算规则。
 3. 服务端 fork 改动只做小而确定的开关/API,不重写房间线程、Lua 规则、CBOR 路由。
 4. 每个切片修一项验一项;涉及共享包或网关/服务端协议时跑相关单测 + 至少一个真 asio/Web E2E。
-5. 每段实质工作结束执行 `.codex/workflows/sync.md`(或 Claude `/sync`)。
+5. 每段实质工作结束执行 `/sync`(SessionStart 钩子已自动重建 PROJECT_STATE.md)。
 6. **terminal 里直接给用户看的回复用简体中文。**
 
-## P0 · Web-Only 服务端小 fork
 
-目标:用最少服务端修改移除当前最大运维/扩展摩擦。**按风险/工作量重排序**:先做真正局部的 MD5 登录开关与 manifest,再做触面较深的房间过期 gating。
+## N1 · 对局正确性缺口(最高优先 — 缺了会误导或卡住对局)
 
-### W0-0 建立 fork 仓库与边界(前置)
+> 来源 audit §3(还原错误)+ §4.1。这些直接影响对局可玩性与正确性,优先于一切观感项。
 
-- 把 `freekill-asio` 源码推入项目内 `freekill-web-asio/`(git 跟踪)+ 远端 `https://github.com/DavidChen206265/freekill-web-asio`;`freekill-asio/` 留作只读 diff 基线。
-- 更新 `CLAUDE.md`/`AGENTS.md`/`project-state.mjs` 的仓库布局与 TRACKED 列表、Docker 构建源(指向 fork)。
-- 所有 W0 配置加在 `ServerConfig`(`server.h:17-35`)+ `loadConf()`(`server.cpp:223-261`),默认值保持上游兼容:
-  - `checkClientMd5: true`(默认开,Web 部署关)
-  - `invalidateRoomsOnPackageChange: true`(默认开,Web 部署关)
-  - `tempBanByIp: true`(默认开,Web 部署关)
-  - `webOnly: false`(默认关)
-- 验收:默认兼容旧配置启动;Web-only 配置(全部按上表反转)能启动并登录。
+### N1-1 还原错误 10 条(audit §3,用户看到的是错误而非空白)
+- **N2 双将分屏立绘**:`generals/dual/<name>.jpg` 从不取,双将拉伸普通整图。改 skin.ts 立绘寻址加 dual 候选。
+- **M3 牌堆标记 `@$`/`@&` 计数**:`clientVm.ts` 落入通用文字分支显示牌名拼接而非张数。按 QML MarkArea 改为显示数量。
+- **D11 座位移动补间**:照搬 QML `Behavior on x/y` 600ms 补间(现 left/top 跳变)。
+- **I8 旁观者聊天进弹幕**:无 photo 的旁观发言原版走弹幕,web 误 append 进面板;连带 `{emojiN}`→`<img>` 替换、hideObserverChatter。
+- **H6 Indicate 多余红环**:web 自创了原版没有的 TargetPulse,移除。
+- **E9 卡牌禁用语义**:遮罩改由原版 `selectable` 驱动而非 `enabled`。
+- **B40/B41 RoomDelegate**:过期房禁 Enter/Observe(现可点进版本不匹配房)、密码内联框对齐原版。
+- **C29 UpdateGameData 战绩**:VM 内执行但无渲染(并入等待房战绩面板)。
+- **N20 送礼动画退化**:并入 N5 观感(egg/flower/shoe/wine 精灵)。
 
-### W0-1 跳过 MD5 登录校验(局部,先做)
+### N1-2 限定技/觉醒技/转换技显示(audit D56/F14/F15/M14/M15)
+- 解除 `UpdateLimitSkill`/`SetBanner`/`UpdateMarkArea` 的 `KNOWN_DEFERRED`。
+- 补 Photo 的 LimitSkillArea(限定技「已用 X」、觉醒技触发显隐、转换技阴/阳态)+ 全局顶部 banner + 标记区显隐。
+- 标准三包不触发(audit O 确认),扩展包对局必需;若 VM 镜像已含状态则低成本补渲染。
 
-源码点(单一):`AuthManager::checkMd5()` `auth.cpp:255` 的 `server.getMd5() != md5_str` 比较。
+### N1-3 对局上报入口(audit P 阶段:asio 支持、web 无前端入口)
+- 投降(PushRequest surrender)、托管(Trust)、房主踢人(KickPlayer)。
+- 配合 audit C19/C20:对局内菜单 overlay + 投降按钮。
 
-- 改法:`if (config.checkClientMd5 && server.getMd5() != md5_str) { ...拒绝... }`。
-- `Server::refreshMd5()`(`server.cpp:365`)/`calcFileMD5` 保留,仅供日志/诊断/manifest 复用。
+### N1-4 出牌交互(audit E14/E15/E17 + D32/D24)
+- 手牌拖拽出牌、超级拖拽、双击使用(现仅点击选中)。
+- 对手手牌速览 HandcardViewer 浮窗、手牌数显示 `n/maxCard` 与 ∞。
 
-验收:
-- `checkClientMd5=false` 时,不设 `FK_MD5` 或故意错 MD5,Web 仍能登录。
-- gateway handshake 测试(`apps/gateway/test/handshake.test.ts:20`,已尊重 `process.env.FK_MD5`)更新为 Web-only 语义:断言 MD5 缺失/错误时登录仍成功。
+## N2 · 信息完整度缺口(audit §4.2)
 
-### W0-2 服务端下发 Web manifest/capabilities + 统一资源包集合 ✅(2026-06-11)
+- **行动者/状态视觉**:playing 高亮光环、翻面 faceturned、垂死 saveme 贴图(D12/D20/D22,数据已镜像未消费,纯渲染缺口,成本低)。
+- **总览/详情/战绩页族**(audit J,23 条):武将一览、卡牌一览、武将筛选、武将池、战绩列表、统计页 web 零实现零入口。需先做大厅入口框架。
+- **建房子系统**(audit B):FilterRoom 筛选(B4/B17)、Lua 动态设置 UI(B28)、卡包多选(B29)、禁将方案(B30)。
+- **个人设置族**(audit B31~B39):改头像、改密码、音频/控制/UI/背景设置、资料卡。
+- **等待房 WaitingPhoto**(audit C2/C3/C4):立绘/边框/三态准备角标、战绩面板、房间配置面板。
 
-> **架构修订:本节合并旧 W1-1 的 ART_PACKS 修复**——manifest 是消除 `R-ASSET-MISMATCH` 的正解,应同时成为 Web 端包集合的唯一真相源,而不是再各自硬编码。
+## N3 · Web 账户与个性化
 
-已落地(fork 提交 `fc03c24` + web S2/S3/S4):服务端 `listEnabledPacks()`(`core/util.cpp`,从真实包状态枚举,含 builtins)→ `SetServerSettings`(`user_manager.cpp`)末尾追加 manifest 对象;web `serverManifestStore` + 路由 case 消费,`setArtPacks`/`setAudioPacks` 用 `enabledPacks` 替换 skin.ts/audio.ts 硬编码(修 P7-032),`waitingState` 按 `webFeatures` 门 AddRobot(修 P4-004)。**真 asio 验证三者一致**:asio 扫描 `[std/std_cards/maneuvering/sp/standard_ex/utility]` == file-list.json extra == assetVersion `8efa2cc`(flist md5)。
+> 利用现有数据库能力做产品闭环(符号经 2026-06-11 源码审计核实,见 freekill_web_implementation_plan §10)。
 
-在 `SetServerSettings`(`user_manager.cpp:211-218`)的 positional 数组**末尾追加**一个 Web manifest 对象:
+- **N3-1 用户 KV 设置**:`globalSaves(uid,key,data)`(现成异步 API)存 `web.roomPresets`/`web.disabledGenerals`/`web.uiPrefs`/`web.recentPacks`。需 gateway notify 封装,不让 React 直接拼底层 RPC。
+- **N3-2 房间设置 V2**:现有 settings CBOR blob 内约定 `enabledPacks`/`disabledGenerals`/`aiLevel`/`visibility`/`presetId`;服务端只解析少数字段,Lua 仍收完整 settings。
+- **N3-3 社交与成长**:`friendinfo`(空表绿地开发,需新建 ServerPlayer 读写+网关 API)、`achievements`/`user_levels` 或 globalSaves MVP、个人资料页(头像/总时长/胜率/成就/常用武将)。
 
-```json
-{
-  "webOnly": true,
-  "serverBuild": "...",
-  "assetVersion": "...",
-  "enabledPacks": ["utility", "standard_ex", "sp"],
-  "webFeatures": ["AddRobot", "ChangeRoom", "WebProfile", "RoomPreset"]
-}
-```
+## N4 · 生产化
 
-关键约束(修订):
-- `enabledPacks`/`assetVersion` **必须从 asio 实际加载的包状态生成**(复用 `_refreshMd5` 的 flist 目录扫描 + `packages.db` enable 标志),**不得**用 config 字面量手列——否则只是把不一致从 MD5 搬到 manifest。
-- Web/gateway 读取后:决定资源加载与功能显隐;manifest 的 `enabledPacks` 成为 `skin.ts:13`/`audio.ts:16` 的 `ART_PKGS` 与 `sync-fk-assets.mjs:43` 的 `ART_PACKS` 的**单一来源**,删除三处硬编码常量(修掉 P7-006/P7-032)。
-- MD5 仅保留为诊断字段,不作为准入。
-
-验收:
-- VM 实际加载包集合 == manifest `enabledPacks` == asio 实际加载集合(三者一致探测)。
-- 启用 utility/standard_ex/sp 后,扩展包美术/音频在浏览器被正确探测(不再静默回退)。
-
-### W0-3 关闭 MD5 房间过期踢人 ✅(2026-06-11)
-
-源码点(**非小开关,多调用点**):`Room::isOutdated()` `room.cpp:381` / `RoomThread::isOutdated()` `roomthread.cpp:187`。
-
-已落地(fork 提交 `5e8a2e3`):**比计划更优的单点 gate**——直接在两个 `isOutdated()` 入口按 `invalidateRoomsOnPackageChange` short-circuit(在 `md5=""` 副作用前 return false),一处覆盖全部消费者(开局/退房/gameOver/线程回收 + lobby.cpp 房列表 outdated 标志,实测比计划列的 6 处更多)。**关键补救**:`_refreshMd5()` 结尾还有个**无条件**踢光大厅的循环(isOutdated 门盖不住),另用 flag 包住。tempBan 两处(`room.cpp:270` 换房 / `room.cpp:672` gameOver)用 `tempBanByIp` 守卫。默认 true=上游行为。**真 asio + 对照验证**:webonly 下 `disable sp` 后大厅玩家留连;upstream 下同命令刷新瞬间踢人。
-
-验收:
-- 改包/重启后等待房间和运行中房间不因 MD5 outdate 被踢。
-- Web 玩家中途退出运行局不再连带 IP 封禁(同机共用 IP 场景)。
-
-### W0-4 调整 Web 部署说明 ✅(2026-06-11)
-
-已落地(`freekill-web` 提交 `4dc2ce2`):
-- `asio.Dockerfile` 构建源从 `freekill-asio/` 切到 `freekill-web-asio/`(fork);`dockerignore.repo-root` 放行 fork、排除 fork `build/`+`packages/` 与只读基线 `freekill-asio/`。
-- `docker/freekill.server.config.json` 落 Web-only 四开关(`webOnly`/`checkClientMd5:false`/`invalidateRoomsOnPackageChange:false`/`tempBanByIp:false`)——部署即跳过 MD5、改包不踢、不封 IP。
-- `docker-compose.yml`、`docker/README.md` 去掉“必须重算 FK_MD5”主流程,改为 Web-only 说明;`compute-md5` 仅作诊断/兼容保留。
-- **未在本机 docker build**(daemon 不可用);fork 用与 Dockerfile 同款 cmake/make 已在 WSL 反复验证可编译,所有 COPY 源路径核实存在,config JSON 解析正确。VPS 上 `docker compose up -d --build` 实测留作真机验收点。
-
-## P1 · 扩展包 UI 和局内缺口收尾
-
-目标:让主流扩展包稳定可玩,不追 Qt 混连。
-
-### W1-1 修小 bug
-
-- ~~P7-006/P7-032 ART_PACKS 统一~~ **已并入 W0-2**(manifest 成为包集合单一来源时一并删除 `skin.ts`/`audio.ts`/`sync-fk-assets.mjs` 三处硬编码)。
-- P4-013:对局中 QuitRoom 二次确认。
-- P4-004:等待房间 AddRobot 按 serverFeatures/capabilities(W0-2 manifest 的 `webFeatures`)显隐。
-
-### W1-2 QmlMark 点击查看型
-
-- `@&`/`@$`/`@[...]` 点击查看牌堆/武将堆/信息框。
-- 优先 ViewPile / ViewGeneralPile / PlayerBox / DetailBox。
-- 验收:真 VM 构造或扩展包实测,标记点击不再无反馈。
-
-### W1-3 utility 共享框按包驱动补齐
-
-已完成 ChooseSkillBox。后续按启用包扫描 `qml_path` / `addMiniGame`:
-
-- CardNamesBox。
-- ChooseCardsAndChoiceBox。
-- PlayerBox / DetailBox。
-- 简单 MiniGame 通用选择框。
-
-未覆盖的 qml_path 继续走 unsupported 兜底,不卡死。
-
-### W1-4 交互解释性补丁
-
-- DetailedChoice / DetailedCheckBox 富描述。
-- 手牌禁用原因 `prohibitReason`。
-- LimitSkillArea / banner 若 VM 镜像已含状态则低成本补渲染。
-
-### W1-5 局内体验四项(FEAT-IG,详规见 `FEAT_IG_plan.md`)
-
-用户验收 PACE 后提出,已逐项读 freekill 源码核实机制(见详规)。**IG-1~5 已完成(2026-06-11);IG-6/IG-7 为后续追加项**:
-
-- **IG-1 开局前设置面板** ✅:CreateRoomDialog 暴露思考时间 `timeout` / 选将数 `generalNum` / 选将超时 / 手气卡次数 `luckTime` / 副将等数值项(协议已通,仅缺 UI;禁包禁将选择器较重,数值项先做、禁将并入 W2-2)。
-- **IG-2 手气卡可用** ✅:`luckTime>0` 时开局 `AskForLuckCard`(=AskForSkillInvoke)换牌回路 + prompt 本地化。
-- **IG-3 身份猜测标注** ✅:照搬 `RoleComboBox.qml`,未公开身份 icon 点击本地标注反贼/忠臣/内奸(纯客户端、不发服务器、回房清空)。
-- **IG-4 玩家详情补装备/判定牌** ✅:GeneralDetailModal 补装备区/判定区牌(含虚拟牌原牌花色点数,走 `GetVirtualEquipData.subcards[1]`)。
-- **IG-5 局内聊天 + 送花/砸蛋** ✅:房间内 `Chat` type=2 聊天 + 气泡 + `$@<Type>:<pid>` 送花/砸蛋飞行动画(复用 PACE animationStore 范式)。
-- **IG-6 选将页右键/长按看武将技能**(追加):新 VM 桥 `GetGeneralDetail(name)`(按武将名,非 player id)+ 选将候选 GeneralCard 接 useLongPress/右键 → 复用 GeneralDetailModal。
-- **IG-7 修复同账号顶号"反向踢"**(追加 bug):新客户端登录反被老客户端踢。fork takeover 方向看似正确,真因(网关 uuid park / socket 回调时序)**待真机复现脚本锁定再最小修复**。
-- **IG-8 ~~修复 VPS 扩展包武将立绘+名称不显示~~**:**误报已撤**(扩展包武将实际正常)。仅留存一个可选 backlog:verify 不校验武将立绘(images.json 漏 generals)。
-
-## P2 · Web 账户与个性化
-
-目标:先用现有数据库能力做产品闭环,不等大账户系统。
-
-### W2-1 用户 KV 设置
-
-利用 `globalSaves(uid,key,data)`:
-
-- `web.roomPresets` 个性化建房预设。
-- `web.disabledGenerals` 禁将/禁包方案。
-- `web.uiPrefs` UI/音频/布局偏好。
-- `web.recentPacks` 最近使用包集合。
-
-需要新增 Web API 或 gateway notify 封装,不要让 React 直接拼底层 RPC。
-
-### W2-2 房间设置 V2
-
-在现有 `settings` CBOR blob 内约定结构化字段:
-
-- `enabledPacks`
-- `disabledGenerals`
-- `aiLevel`
-- `visibility`
-- `presetId`
-
-服务端只解析少数字段用于房间列表和校验;Lua 仍接收完整 settings。
-
-### W2-3 社交和成长
-
-利用/扩展 SQLite:
-
-- `friendinfo`(`init.sql:50-54`)做好友/黑名单。**注:该表当前零引用、无任何现成 C++/Lua 逻辑,是空表上的绿地开发**——需新建 ServerPlayer 读写方法 + 网关 API,工作量按“新功能”而非“接现成逻辑”估。
-- 新表 `achievements`、`user_levels` 或直接 `globalSaves` MVP。
-- 个人资料页:头像、总时长(`usergameinfo`)、胜率(`pWinRate`/`gWinRate`)、成就、常用武将。
-
-## P3 · 生产化
-
-- R-CRED:替换 localStorage 明文密码为 session token / 服务端会话 / httpOnly 方案。
+- R-CRED:替换 localStorage 明文密码为 session token / httpOnly 方案。
 - 数据卷备份:users.db、game.db、packages、配置。
 - 管理后台:封禁、房间、包启用、用户查询、日志。
 - 日志/监控:gateway + asio + Caddy health check。
 - 容量压测:WS 连接数、asio 房间线程、wasmoon 客户端内存。
 
-## P4 · 创意工坊与 AI 提升
+## N5 · 观感打磨(audit §4.3,视觉降级、不影响功能)
 
-这不是小改服务端,但 Web-only 后变为可规划产品线。
+- **大招 UltSkillAnimation**(H9):全屏黑幕+双层滚动台词+立绘三段飞入。
+- **五种送礼动画**(H20~H24+N20):egg/flower/shoe/wine 各自精灵齐射/旋转/碎裂/命中帧+音效(现共用单 emoji)。
+- **Photo 循环状态光环**(H2~H4):playing/selected/selectable 精灵(现静态描边)。
+- **弹幕 Danmu**(I9/B13):大厅/旁观/广播/胜负公告通道。
+- **资源美化包 + 内嵌字体**(audit N):enabledResourcePacks 皮肤包机制、FZLE/FZLBGBK/simli 字体。
+- **Cheat 查看面板族**(audit L,13 条):查看牌堆/将堆/卡牌详情、自由选将/同名替换/皮肤选择。
+- **设置/偏好控件族 + Config**(audit K):web 设置页、ActionRow/PreferencePage/Slider、Config 扩展。
 
-### W4-1 创意工坊 MVP
+## N6 · 创意工坊与 AI 提升(研究级长线,最后做)
 
-- 只支持“审核安装包”:上传/导入 → 离线扫描 → 测试通过 → 管理员启用 → manifest 发布。
-- 公共服不直接执行未经审核 Lua。
-- 单人沙盒房可先支持未审核包测试,运行在隔离容器/独立实例。
+- **创意工坊 MVP**:只支持审核安装包(上传→离线扫描→测试→管理员启用→manifest 发布);公共服不跑未审核 Lua;单人沙盒房隔离测试。
+- **AI 提升**(审计修订:非小改,是未完成基础功能——SmartAI 策略注册被 stub 成 no-op、无 aiLevel、无 self-play harness):MVP = 取消 stub + ~10 高频牌/技能策略 + 最小 headless 自对局评测 + C++ 侧 aiLevel 参数,先闭环再扩面。
 
-### W4-2 AI 提升(研究级长线,非小改 —— 审计修订)
+## 近期推荐顺序
 
-> **工作量修订:不要当成“小改服务端 + 填模板”。** 源码现状:SmartAI 的策略注册层被 stub 成 no-op(`smart_ai.lua:165/201/217` 三个 `set*SkillAI` 全是 `do return end`,`fk.ai_skills` 从不被填充);**无 `aiLevel` 概念**;**无 self-play harness**(`logic.lua` 只评估单步收益,不跑整局)。这是一个未完成的基础功能,不是可一蹴而就的切片。
+1. **N1-1 还原错误 10 条**:每条都是用户可见的错误,优先级最高,多数是窄改(立绘候选/标记计数/补间/移除多余特效)。
+2. **N1-2 限定/觉醒/转换技显示**:扩展包对局正确性必需;先确认 VM 镜像是否已含状态(决定成本)。
+3. **N1-3 投降/托管/踢人入口 + N1-4 出牌交互**:对局操作完整性。
+4. **N2 行动者高亮/翻面/垂死**(低成本纯渲染)→ 等待房 WaitingPhoto → 总览/详情页框架。
+5. **N3 账户个性化(房间预设/禁将)** → N4 生产化(session token 优先)。
+6. **N5 观感打磨 / N6 工坊+AI** 按产品节奏排。
 
-明确 MVP 边界,放在最后做:
-
-- (a) 取消 stub、打通策略注册 —— **小**。
-- (b) 为约 10 个高频牌/技能写策略 —— **中**(全量是数百条,不在 MVP)。
-- (c) 从零搭最小 headless 自对局评测脚本 —— **中**(需整局可复制/复盘)。
-- (d) C++ 侧加 `aiLevel` 参数 + 评测入口 —— **小**(但确需新 API,非“直接传参”)。
-- 主要工作在 `freekill-core/lua/lunarltk/server/ai/`;用胜率/失误统计迭代,先闭环再扩面。
-
-## 延后清单
-
-以下不阻塞近期 Web-only 转向:
-
-- 完整回放/录像/战绩页(audit Phase 8)。
-- 武将/卡牌资料库和高级筛选(audit Phase 9)。
-- 完整大厅设置/服务器浏览器/首次教程(audit Phase 3/Phase 1)。
-- 独立游戏模式(chess-games/poker-games),因自带 RoomScene,应单独立项。
-
-## 近期推荐顺序(审计后重排)
-
-1. **W0-0**:推 fork 仓库 + 配置项落位(默认兼容上游)。✅
-2. **W0-1**:`checkClientMd5` 登录跳过(单点,最小)。✅
-3. **W0-2**:Web manifest/capabilities + 用 manifest 统一包集合、删 ART_PACKS 三处硬编码(同时修 P7-006/P7-032 与 R-ASSET-MISMATCH)。✅
-4. **W0-3**:`invalidateRoomsOnPackageChange`/`tempBanByIp` 房间过期与封禁 gating(触面较深,从 `_refreshMd5` 扫描处中和)。✅
-5. **W0-4**:部署文档去 FK_MD5 主流程 + Docker 源切到 fork。✅(W0 全部完成)
-6. **W1-1**:Quit 二次确认(AddRobot 显隐已在 W0-2 完成)。← 下一步(进入 P1)
-7. **W1-2/W1-3**:按当前启用扩展包补 QmlMark 点击型 / utility 框。
-8. **W2-1/W2-2**:房间预设和禁将方案。
+> 每个切片修一项验一项,涉及共享包/网关/服务端协议时跑相关单测 + 真 asio/Web E2E;改还原项前先读对应 audit Phase 报告的原版+web 双向定位与 QML/Lua 源码(照搬纪律)。
