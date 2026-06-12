@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import {
   generalPic, generalAvatar, cardPic, cardPicCandidates, equipIcon, equipIconCandidates, delayedTrickPic,
   photoBack, rolePic, magatama, shieldPic, deathPic, generalCardBorder, kingdomIcon,
-  chosenPic, delayedTrickSealedPic, setArtPacks,
+  chosenPic, delayedTrickSealedPic, setArtPacks, generalDualPicCandidates,
 } from '../src/table/skin.js'
 
 describe('skin path resolution', () => {
@@ -110,5 +110,20 @@ describe('skin path resolution', () => {
     expect(cardPicCandidates('dummy').length).toBe(6)
     // Restore defaults so other tests are unaffected by this module-level mutation.
     setArtPacks(['standard', 'standard_cards', 'maneuvering'])
+  })
+
+  it('generalDualPicCandidates prefers dual/ split art, then falls back to the full portrait', () => {
+    // PhotoBase.qml:76-78 — getGeneralExtraPic(name,"dual/") ?? getGeneralPicture(name).
+    // Own ext dual/ first, then ART_PKGS dual/, then the normal generalPicCandidates chain.
+    expect(generalDualPicCandidates('daqiao', 'standard')).toEqual([
+      '/fk/packages/standard/image/generals/dual/daqiao.jpg',
+      '/fk/packages/standard_cards/image/generals/dual/daqiao.jpg',
+      '/fk/packages/maneuvering/image/generals/dual/daqiao.jpg',
+      '/fk/packages/standard/image/generals/daqiao.jpg',
+      '/fk/packages/standard_cards/image/generals/daqiao.jpg',
+      '/fk/packages/maneuvering/image/generals/daqiao.jpg',
+    ])
+    // No name → empty (no portrait slot).
+    expect(generalDualPicCandidates('')).toEqual([])
   })
 })

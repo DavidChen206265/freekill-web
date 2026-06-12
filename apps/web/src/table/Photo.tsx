@@ -16,7 +16,7 @@ import { useRoleGuessStore, GUESS_ROLES } from '../stores/roleGuessStore.js'
 import { useRoomChatStore } from '../stores/roomChatStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
 import { useRef, useState, useEffect } from 'react'
-import { generalPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
+import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
 import { JudgeArea } from './JudgeArea.js'
@@ -89,8 +89,8 @@ export function Photo({ player, playerNum, isSelf }: {
         {hasGeneral ? (
           dual ? (
             <>
-              <Portrait name={player.general!} ext={ext(player.general!)} bg={kingdomBg} />
-              <Portrait name={player.deputyGeneral!} ext={ext(player.deputyGeneral!)} bg={kingdomBg} />
+              <Portrait name={player.general!} ext={ext(player.general!)} bg={kingdomBg} dual />
+              <Portrait name={player.deputyGeneral!} ext={ext(player.deputyGeneral!)} bg={kingdomBg} dual />
             </>
           ) : (
             <Portrait name={player.general!} ext={ext(player.general!)} bg={kingdomBg} />
@@ -226,12 +226,14 @@ function PicMark({ mark }: { mark: { name: string; value: string; extra: string 
   )
 }
 
-function Portrait({ name, ext, bg }: { name: string; ext?: string; bg: string }) {
+function Portrait({ name, ext, bg, dual }: { name: string; ext?: string; bg: string; dual?: boolean }) {
   // Portrait image fills its slot (single = full width, dual = 50% via flex). Walk the
   // package candidates on <img> error (idx++) so an extension-pack general (or a stale
   // VM extension) still resolves; if all miss we show the kingdom-colored block (name
-  // is drawn at the Photo root, like PhotoBase.qml generalName).
-  const candidates = generalPicCandidates(name, ext)
+  // is drawn at the Photo root, like PhotoBase.qml generalName). In dual mode both halves
+  // prefer the purpose-drawn dual/ split portrait then fall back to the full portrait
+  // (PhotoBase.qml:76-78,112-113 getGeneralExtraPic("dual/") ?? getGeneralPicture).
+  const candidates = dual ? generalDualPicCandidates(name, ext) : generalPicCandidates(name, ext)
   const [idx, setIdx] = useState(0)
   const src = candidates[idx]
   return (

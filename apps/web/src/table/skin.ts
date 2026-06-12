@@ -80,6 +80,24 @@ export function generalPicCandidates(name: string, ext?: string): string[] {
   return pruneToExisting(urls)
 }
 
+/** Dual-general portrait candidates: when a player has a deputy, both halves prefer the
+ *  purpose-drawn split portrait `image/generals/dual/<name>.jpg` (PhotoBase.qml:76-78,
+ *  112-113 → SkinBank.getGeneralExtraPic(name,"dual/") ?? getGeneralPicture(name)),
+ *  falling back to the normal full portrait. We prepend the dual/ candidates (own ext
+ *  then ART_PKGS) ahead of generalPicCandidates so the <img> onError chain walks
+ *  dual → normal, exactly mirroring the QML `?? ` fallback. */
+export function generalDualPicCandidates(name: string, ext?: string): string[] {
+  if (!name) return []
+  const dual: string[] = []
+  if (ext) dual.push(`${FK}/packages/${ext}/image/generals/dual/${name}.jpg`)
+  for (const p of ART_PKGS) {
+    const u = `${FK}/packages/${p}/image/generals/dual/${name}.jpg`
+    if (!dual.includes(u)) dual.push(u)
+  }
+  // dual/ paths first (pruned to existing), then the normal-portrait fallback chain.
+  return [...pruneToExisting(dual), ...generalPicCandidates(name, ext)]
+}
+
 // ---- general-card chrome (built-in, /fk/image/card/general) ----------------
 // GeneralCardItem.qml: a faction-framed portrait card used in the general-choose
 // box. border = SkinBank.generalCardDir+'border'; the kingdom icon (top-left) =

@@ -162,8 +162,12 @@ export class ClientVm {
                       picMarks[#picMarks+1] = { name = k, value = sv, extra = extra }
                     else
                       -- text mark: "name value" (value hidden for @@)
+                      -- @$ (card pile) / @& (general pile): value is the COUNT,
+                      -- not the joined names (MarkArea.qml:135-137 special_value=dat.length;
+                      -- dat.join(',') is mark_extra for click-view only, not displayed).
                       local val
                       if k:startsWith("@@") then val = ""
+                      elseif k:startsWith("@$") or k:startsWith("@&") then val = isArr and tostring(#v) or tostring(v)
                       elseif isArr then val = table.concat(table.map(v, function(x) return Translate(tostring(x)) end), " ")
                       else val = Translate(tostring(v)) end
                       textMarks[#textMarks+1] = { name = Translate(k), value = val }

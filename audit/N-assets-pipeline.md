@@ -18,12 +18,13 @@
 - 差异: 缺 resource_pak 美化包覆盖；fallback 用纯色块而非原版 0.jpg；候选链是 web 自创的多包探测（原版 getGeneralPicture 只查自身 extension，不跨包扫描）。
 
 ### N2 武将立绘::双将分屏立绘(dual/)
-- 状态: 还原错误
+- 状态: 完全还原
 - 原版: PhotoBase.qml:76-80,108-114 → SkinBank.qml:112 (getGeneralExtraPic, extra="dual/")
 - web : Photo.tsx:90-97 (dual 分屏) + skin.ts:56 (generalPic)
 - 原版行为: 有副将时，主/副立绘各自**优先**取 `image/generals/dual/<name>.jpg`（双将专用半身像），`?? getGeneralPicture` 回退到普通整图。
 - web 行为: 分屏布局有（dual flex 各 50%），但两侧都直接调 generalPicCandidates 取**普通 full 立绘** `generals/<name>.jpg`，从不尝试 `generals/dual/<name>.jpg`。
 - 差异: dual/ 专用立绘完全未取，双将永远显示拉伸的普通整图（原版应显示专门绘制的左右半身像）。
+- 修复: 已修复并验证 (skin.ts 新增 `generalDualPicCandidates`——own ext + ART_PKGS 的 `generals/dual/<name>.jpg` 候选在前,再接普通 `generalPicCandidates` 作回退,照搬 PhotoBase.qml:76-78,112-113 的 `getGeneralExtraPic("dual/") ?? getGeneralPicture`;Photo.tsx 双将两半 Portrait 传 `dual` 用之,onError 链 dual→普通。skin.test.ts +1 用例断言 dual→普通顺序;typecheck/build/151 web 测试全绿,2026-06-12)
 
 ### N3 武将立绘::头像小图(avatar/)
 - 状态: 未还原
@@ -270,12 +271,12 @@
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 14 | N4, N6, N8, N9, N13, N14, N18, N19, N21, N22, N24, N25, N26, N27, N30, N33, N34 |
+| 完全还原 | 15 | N2, N4, N6, N8, N9, N13, N14, N18, N19, N21, N22, N24, N25, N26, N27, N30, N33, N34 |
 | 简化还原 | 11 | N1, N5, N7, N10, N11, N12, N15, N16, N17, N31, N32 |
-| 还原错误 | 2 | N2, N20 |
+| 还原错误 | 1 | N20 |
 | 未还原 | 4 | N3, N23, N28, N29 |
 
-（完全还原实计 17：N4/N6/N8/N9/N13/N14/N18/N19/N21/N22/N24/N25/N26/N27/N30/N33/N34；简化 11；错误 2；未还原 4。总 34 项。）
+（完全还原实计 18：N2/N4/N6/N8/N9/N13/N14/N18/N19/N21/N22/N24/N25/N26/N27/N30/N33/N34；简化 11；错误 1；未还原 4。总 34 项。N2 已于 2026-06-12 修复并验证，由还原错误升级为完全还原。）
 
 ## 未还原索引
 - **N3** 武将头像 avatar/ 小图（generalAvatar 函数存在但无调用，全用文字占位）
@@ -284,10 +285,10 @@
 - **N29** 内嵌字体 FZLE/FZLBGBK/simli（字体管线整体未实现）
 
 ## 还原错误索引
-- **N2** 双将分屏立绘：从不取 `generals/dual/<name>.jpg`，双将永远拉伸普通整图（应为专绘左右半身像）
+- ~~**N2** 双将分屏立绘~~ → 已修复并验证（2026-06-12，升级为完全还原）
 - **N20** 聊天投掷动画：用 emoji 字形替代原版精灵帧（egg/flower/shoe/wine 具名帧未加载）
 
 ## 最关键 3 缺口
 1. **resource_pak 美化包机制整体缺失（N28/N1/N5）** —— SkinBank 所有图片/音频寻址的第一优先级（enabledResourcePacks）在 web 完全没有，玩家无法套用任何皮肤包。
-2. **双将立绘还原错误（N2）** —— 双将武将永远显示拉伸的普通整图而非 dual/ 专绘半身像，是肉眼可见的对战画面差异。
-3. **内嵌字体未还原（N29）** —— FZLE 等艺术字体缺失，卡牌名/武将名/UI 全退化为系统字体，整体视觉风格偏离原版。
+2. **内嵌字体未还原（N29）** —— FZLE 等艺术字体缺失，卡牌名/武将名/UI 全退化为系统字体，整体视觉风格偏离原版。
+3. **聊天投掷动画 N20** —— 五种送礼共用单 emoji 飞行，丢失各自精灵帧/音效（见 N5 观感批次）。
