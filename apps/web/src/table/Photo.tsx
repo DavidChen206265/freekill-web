@@ -16,7 +16,7 @@ import { useRoleGuessStore, GUESS_ROLES } from '../stores/roleGuessStore.js'
 import { useRoomChatStore } from '../stores/roomChatStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
 import { useRef, useState, useEffect } from 'react'
-import { generalPic, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
+import { generalPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
 import { JudgeArea } from './JudgeArea.js'
@@ -69,7 +69,6 @@ export function Photo({ player, playerNum, isSelf }: {
 
   const kingdomBg = (player.kingdom && KINGDOM_COLOR[player.kingdom]) || '#2a2a30'
   const dual = !!player.deputyGeneral
-  const portrait = (name: string) => generalPic(name, ext(name))
 
   return (
     <div
@@ -90,11 +89,11 @@ export function Photo({ player, playerNum, isSelf }: {
         {hasGeneral ? (
           dual ? (
             <>
-              <Portrait src={portrait(player.general!)} bg={kingdomBg} />
-              <Portrait src={portrait(player.deputyGeneral!)} bg={kingdomBg} />
+              <Portrait name={player.general!} ext={ext(player.general!)} bg={kingdomBg} />
+              <Portrait name={player.deputyGeneral!} ext={ext(player.deputyGeneral!)} bg={kingdomBg} />
             </>
           ) : (
-            <Portrait src={portrait(player.general!)} bg={kingdomBg} />
+            <Portrait name={player.general!} ext={ext(player.general!)} bg={kingdomBg} />
           )
         ) : (
           <div style={{ ...styles.placeholder, background: kingdomBg }} />
@@ -227,13 +226,17 @@ function PicMark({ mark }: { mark: { name: string; value: string; extra: string 
   )
 }
 
-function Portrait({ src, bg }: { src: string; bg: string }) {
-  // Portrait image fills its slot (single = full width, dual = 50% via flex). If
-  // the art is missing we just show the kingdom-colored block (name is drawn at
-  // the Photo root, like PhotoBase.qml generalName).
+function Portrait({ name, ext, bg }: { name: string; ext?: string; bg: string }) {
+  // Portrait image fills its slot (single = full width, dual = 50% via flex). Walk the
+  // package candidates on <img> error (idx++) so an extension-pack general (or a stale
+  // VM extension) still resolves; if all miss we show the kingdom-colored block (name
+  // is drawn at the Photo root, like PhotoBase.qml generalName).
+  const candidates = generalPicCandidates(name, ext)
+  const [idx, setIdx] = useState(0)
+  const src = candidates[idx]
   return (
     <div style={{ ...styles.portrait, background: bg }}>
-      {src && <img src={src} alt="" style={styles.portraitImg} draggable={false} onError={hideImg} />}
+      {src && <img src={src} alt="" style={styles.portraitImg} draggable={false} onError={() => setIdx((i) => i + 1)} />}
     </div>
   )
 }

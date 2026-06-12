@@ -159,13 +159,16 @@ acc(copyImages(path.join(SOURCECODE, 'image', 'card'), path.join(FK_ROOT, 'image
 }
 // ② per-package generals + card art (skip anim sprites for now — slice 7)
 for (const pkg of ART_PACKS) {
-  acc(copyImages(path.join(PACKAGES, pkg, 'image', 'generals'), path.join(FK_ROOT, 'packages', pkg, 'image', 'generals')))
-  // record=true: card art (incl. equipIcon/delayedTrick subdirs) is what the client
-  // candidate-probes across packages → manifest it so it resolves with one GET.
+  // record=true for BOTH generals and card art: the client candidate-probes general
+  // portraits across packages too (skin.ts generalPicCandidates), and a general that
+  // ships only in an extension pack (e.g. re__xusheng → sp) 404s on the default packs
+  // and floods the console + drops the portrait. Manifesting general-art paths lets
+  // the client resolve the one real package with a single GET, same as card art.
+  acc(copyImages(path.join(PACKAGES, pkg, 'image', 'generals'), path.join(FK_ROOT, 'packages', pkg, 'image', 'generals'), true))
   acc(copyImages(path.join(PACKAGES, pkg, 'image', 'card'), path.join(FK_ROOT, 'packages', pkg, 'image', 'card'), true))
 }
-// images.json: the set of per-package card-art paths that exist under /fk, so the
-// client picks the one real package candidate (no <img> 404 probing).
+// images.json: the set of per-package general + card art paths that exist under /fk,
+// so the client picks the one real package candidate (no <img> 404 probing).
 fs.writeFileSync(path.join(FK_ROOT, 'images.json'), JSON.stringify(imageManifest.sort(), null, 0))
 
 // Also stage the fk prelude (client native surface) next to the manifest so the

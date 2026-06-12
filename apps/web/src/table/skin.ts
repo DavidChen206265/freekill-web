@@ -62,6 +62,24 @@ export function generalAvatar(name: string, ext?: string): string {
   return name ? pkgPath(ext, 'generals/avatar', name, '.jpg') : ''
 }
 
+/** Candidate general-portrait URLs, mirroring cardPicCandidates: the general's own
+ *  extension first, then every enabled art package (ART_PKGS, set from the server
+ *  manifest at login). The caller walks these on <img> error so a general whose art
+ *  ships only in an extension pack (e.g. re__xusheng → sp) still resolves even when the
+ *  VM reported a wrong/stale extension (a stale client returned 'standard'). Pruned to
+ *  paths that exist per images.json so a correct client makes ONE GET, not a 404 probe
+ *  per package. De-duplicated; empty when no name. */
+export function generalPicCandidates(name: string, ext?: string): string[] {
+  if (!name) return []
+  const urls: string[] = []
+  if (ext) urls.push(`${FK}/packages/${ext}/image/generals/${name}.jpg`)
+  for (const p of ART_PKGS) {
+    const u = `${FK}/packages/${p}/image/generals/${name}.jpg`
+    if (!urls.includes(u)) urls.push(u)
+  }
+  return pruneToExisting(urls)
+}
+
 // ---- general-card chrome (built-in, /fk/image/card/general) ----------------
 // GeneralCardItem.qml: a faction-framed portrait card used in the general-choose
 // box. border = SkinBank.generalCardDir+'border'; the kingdom icon (top-left) =

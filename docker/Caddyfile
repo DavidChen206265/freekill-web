@@ -40,14 +40,24 @@
 		file_server
 	}
 
+	# Hashed (content-addressed) JS/CSS bundles. MUST be its own handle (NO try_files):
+	# a stale client requesting an OLD bundle hash (e.g. /assets/index-<oldhash>.js that
+	# this deploy no longer ships) must get a real 404, NOT the SPA "200 index.html"
+	# fallback. The 200-html-as-JS masks the miss — the browser "successfully" loads
+	# index.html as a script, never errors, and a client stuck on a cached old index.html
+	# keeps running stale code (the "更新不生效 even after SW unregister" symptom, same
+	# 200-html-masks-missing-asset class as the /fk and icon bugs). file_server alone →
+	# present bundle = 200 immutable, missing bundle = 404. Keep before the catch-all.
+	handle /assets/* {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
 	# Everything else: the built React app (static). SPA fallback to index.html so
 	# client-side routing works on refresh.
 	handle {
 		root * /srv
-
-		# Long cache for hashed (content-addressed) JS/CSS bundles.
-		@assets path /assets/*
-		header @assets Cache-Control "public, max-age=31536000, immutable"
 
 		# PWA control files MUST always revalidate so a new service worker / manifest
 		# is picked up on the next visit (Workbox autoUpdate). Never cache them long.

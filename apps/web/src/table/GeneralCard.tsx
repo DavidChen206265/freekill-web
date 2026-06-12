@@ -6,7 +6,8 @@
 //   name     (PhotoBase generalName: x:3 y:28, vertical, LiSu, black outline)
 // Missing portrait falls back to a kingdom-tinted block + name (we never invent art).
 
-import { generalPic, generalCardBorder, kingdomIcon } from './skin.js'
+import { useState } from 'react'
+import { generalPicCandidates, generalCardBorder, kingdomIcon } from './skin.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { useLongPress } from './useLongPress.js'
 import { tr } from '../i18n/zh.js'
@@ -27,7 +28,12 @@ export function GeneralCard({ name, selected, disabled, onClick, onViewDetail, w
 }) {
   const info = useCardFaceStore((s) => s.generals[name])
   const kingdom = info?.kingdom
-  const portrait = generalPic(name, info?.extension)
+  // Portrait candidates: own extension first, then every enabled art pack. Walk them
+  // on <img> error (idx++) so a general whose art lives only in an extension pack (or
+  // whose VM extension was stale/wrong) still resolves before falling back to the block.
+  const candidates = generalPicCandidates(name, info?.extension)
+  const [picIdx, setPicIdx] = useState(0)
+  const portrait = candidates[picIdx]
   const bg = (kingdom && KINGDOM_COLOR[kingdom]) || '#2a2a30'
   const scale = width / 93
 
@@ -60,9 +66,9 @@ export function GeneralCard({ name, selected, disabled, onClick, onViewDetail, w
         cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
-      {/* portrait (fills card); kingdom-tinted block if art missing */}
+      {/* portrait (fills card); kingdom-tinted block if all candidates miss */}
       {portrait
-        ? <img src={portrait} alt="" style={styles.portrait} draggable={false} onError={hidePortrait} />
+        ? <img src={portrait} alt="" style={styles.portrait} draggable={false} onError={() => setPicIdx((i) => i + 1)} />
         : <div style={{ ...styles.portrait, background: bg }} />}
       {/* faction frame */}
       <img src={generalCardBorder()} alt="" style={styles.border} draggable={false} onError={hideImg} />
@@ -76,9 +82,6 @@ export function GeneralCard({ name, selected, disabled, onClick, onViewDetail, w
   )
 }
 
-function hidePortrait(e: React.SyntheticEvent<HTMLImageElement>) {
-  (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'
-}
 function hideImg(e: React.SyntheticEvent<HTMLImageElement>) {
   (e.currentTarget as HTMLImageElement).style.display = 'none'
 }
