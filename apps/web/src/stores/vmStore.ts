@@ -240,12 +240,23 @@ function handleChat(data: unknown): void {
     if (present) useAnimationStore.getState().pushScene({ kind: 'present', from: sender, to: present.to, present: present.type })
     return // a $@ message is never shown as text (even an unrecognized one)
   }
+  // RoomPage.qml addToChat: a sender WITH a photo (seated player) gets a transient
+  // bubble; one WITHOUT (observer) goes to the chat log only — and Config.hideObserverChatter
+  // drops observer chatter entirely. Mirror that: look up the seat in gameStore.
+  const seated = useGameStore.getState().players[sender] !== undefined
+  if (!seated && hideObserverChatter()) return
   useRoomChatStore.getState().append({
     sender,
     userName: String(d?.userName ?? '') || `P${sender}`,
     msg,
     time: String(d?.time ?? ''),
-  })
+  }, seated)
+}
+
+// Config.hideObserverChatter equivalent: opt-in via localStorage (default off, like the
+// original default). Read lazily so a toggle takes effect without reload.
+function hideObserverChatter(): boolean {
+  try { return localStorage.getItem('fk_hide_observer_chatter') === '1' } catch { return false }
 }
 
 export const useVmStore = create<VmState>((set, get) => ({

@@ -15,6 +15,14 @@ describe('roomChatStore', () => {
     expect(s.bubbles[2]!.msg).toBe('你好')
   })
 
+  it('an observer (seated=false) appends to the log but gets NO photo bubble (RoomPage addToChat)', () => {
+    useRoomChatStore.getState().reset()
+    useRoomChatStore.getState().append({ sender: 9, userName: 'Watcher', msg: 'hi', time: '' }, false)
+    const s = useRoomChatStore.getState()
+    expect(s.lines).toHaveLength(1)        // still shown in the chat log
+    expect(s.bubbles[9]).toBeUndefined()   // but no bubble slot for a seatless sender
+  })
+
   it('a newer message replaces the bubble; clearBubble only clears the matching seq', () => {
     const st = useRoomChatStore.getState()
     st.append({ sender: 2, userName: 'Bob', msg: 'one', time: '' })

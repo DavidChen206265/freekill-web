@@ -68,12 +68,13 @@
 - 差异: 仅缺淡入淡出动画与配色/字体；时序总长一致。
 
 ### I8 RoomChat::旁观者聊天进弹幕
-- 状态: 还原错误
+- 状态: 简化还原
 - 原版: `Fk/Pages/Common/RoomPage.qml:683-709` (addToChat)
-- web : `apps/web/src/stores/vmStore.ts:233-249` (handleChat)
+- web : `apps/web/src/stores/vmStore.ts:handleChat` + `roomChatStore.append(line, seated)` + `table/ChatText.tsx`
 - 原版行为: 房内聊天若 sender 无 photo(旁观者)→`danmu.sendLog("user: msg")` 走弹幕，不挂气泡；有 photo→挂 `photo.chat` 气泡；`Config.hideObserverChatter` 可屏蔽无 photo 者。emoji `{emojiN}` 替换为 `<img height=16>`。
-- web 行为: 所有聊天一律 `roomChatStore.append`→进面板列表并对 `sender` 挂气泡，不区分有无 photo，无弹幕通道，旁观者消息错误地挂到 `bubbles[sender]`(旁观者无座位→气泡无处显示但仍占 bubble 槽)。无 emoji 替换。无 hideObserverChatter。
-- 差异: 旁观者消息应进弹幕却进了气泡/面板；缺弹幕分流；缺 emoji 替换；缺 hideObserverChatter。
+- web 行为: handleChat 查 gameStore 判 sender 是否有座位:有座位→append 并挂气泡;旁观者(无座位)→只 append 进面板、**不挂气泡**(修了占 bubble 槽的 bug);`localStorage.fk_hide_observer_chatter==='1'` 时丢弃旁观者发言(= Config.hideObserverChatter);`{emojiN}`→`<img height=16>` 由共享 `ChatText` 在面板行与气泡两处渲染。
+- 差异: 仅简化——旁观者发言进**聊天面板**而非滚动弹幕条(弹幕组件 Danmu 本身未还原,见 I9);核心错误(气泡错挂无座位 sender)+ emoji + hideObserverChatter 已还原。待 I9 弹幕组件落地后,旁观者发言可改走弹幕以完全还原。
+- 修复: 已修复并验证 (roomChatStore.append 加 seated 参数,仅有座位者挂气泡;handleChat 经 gameStore 判座位 + hideObserverChatter;新增 ChatText.tsx 共享 emoji 渲染,RoomChatPanel 行与 Photo 气泡共用;skin.ts emojiPic。roomChatStore.test +1 旁观者无气泡用例;typecheck/build/151 测试全绿。**由还原错误降为简化还原**——核心 bug 已消除,余项=弹幕分流依赖未还原的 I9,2026-06-12)
 
 ---
 
@@ -182,12 +183,12 @@
 | 状态 | 数量 | 序号 |
 |------|------|------|
 | 完全还原 | 7 | I3, I6, I11, I12, I14, I15, I17 |
-| 简化还原 | 9 | I1, I2, I4, I5, I7, I10, I13, I16, I18 |
-| 还原错误 | 1 | I8 |
+| 简化还原 | 10 | I1, I2, I4, I5, I7, I8, I10, I13, I16, I18 |
+| 还原错误 | 0 | （I8 核心 bug 已修复，降为简化还原 2026-06-12） |
 | 未还原 | 1 | I9 |
 
 (I15 为 web 主动增强，归入完全还原。)
 
 ## 未还原 / 还原错误 索引
 - 未还原: **I9** (弹幕 Danmu 整组件)
-- 还原错误: **I8** (旁观者聊天应进弹幕却进气泡/面板, 且缺 emoji 替换)
+- 还原错误: （无；**I8** 旁观者气泡错挂 + emoji + hideObserverChatter 已于 2026-06-12 修复，降为简化还原——余项弹幕分流待 I9 落地）

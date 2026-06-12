@@ -21,7 +21,7 @@ interface RoomChatState {
   lines: RoomChatLine[]
   /** sender id -> the latest line's {seq,msg} for the transient Photo bubble. */
   bubbles: Record<number, { seq: number; msg: string }>
-  append: (line: Omit<RoomChatLine, 'seq'>) => void
+  append: (line: Omit<RoomChatLine, 'seq'>, seated?: boolean) => void
   /** Clear a sender's bubble once it has faded (ChatBubble ~2.85s). */
   clearBubble: (sender: number, seq: number) => void
   reset: () => void
@@ -48,12 +48,15 @@ export function parsePresent(msg: string): { type: string; to: number } | null {
 export const useRoomChatStore = create<RoomChatState>((set) => ({
   lines: [],
   bubbles: {},
-  append: (line) => set((s) => {
+  // RoomPage.qml addToChat: every message appends to the chat log; only a SEATED
+  // sender (has a photo) also gets a transient Photo bubble — an observer (no photo)
+  // goes to the log/danmu only. `seated` defaults true for back-compat; the dispatcher
+  // passes whether the sender has a seat so observer chatter never claims a bubble slot.
+  append: (line, seated = true) => set((s) => {
     const seqN = ++seq
-    return {
-      lines: [...s.lines.slice(-(CAP - 1)), { ...line, seq: seqN }],
-      bubbles: { ...s.bubbles, [line.sender]: { seq: seqN, msg: line.msg } },
-    }
+    const next: Partial<RoomChatState> = { lines: [...s.lines.slice(-(CAP - 1)), { ...line, seq: seqN }] }
+    if (seated) next.bubbles = { ...s.bubbles, [line.sender]: { seq: seqN, msg: line.msg } }
+    return next
   }),
   clearBubble: (sender, bubbleSeq) => set((s) => {
     // Only clear if it's still the same bubble (a newer message keeps the bubble up).

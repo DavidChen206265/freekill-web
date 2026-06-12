@@ -17,6 +17,7 @@ import { useRoomChatStore } from '../stores/roomChatStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
 import { useRef, useState, useEffect } from 'react'
 import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
+import { ChatText } from './ChatText.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
 import { JudgeArea } from './JudgeArea.js'
@@ -264,7 +265,7 @@ function PhotoChatBubble({ playerId }: { playerId: number }) {
     return () => clearTimeout(t)
   }, [bubble, playerId, clearBubble])
   if (!bubble) return null
-  return <div style={styles.chatBubble}>{bubble.msg}</div>
+  return <div style={styles.chatBubble}><ChatText text={bubble.msg} /></div>
 }
 
 function shownRole(player: GamePlayer): string {

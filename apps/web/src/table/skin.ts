@@ -98,6 +98,12 @@ export function generalDualPicCandidates(name: string, ext?: string): string[] {
   return [...pruneToExisting(dual), ...generalPicCandidates(name, ext)]
 }
 
+/** Chat emoji image: built-in /fk/image/emoji/<n>.png (RoomPage.qml addToChat
+ *  replaces `{emojiN}` with <img .../image/emoji/N.png height=16>). */
+export function emojiPic(n: string | number): string {
+  return `${FK}/image/emoji/${n}.png`
+}
+
 // ---- general-card chrome (built-in, /fk/image/card/general) ----------------
 // GeneralCardItem.qml: a faction-framed portrait card used in the general-choose
 // box. border = SkinBank.generalCardDir+'border'; the kingdom icon (top-left) =

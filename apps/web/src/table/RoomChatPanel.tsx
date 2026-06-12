@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useRoomChatStore } from '../stores/roomChatStore.js'
 import { useGameStore } from '../stores/gameStore.js'
 import { useConnectionStore } from '../stores/index.js'
+import { ChatText } from './ChatText.js'
 
 const PRESENTS: { type: string; glyph: string; label: string }[] = [
   { type: 'Flower', glyph: '🌹', label: '花' },
@@ -54,7 +55,7 @@ export function RoomChatPanel() {
             {lines.length === 0 && <div style={styles.empty}>暂无消息</div>}
             {lines.map((l) => (
               <div key={l.seq} style={styles.line}>
-                <span style={styles.who}>{l.userName}:</span> <span>{l.msg}</span>
+                <span style={styles.who}>{l.userName}:</span> <span><ChatText text={l.msg} /></span>
               </div>
             ))}
           </div>
