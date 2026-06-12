@@ -106,23 +106,27 @@ web：`freekill-web/`
 - web 行为: 显式 `return null`（注释"custom (extension QML) — not supported in the web port"）。Web 端无法运行扩展 QML，属架构性合理缺口。
 
 ### F14 LimitSkillArea::Photo 限定技区（UpdateLimitSkill）
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: `Fk/Components/LunarLTK/Photo/LimitSkillArea.qml`:8-41 (ColumnLayout of LimitSkillItem, update(skill,times)), RoomLogic.js:1509-1518 (`UpdateLimitSkill`→photo.updateLimitSkill)
-- web : 无（`diag/notifyCommands.ts`:58 将 `UpdateLimitSkill` 列入 KNOWN_DEFERRED）
+- web : `Photo.tsx` LimitSkillArea + `stores/limitSkillStore.ts` + `vmStore` UpdateLimitSkill case
 - 原版行为: 每个 Photo 上一列限定/觉醒/转换/任务技标记，收 `UpdateLimitSkill(id,skill,time)` 命令调 update：times==-1 移除、>-1 追加/更新。
-- web 行为: `Photo.tsx` 无 LimitSkillArea；`UpdateLimitSkill` 命令被归为 KNOWN_DEFERRED（M5 延期），不处理。限定技/觉醒技使用状态在脸上无标记。
+- web 行为: `UpdateLimitSkill` 出 KNOWN_DEFERRED,vmStore 消费→limitSkillStore.update(pid,skill,times,skilltype,label),Photo 右上 LimitSkillArea 渲染;times==-1 移除(quest 的 -1 保留=未触发)。
+- 差异: 简化——限定技区本身还原;banner(SetBanner)/标记区显隐(UpdateMarkArea)仍 deferred。
+- 修复: 已修复并验证 (见 D56;7 单测 + 真 VM skillData 验证。2026-06-12,未还原→简化还原。)
 
 ### F15 LimitSkillItem::技能类型态（limit/wake/quest/switch + 已用图）
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: `Fk/Components/LunarLTK/Photo/LimitSkillItem.qml`:7-78
-- web : 无
+- web : `stores/limitSkillStore.ts` limitSkillRender + `Photo.tsx` LimitSkillArea item + skin.limitSkillBg
 - 原版行为: 按 skilltype 渲染不同底图（SkinBank.limitSkillDir+type）与状态：
   - limit: usedtimes>=1 显红"X"+底图切 `limit-used`，否则 `limit`
   - wake: 仅 usedtimes>0 时可见
   - switch（转换技）: usedtimes<1 用 `switch`，否则 `switch-yin`（阴态）
   - quest（任务技）: usedtimes>1 显"X"+`limit-used`
   - 技能名文字（Lua.tr）+ 描边；onSkillnameChanged 据 getSkillData.frequency/switchSkillName 决定 skilltype 与可见性。
-- web 行为: 以上全部缺失（随 F14 一并未实现）。转换技阴/阳态、限定技已用 X、觉醒技触发显隐均无呈现。
+- web 行为: limitSkillRender 1:1 照搬上述四类规则(limit X+limit-used / wake 觉醒后才显 / switch 阳阴 / quest 失败 X);skilltype 由 skillData(frequency/switchSkillName)解析;技能名 tr+描边;bg 走 skin.limitSkillBg(/fk/image/photo/skill/*)。
+- 差异: 简化——渲染规则全还原;唯字体(li2/libian)与原版 0.45 缩放尺寸为近似。
+- 修复: 已修复并验证 (limitSkillRender 7 单测覆盖四类全部状态;真 VM 验证 skillData。2026-06-12,未还原→简化还原。)
 
 ### F16 Dashboard::SpecialSkills 单选（重铸/正常使用）
 - 状态: 完全还原
@@ -158,15 +162,16 @@ web：`freekill-web/`
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 6 | F9, F16, F17, F18, F19 …（+ F9 spin） |
-| 简化还原 | 7 | F1, F2, F4, F8, F10, F11, F12 |
+| 完全还原 | 5 | F9, F16, F17, F18, F19 |
+| 简化还原 | 9 | F1, F2, F4, F8, F10, F11, F12, F14, F15 |
 | 还原错误 | 0 | — |
-| 未还原 | 6 | F3, F5, F6, F7, F13(合理), F14, F15 |
+| 未还原 | 5 | F3, F5, F6, F7, F13(合理) |
 
-> 注：F18/F19 为"VM 原样运行"型完全还原（非 TS 重写）。未还原中 F13(custom 扩展 QML) 为架构性合理缺口。
+> 注：F18/F19 为"VM 原样运行"型完全还原（非 TS 重写）。未还原中 F13(custom 扩展 QML) 为架构性合理缺口。F14/F15 于 2026-06-12 未还原→简化还原(LimitSkillArea 已实现)。
 
-实际逐项：完全还原 5（F9, F16, F17, F18, F19）；简化还原 7（F1, F2, F4, F8, F10, F11, F12）；还原错误 0；未还原 7（F3, F5, F6, F7, F13, F14, F15）。
+实际逐项：完全还原 5（F9, F16, F17, F18, F19）；简化还原 9（F1, F2, F4, F8, F10, F11, F12, F14, F15）；还原错误 0；未还原 5（F3, F5, F6, F7, F13）。
 
 ## 未还原 / 还原错误 序号索引
-- 未还原：**F3**(active "&" 附属技后缀)、**F5**(技能 locked 灰渐变+锁图标)、**F6**(技能 times 次数角标)、**F7**(prelight 预亮技能 + PrelightSkill 命令 + PushRequest 上报)、**F13**(custom 扩展 QML 交互控件，架构性合理缺口)、**F14**(Photo LimitSkillArea + UpdateLimitSkill 命令)、**F15**(LimitSkillItem 限/觉/任/转换 状态图)
+- 未还原：**F3**(active "&" 附属技后缀)、**F5**(技能 locked 灰渐变+锁图标)、**F6**(技能 times 次数角标)、**F7**(prelight 预亮技能 + PrelightSkill 命令 + PushRequest 上报)、**F13**(custom 扩展 QML 交互控件，架构性合理缺口)
 - 还原错误：无
+- （F14/F15 LimitSkillArea 已于 2026-06-12 简化还原）

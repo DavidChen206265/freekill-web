@@ -452,12 +452,13 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 ## G. LimitSkillArea / LimitSkillItem / RoleComboBox / SkinArea / SpecialMarkArea
 
 ### D56 LimitSkillArea::限定技/觉醒/转换技标记
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: Photo/LimitSkillArea.qml + LimitSkillItem.qml (右上技能标记: limit/wake/switch/quest 各类背景图 + 技能名 + "X" 已用标记; updateLimitSkill 驱动)
-- web : 无（vmStore 无 UpdateLimitSkill case；Photo.tsx 无限定技区）
+- web : Photo.tsx LimitSkillArea + limitSkillStore + clientVm.skillData 桥 + skin.limitSkillBg
 - 原版行为: photo 右上显示限定技/觉醒技/转换技图标，已用打 X / 切背景。
-- web 行为: 完全无限定技标记区。
-- 差异: 整个 LimitSkillArea 子系统未实现（功能性缺口）。
+- web 行为: Photo 右上 LimitSkillArea 列,消费 UpdateLimitSkill→limitSkillStore,limitSkillRender 照搬 LimitSkillItem 规则(limit 用 X+limit-used、wake 觉醒后才显、switch 阳/阴→switch/switch-yin、quest 失败>1 打 X);skilltype 经 clientVm.skillData(GetSkillData.frequency/switchSkillName)解析。
+- 差异: 简化——技能标记本身 1:1 还原;但全局顶部 banner(SetBanner)与标记区显隐控制(UpdateMarkArea)仍 deferred(随 N1-2 余项)。
+- 修复: 已修复并验证 (UpdateLimitSkill 出 KNOWN_DEFERRED→consume;新增 limitSkillStore+skillData 桥+LimitSkillArea 组件;render 规则 7 单测 + 真 VM 验证 skillData(jianxiong→奸雄);标准三包无此类技能[audit O],由扩展包武将触发。typecheck/build/161 测试全绿。2026-06-12,未还原→简化还原。)
 
 ### D57 RoleComboBox::身份图标显示
 - 状态: 完全还原
@@ -553,17 +554,17 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 | 状态 | 数量 | 序号 |
 |------|------|------|
 | 完全还原 | 30 | D1,D2,D3,D9,D11,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67 |
-| 简化还原 | 18 | D5,D7,D8,D13,D14,D15,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53 |
+| 简化还原 | 19 | D5,D7,D8,D13,D14,D15,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53,D56 |
 | 还原错误 | 0 | （D11 已修复并验证 2026-06-12，升级为完全还原） |
-| 未还原 | 19 | D4,D6,D10,D12,D16,D17,D18,D19,D20,D23,D30,D31,D32,D37,D44,D45,D51,D56,D59 |
+| 未还原 | 18 | D4,D6,D10,D12,D16,D17,D18,D19,D20,D23,D30,D31,D32,D37,D44,D45,D51,D59 |
 
 （注：计数含 D1–D67 共 67 项。）
 
 实际四态计数（按各条目"状态"字段）：
 - 完全还原：30（D1,D2,D3,D9,D11,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67）
-- 简化还原：18（D5,D7,D8,D13,D14,D15,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53）
+- 简化还原：19（D5,D7,D8,D13,D14,D15,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53,D56；D56 于 2026-06-12 未还原→简化）
 - 还原错误：0（D11 已修复并验证 2026-06-12）
-- 未还原：19（D4,D6,D10,D12,D16,D17,D18,D19,D20,D23,D30,D31,D32,D37,D44,D45,D51,D56,D59）
+- 未还原：18（D4,D6,D10,D12,D16,D17,D18,D19,D20,D23,D30,D31,D32,D37,D44,D45,D51,D59）
 - 合计：67
 
 ## 未还原 / 还原错误 序号索引
