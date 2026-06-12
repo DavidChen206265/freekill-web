@@ -193,6 +193,27 @@ export class ClientVm {
               marks = textMarks,
               picMarks = picMarks,
               isSelf = (Self ~= nil and p.id == Self.id),
+              -- Waiting-room win-rate panel (WaitingPhoto.qml winRateRect): getGameData()
+              -- yields {total,win,run}; getTotalGameTime() the lifetime seconds. Mirrors
+              -- GetPlayerGameData(pid) = {total,win,run,totalTime}. UpdateGameData sets
+              -- these on the VM player; reading them per roster-sync (not a delta) keeps
+              -- the snapshot model (gameStore.syncPlayers) authoritative.
+              gameData = (function()
+                local g = { total = 0, win = 0, run = 0, totalTime = 0 }
+                -- guard the whole getGameData + qlist iteration: getGameData returns a
+                -- QList (fk.qlist needs :length()); a non-QList would throw inside the loop.
+                pcall(function()
+                  local raw = p.player and p.player:getGameData()
+                  if raw then
+                    local arr = {}
+                    for _, i in fk.qlist(raw) do arr[#arr+1] = i end
+                    g.total, g.win, g.run = arr[1] or 0, arr[2] or 0, arr[3] or 0
+                  end
+                end)
+                local okt, t = pcall(function() return p.player and p.player:getTotalGameTime() end)
+                if okt and t then g.totalTime = t end
+                return g
+              end)(),
             }
           end
         end

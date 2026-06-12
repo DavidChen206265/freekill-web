@@ -44,6 +44,9 @@ export interface GamePlayer {
   /** Picture marks (Photo PicMarkArea, @!): name = raw mark key (→ getMarkPic icon),
    *  value = count/localized text overlay, extra = hover tooltip (@!! description). */
   picMarks?: { name: string; value: string; extra: string }[]
+  /** Waiting-room win-rate panel data (WaitingPhoto.qml winRateRect): lifetime
+   *  total/win/run game counts + totalTime seconds (GetPlayerGameData / UpdateGameData). */
+  gameData?: { total: number; win: number; run: number; totalTime: number }
   marks: Record<string, number>
 }
 
@@ -97,6 +100,7 @@ export interface VmPlayerLike {
   handcardNum?: number
   marks?: { name: string; value: string }[]
   picMarks?: { name: string; value: string; extra: string }[]
+  gameData?: { total: number; win: number; run: number; totalTime: number }
   isSelf?: boolean
 }
 
@@ -218,6 +222,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           handcardNum: vp.handcardNum ?? prev.handcardNum,
           displayMarks: vp.marks ?? prev.displayMarks,
           picMarks: vp.picMarks ?? prev.picMarks,
+          gameData: vp.gameData ?? prev.gameData,
         }
         if (vp.isSelf) selfId = vp.id
       }

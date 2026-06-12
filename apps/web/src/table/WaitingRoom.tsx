@@ -51,6 +51,7 @@ export function WaitingRoom() {
                   <div style={{ ...styles.readyTag, color: p.ready ? '#2ecc71' : '#888' }}>
                     {p.owner ? '—' : p.ready ? '已准备' : '未准备'}
                   </div>
+                  <WinRatePanel data={p.gameData} />
                 </>
               ) : (
                 <span style={styles.emptyText}>空位</span>
@@ -82,17 +83,42 @@ export function WaitingRoom() {
   )
 }
 
+// Per-seat win-rate panel (WaitingPhoto.qml:43-74 winRateRect). Shows 时长 (min<100
+// else h), then either "新手" (totalGame===0) or Win%/Run%/Total. runRate>0.2 → red text.
+function WinRatePanel({ data }: { data?: { total: number; win: number; run: number; totalTime: number } }) {
+  if (!data) return null
+  const { total, win, run, totalTime } = data
+  const m = Math.floor(totalTime / 60)
+  const timeStr = m < 100 ? `${m} min` : `${(totalTime / 3600).toFixed(2)} h`
+  const highRun = total > 0 && run / total > 0.2
+  return (
+    <div style={{ ...styles.winRate, color: highRun ? '#e74c3c' : '#fff' }}>
+      <div>时长: {timeStr}</div>
+      {total === 0 ? (
+        <div>新手</div>
+      ) : (
+        <>
+          <div>胜率 {((win / total) * 100).toFixed(1)}%</div>
+          <div>逃率 {((run / total) * 100).toFixed(1)}%</div>
+          <div>总场 {total}</div>
+        </>
+      )}
+    </div>
+  )
+}
+
 const styles: Record<string, React.CSSProperties> = {
   wrap: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, background: '#14532d', color: '#eee', fontFamily: 'system-ui' },
   title: { margin: 0, fontSize: 20 },
   seats: { display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', maxWidth: 900 },
-  seat: { width: 120, height: 150, background: '#26262b', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid #333' },
+  seat: { width: 120, height: 188, background: '#26262b', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid #333' },
   empty: { background: 'transparent', border: '1px dashed #3a5', opacity: 0.5 },
   emptyText: { color: '#6a8' },
   avatar: { width: 70, height: 70, borderRadius: 6, background: '#3b5b8c', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700, textAlign: 'center', padding: 4 },
   name: { fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 },
   ownerTag: { fontSize: 10, background: '#d4af37', color: '#222', borderRadius: 3, padding: '0 4px' },
   readyTag: { fontSize: 12 },
+  winRate: { fontSize: 10, lineHeight: 1.25, textAlign: 'center', background: '#CC3C3229', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 6, padding: '2px 6px', minWidth: 96 },
   actions: { display: 'flex', gap: 12 },
   btn: { padding: '10px 28px', border: 'none', borderRadius: 6, background: '#0e639c', color: '#fff', fontSize: 16, cursor: 'pointer' },
   disabled: { background: '#555', color: '#999', cursor: 'not-allowed' },

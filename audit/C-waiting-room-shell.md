@@ -35,12 +35,13 @@ web 文件：
 - 差异: PhotoBase 立绘系统与三态角标图片完全缺失，文字替代。
 
 ### C3 WaitingPhoto::战绩面板（winRateRect 时长/胜率/逃率）
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: WaitingPhoto.qml:31-76 (winRateRect)；数据 GetPlayerGameData (client_util.lua:597)
-- web : 无
+- web : WaitingRoom.tsx WinRatePanel + gameStore GamePlayer.gameData + clientVm __fkReadPlayers gameData
 - 原版行为: 每座位左下角面板显示：游戏时长（min/h）、胜率 Win%、逃率 Run%、总场次 Total；逃率>0.2 标红；新手显示"Newbie"；逃跑率高变红。数据来自 winGame/runGame/totalGame（model.win/run/total，WaitingRoom.qml:172-174）。
-- web 行为: 座位无任何战绩/时长/胜率显示。GamePlayer 模型亦无 win/run/total/gameTime 字段（gameStore.ts）。
-- 差异: 整块战绩面板及其数据通道缺失。
+- web 行为: WinRatePanel 照搬 winRateRect 逻辑——时长(m<100→min 否则 h)、total===0→"新手"、否则 胜率/逃率/总场,逃率>0.2 标红。数据经 __fkReadPlayers 读 VM `getGameData()`(total/win/run)+`getTotalGameTime()` 进 gameStore.gameData 快照(与名册同步)。
+- 差异: 仅简化——面板挂在 web 简化版文字座位卡上(非 WaitingPhoto 立绘卡,立绘 C2 仍未还原);字体非 libian、布局近似;数据/计算/标红规则 1:1。
+- 修复: 已修复并验证 (clientVm `__fkReadPlayers` 加 gameData 闭包[guarded pcall,真 VM 探针验证非 QList 不抛错、totalTime 读取]、gameStore GamePlayer.gameData + syncPlayers 映射、WaitingRoom.tsx WinRatePanel 照搬 WaitingPhoto.qml:43-74;typecheck/build/151 测试全绿。立绘卡 C2 仍未还原故记简化,2026-06-12)
 
 ### C4 WaitingRoom::房间信息面板（roomSettings / roominfo.refresh）
 - 状态: 未还原
@@ -255,12 +256,13 @@ web 文件：
 - 差异: 无。
 
 ### C29 SnapshotChannel::UpdateGameData（战绩更新）
-- 状态: 还原错误
+- 状态: 完全还原
 - 原版: clientbase.lua:255-261 (updateGameData→setGameData)；WaitingRoom.qml:424-435,623 (updateGameData→photo.total/win/run)
-- web : 无 UI 消费（GamePlayer 无 win/run/total 字段，gameStore.ts；WaitingRoom 不渲染战绩）
+- web : clientVm __fkReadPlayers gameData（读 VM setGameData 后的 total/win/run）→ gameStore → WaitingRoom WinRatePanel
 - 原版行为: UpdateGameData 更新座位战绩面板（与 C3 联动）。
-- web 行为: VM 内 setGameData 仍执行，但 web 端无战绩字段、无渲染，命令对 UI 无效果。判为还原错误（数据通道未接 UI，与 C3 缺面板一致）。
-- 差异: 战绩数据未接入 UI（同 C3）。
+- web 行为: UpdateGameData 在 VM 内 setGameData(原样运行),web 经 __fkReadPlayers 快照读 getGameData() 进 gameStore.gameData,WinRatePanel 渲染——数据通道已接 UI(与 C3 一并还原)。
+- 差异: （已消除）
+- 修复: 已修复并验证 (随 C3 战绩面板一并接通:UpdateGameData→VM setGameData→快照 readPlayers gameData→WinRatePanel;真 VM 探针验证 gameData 闭包健壮;typecheck/build/151 测试全绿,2026-06-12)
 
 ### C30 SnapshotChannel::BackToRoom / RestartGame / ContinueGame（再战/回房）
 - 状态: 简化还原
@@ -276,13 +278,13 @@ web 文件：
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 6 | C5, C7, C15, C26, C27, C28 |
-| 简化还原 | 11 | C1, C6, C8, C10, C12, C14, C16, C17, C18, C25, C30 |
-| 还原错误 | 1 | C29 |
-| 未还原 | 12 | C2, C3, C4, C9, C11, C13, C19, C20, C21, C22, C23, C24 |
+| 完全还原 | 7 | C5, C7, C15, C26, C27, C28, C29 |
+| 简化还原 | 12 | C1, C3, C6, C8, C10, C12, C14, C16, C17, C18, C25, C30 |
+| 还原错误 | 0 | （C29 已修复并验证 2026-06-12，升级为完全还原） |
+| 未还原 | 11 | C2, C4, C9, C11, C13, C19, C20, C21, C22, C23, C24 |
 
-合计 30 项。
+合计 30 项。（2026-06-12：C3 战绩面板由未还原→简化还原，C29 战绩通道由还原错误→完全还原。）
 
 ## 未还原 / 还原错误 索引
-- 未还原(12): C2 WaitingPhoto立绘角标、C3 座位战绩面板、C4 房间信息面板、C9 房主自动补机器人、C11 更改房间设置、C13 踢房主+计时器、C19 游戏内菜单overlay、C20 投降、C21 设置面板、C22 四类一览总览、C23 弹幕、C24 录像控制条。
-- 还原错误(1): C29 UpdateGameData 数据通道未接 UI。
+- 未还原(11): C2 WaitingPhoto立绘角标、C4 房间信息面板、C9 房主自动补机器人、C11 更改房间设置、C13 踢房主+计时器、C19 游戏内菜单overlay、C20 投降、C21 设置面板、C22 四类一览总览、C23 弹幕、C24 录像控制条。
+- 还原错误(0): （C29 已修复并验证，升级为完全还原）
