@@ -727,7 +727,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
     useMiscStore.getState().clearClock() // back-to-room after GameOver → next game's clock is fresh (2b)
-    useRoleGuessStore.getState().reset() // IG-3: clear local role guesses for the next game
+    useRoleGuessStore.getState().reset() // IG-3: new game → wipe local role guesses + persisted copy
     useRoomChatStore.getState().reset() // IG-5: clear room chat log for the next game
     stopBgm() // game ended → stop BGM until next StartGame
     useTimerStore.getState().deactivate()

@@ -11,6 +11,7 @@ import { usePopupStore } from './popupStore.js'
 import { useGameStore } from './gameStore.js'
 import { useTimerStore } from './timerStore.js'
 import { useMiscStore } from './miscStore.js'
+import { useRoleGuessStore } from './roleGuessStore.js'
 import { useLogStore } from './logStore.js'
 import { isRoomBootstrap } from './roomRouting.js'
 import { waitBeat } from './pacing.js'
@@ -357,6 +358,9 @@ function routeEnvelope(env: Envelope): void {
     // inheriting a stale anchor (the reported "右上角计时器不对"). Reconnect replays
     // Setup/StartGame in-room and never passes through EnterLobby.
     useMiscStore.getState().clearClock()
+    // Same reasoning for the client-only role guesses: keep them across a reconnect
+    // (refresh resumes), but a return to lobby ends the game → wipe the persisted copy.
+    useRoleGuessStore.getState().reset()
     useLobbyStore.setState({ enteredRoomId: undefined })
     return
   }

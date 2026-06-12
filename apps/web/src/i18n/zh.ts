@@ -15,6 +15,13 @@ const ZH: Record<string, string> = {
   $Hand: '手牌区',
   $Equip: '装备区',
   $Judge: '判定区',
+  // Role keys (GameOverBox.qml role column / victoryResult; lua/client/i18n/zh_CN.lua
+  // :531-534). The game-over summary showed raw lord/rebel/... because tr() had no
+  // entry → returned the key. Fixed client-UI strings, owned by the static dict.
+  lord: '主公',
+  loyalist: '忠臣',
+  rebel: '反贼',
+  renegade: '内奸',
 }
 
 // Runtime cache filled from the VM's Fk:translate (cards/generals/skills/...).

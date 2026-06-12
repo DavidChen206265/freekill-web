@@ -33,6 +33,7 @@ export function CardLayer() {
   const seatOrder = useGameStore((s) => s.seatOrder)
   const selfId = useGameStore((s) => s.selfId)
   const cardStates = useInteractionStore((s) => s.cards)
+  const requestActive = useInteractionStore((s) => s.active)
   const expandCards = useInteractionStore((s) => s.expandCards)
   const cardNotes = useCardNoteStore((s) => s.notes)
   const cardEmotions = useAnimationStore((s) => s.cards)
@@ -56,6 +57,12 @@ export function CardLayer() {
   }
 
   const targets = new Map<number, Target>()
+  // Self's hand cids — during an active request, a hand card the VM did NOT include in
+  // UpdateRequestUI (no cardStates entry) is unusable and must show the disable mask.
+  // The VM only emits the cards it touched (e.g. PlayCard sends only the usable slash,
+  // not the unusable jink), unlike QML which seeds every hand card as a scene item that
+  // defaults to disabled. So "no state during an active request" = disabled here.
+  const selfHandCids = new Set<number>()
   // Expand-pile cards (遗计 etc., active_skill.lua expandPile): not in any area, but
   // QML injects them into the hand area with a footnote. Append them to self's hand.
   const expandIds = Object.keys(expandCards).map(Number)
@@ -71,6 +78,7 @@ export function CardLayer() {
     if (!box) continue
     // Append expand-pile cards after self's real hand cards (QML hand-area inject).
     const isSelfHand = key.startsWith('hand:') && Number(key.slice(5)) === selfId
+    if (isSelfHand) for (const c of ids) selfHandCids.add(c)
     const layoutIds = isSelfHand && expandIds.length > 0 ? [...ids, ...expandIds.filter((c) => !ids.includes(c))] : ids
     const n = layoutIds.length
     // ItemArea-style: lay out left→right, shrink spacing if overflow.
@@ -227,8 +235,12 @@ export function CardLayer() {
                 `enabled` here is the VM's per-request selectability: QML binds
                 CardItem/Photo.selectable = uiUpdate.enabled (Room.qml:746,
                 dashboard.applyChange), so driving the overlay off `enabled` matches the
-                original's selectable-driven overlay — same VM signal, protocol name. */}
-            {st && !st.enabled && !st.selected && <div style={styles.disable} />}
+                original's selectable-driven overlay — same VM signal, protocol name.
+                A self-hand card with NO state during an active request is unusable: the
+                VM omits untouched cards from UpdateRequestUI (e.g. PlayCard sends only
+                the usable slash, not the jink), whereas QML seeds every hand card as a
+                disabled scene item — so treat "no state + active + self-hand" as masked. */}
+            {(st ? (!st.enabled && !st.selected) : (requestActive && selfHandCids.has(cid))) && <div style={styles.disable} />}
           </div>
         )
       })}

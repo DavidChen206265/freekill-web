@@ -38,4 +38,30 @@ describe('roleGuessStore', () => {
     expect(useRoleGuessStore.getState().guesses).toEqual({})
     expect(useRoleGuessStore.getState().pickerOpen).toBeNull()
   })
+
+  it('persists guesses to sessionStorage so a refresh keeps them; reset wipes storage', () => {
+    // Refresh-survival fix: setGuess writes sessionStorage; a fresh page (new store init)
+    // reloads via loadGuesses(). The node test env has no sessionStorage, so install a
+    // minimal stub to observe the side-effect (the store wraps access in try/catch, so
+    // it no-ops safely in node without one — this test asserts the persistence path).
+    const store: Record<string, string> = {}
+    ;(globalThis as { sessionStorage?: unknown }).sessionStorage = {
+      getItem: (k: string) => (k in store ? store[k] : null),
+      setItem: (k: string, v: string) => { store[k] = v },
+      removeItem: (k: string) => { delete store[k] },
+    }
+    try {
+      useRoleGuessStore.getState().setGuess(2, 'rebel')
+      expect(JSON.parse(store['fk-role-guesses']!)).toEqual({ 2: 'rebel' })
+      // "unknown" removes the entry from storage too
+      useRoleGuessStore.getState().setGuess(2, 'unknown')
+      expect(store['fk-role-guesses']).toBeUndefined()
+      // reset (new game / leave) clears storage
+      useRoleGuessStore.getState().setGuess(3, 'renegade')
+      useRoleGuessStore.getState().reset()
+      expect(store['fk-role-guesses']).toBeUndefined()
+    } finally {
+      delete (globalThis as { sessionStorage?: unknown }).sessionStorage
+    }
+  })
 })
