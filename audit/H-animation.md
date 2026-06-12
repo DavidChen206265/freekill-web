@@ -58,12 +58,13 @@ web：`/home/ubuntu/freekill/freekill-vps-deploy/freekill-web/`
 - 差异: 时长 700ms→1100ms（有意拉长便于无战报看清，作者注释）；线无"生长"动画（QML ratio 0→1 增高），web 直接整段淡入；缓动 OutCubic/InQuart→linear；新增箭头+源点（QML 无，增强而非还原）；渐变描边样式不同（QML 双层渐变 vs web 实色+白描边）；并额外 pushTargeted 触发红环脉冲（见 H6，QML 无此物）。
 
 ### H6 Animate::Indicate衍生::TargetPulse（目标红环脉冲）
-- 状态: 还原错误（web 新增，原版无）
+- 状态: 完全还原
 - 原版: 无（QML 仅画指示线，无被指目标的环形脉冲）
-- web : `PhotoEffects.tsx`:44-61 (`TargetPulse`) + `vmStore.ts`:141 (`pushTargeted`)
+- web : `vmStore.ts`:135-142 (Indicate case，仅 pushScene 画线)
 - 原版行为: 不存在。
-- web 行为: Indicate 时对每个目标玩家 Photo 叠加红色 boxShadow 环脉冲 900ms。
-- 差异: web 自创的增强特效，原版无对应物；非"还原"而是新增。记为还原错误（偏离原版视觉）。
+- web 行为: 现仅画 Indicate 指示线，与原版一致（红环脉冲已移除）。
+- 差异: （已消除）web 曾自创红色 boxShadow 环脉冲 900ms，原版无对应物。
+- 修复: 已修复并验证 (移除 PhotoEffects.tsx 的 TargetPulse 组件+targetRing 样式、animationStore 的 targeted 状态与 pushTargeted action、vmStore Indicate 分支的 pushTargeted 调用、对应单测;现 Indicate 只画原版有的指示线。typecheck/build/150 web 测试全绿,2026-06-12)
 
 ### H7 Animate::Emotion（表情/卡牌精灵 setEmotion）
 - 状态: 简化还原
@@ -248,9 +249,9 @@ web：`/home/ubuntu/freekill/freekill-vps-deploy/freekill-web/`
 
 | 状态 | 序号 | 计数 |
 |------|------|------|
-| 完全还原 | H11, H12, H13, H14, H15, H16, H17, H18 | 8 |
+| 完全还原 | H6, H11, H12, H13, H14, H15, H16, H17, H18 | 9 |
 | 简化还原 | H1, H5, H7, H8, H9, H19, H20, H21, H22, H23, H24, H25 | 12 |
-| 还原错误 | H6 | 1 |
+| 还原错误 | （无；H6 已修复并验证 2026-06-12） | 0 |
 | 未还原 | H2, H3, H4, H10, H26, H27 | 6 |
 | 合计 | | 27 |
 
@@ -263,4 +264,4 @@ web：`/home/ubuntu/freekill/freekill-vps-deploy/freekill-web/`
 - H27 SkinItem::chosen（皮肤选中标记）
 
 ### 还原错误索引
-- H6 Animate::Indicate衍生::TargetPulse（web 自创红环脉冲，原版无此物）
+- （无；H6 web 自创红环脉冲 已于 2026-06-12 移除，状态升级为完全还原）

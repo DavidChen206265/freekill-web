@@ -55,17 +55,12 @@ interface AnimationState {
   players: Record<number, PlayerEffect>
   /** card id -> current emotion effect (is_card emotions play on a table card). */
   cards: Record<number, PlayerEffect>
-  /** player id -> nonce: a brief "you are a target" ring pulse (Indicate targets).
-   *  Separate channel from `players` so it coexists with emotion/tremble. */
-  targeted: Record<number, number>
   /** active scene effects (removed on finish). */
   scene: SceneEffect[]
   /** Push a per-player effect (bumps that player's nonce). */
   pushPlayer: (pid: number, e: Omit<PlayerEffect, 'nonce'>) => void
   /** Push a per-card emotion (is_card). */
   pushCard: (cid: number, e: Omit<PlayerEffect, 'nonce'>) => void
-  /** Pulse the "targeted" ring on each given player (Indicate targets). */
-  pushTargeted: (pids: number[]) => void
   /** Push a scene effect; returns its id. */
   pushScene: (e: Omit<SceneEffect, 'id'>) => number
   /** Remove a finished scene effect. */
@@ -80,19 +75,11 @@ let sceneSeq = 0
 export const useAnimationStore = create<AnimationState>((set) => ({
   players: {},
   cards: {},
-  targeted: {},
   scene: [],
 
   pushPlayer: (pid, e) => set((s) => ({
     players: { ...s.players, [pid]: { ...e, nonce: ++nonceSeq } },
   })),
-
-  pushTargeted: (pids) => set((s) => {
-    if (pids.length === 0) return {}
-    const targeted = { ...s.targeted }
-    for (const pid of pids) targeted[pid] = ++nonceSeq
-    return { targeted }
-  }),
 
   pushCard: (cid, e) => set((s) => ({
     cards: { ...s.cards, [cid]: { ...e, nonce: ++nonceSeq } },
@@ -106,5 +93,5 @@ export const useAnimationStore = create<AnimationState>((set) => ({
 
   removeScene: (id) => set((s) => ({ scene: s.scene.filter((x) => x.id !== id) })),
 
-  reset: () => set({ players: {}, cards: {}, targeted: {}, scene: [] }),
+  reset: () => set({ players: {}, cards: {}, scene: [] }),
 }))

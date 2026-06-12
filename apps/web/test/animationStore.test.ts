@@ -52,22 +52,11 @@ describe('animationStore', () => {
     expect(left).toHaveLength(1); expect(left[0]!.id).toBe(b)
   })
 
-  it('pushTargeted pulses a nonce per target player (Indicate targets)', () => {
-    const st = useAnimationStore.getState()
-    st.pushTargeted([2, 3])
-    const t1 = useAnimationStore.getState().targeted
-    expect(t1[2]).toBeGreaterThan(0); expect(t1[3]).toBeGreaterThan(0)
-    // re-targeting bumps the nonce so the ring replays
-    const prev = t1[2]!
-    st.pushTargeted([2])
-    expect(useAnimationStore.getState().targeted[2]).toBeGreaterThan(prev)
-  })
-
   it('reset clears everything', () => {
     const st = useAnimationStore.getState()
-    st.pushPlayer(1, { kind: 'tremble' }); st.pushCard(2, { kind: 'emotion', emotion: 'x' }); st.pushScene({ kind: 'indicate' }); st.pushTargeted([4])
+    st.pushPlayer(1, { kind: 'tremble' }); st.pushCard(2, { kind: 'emotion', emotion: 'x' }); st.pushScene({ kind: 'indicate' })
     st.reset()
     const s = useAnimationStore.getState()
-    expect(s.players).toEqual({}); expect(s.cards).toEqual({}); expect(s.scene).toEqual([]); expect(s.targeted).toEqual({})
+    expect(s.players).toEqual({}); expect(s.cards).toEqual({}); expect(s.scene).toEqual([])
   })
 })

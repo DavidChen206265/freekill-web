@@ -136,9 +136,8 @@ function handleAnimate(data: unknown, vm: ClientVm | null): void {
       // to = [[pid, ...], ...]; each entry is a chain (RoomLogic.js:1313-1319).
       const chains = Array.isArray(d.to) ? (d.to as unknown[]).map((c) => (Array.isArray(c) ? c.map(Number) : [Number(c)])) : []
       anim.pushScene({ kind: 'indicate', from: Number(d.from), chains })
-      // Also pulse a "targeted" ring on every target player so the who→whom cue is
-      // unmistakable (and survives a missed line) — answers "know targets w/o the log".
-      anim.pushTargeted([...new Set(chains.flat())].filter((id) => id !== Number(d.from)))
+      // (No extra target-ring pulse: the original only draws the indicate line —
+      // a ring over the target was a non-原版 embellishment, removed per audit H6.)
       break
     }
     case 'Emotion': {
