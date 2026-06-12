@@ -354,6 +354,23 @@ function routeEnvelope(env: Envelope): void {
     return
   }
 
+  // IG-7 (in-game): the duplicate-login kick ErrorDlg must set duplicateLoginKick
+  // even when we're in a room. The inRoom branch below feeds EVERY packet to the VM
+  // and returns, so it would bypass the lobby switch's `case 'ErrorDlg'` that sets the
+  // flag — leaving auto-reconnect on, so a kicked in-game client re-logs in and fights
+  // the takeover war (the reported "对局内仍然抢号"). Detect it here, before that
+  // short-circuit, for both lobby and in-room. We do NOT return: fall through so an
+  // in-room ErrorDlg is still fed to the VM (unchanged in-game display); only the
+  // anti-reconnect flag + user message are added.
+  if (
+    (env.kind === 'notify') &&
+    ((env as NotifyEnvelope).command === 'ErrorDlg' || (env as NotifyEnvelope).command === 'ErrorMsg') &&
+    String((env as NotifyEnvelope).data).includes(DUP_LOGIN_KICK)
+  ) {
+    duplicateLoginKick = true
+    useConnectionStore.setState({ kickedMessage: '你的账号已在别处登录，此客户端已断开。', reconnecting: false })
+  }
+
   if (inRoom) {
     // In-room: the VM owns game state. Feed every server packet (notify+request).
     // Capture the requestId of REQUEST packets so replies (VM ReplyToServer or a
