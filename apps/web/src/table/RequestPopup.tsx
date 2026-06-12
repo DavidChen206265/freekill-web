@@ -172,7 +172,14 @@ export function RequestPopup() {
 function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
   const vm = useVmStore((s) => s.vm)
   const [picked, setPicked] = useState<string[]>([])
-  useEffect(() => { setPicked([]) }, [active])
+  // FreeAssign cheat (ChooseGeneralBox.qml:175 → Cheat/FreeAssign.qml): when the room
+  // has enableFreeAssign on, the player may replace a pick with ANY general. We read
+  // the setting once and, if on, offer a "自由选将" button that opens a search-all
+  // overlay; the reply stays a plain general-name array (the cheat only widens the pool).
+  const [freeAssign, setFreeAssign] = useState(false)
+  const [faOpen, setFaOpen] = useState(false)
+  useEffect(() => { setPicked([]); setFaOpen(false) }, [active])
+  useEffect(() => { setFreeAssign(!!vm?.getSetting('enableFreeAssign')) }, [vm, active])
 
   const generals = active.generals ?? []
   const rule = active.ruleType ?? 'askForGeneralsChosen'
@@ -191,6 +198,13 @@ function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
   // OK enabled by the rule's feasible (QML line 230); fall back to exact count.
   const ok = vm ? vm.chooseGeneralFeasible(rule, picked, generals, extra) : picked.length === count
 
+  // FreeAssign overlay picks ADD to the selection (respecting count, like toggle on a
+  // not-yet-picked card). A free-assigned general need not be in the offered candidates.
+  const freeAssignPick = (g: string) => {
+    setPicked((cur) => cur.includes(g) ? cur : cur.length >= count ? [...cur.slice(1), g] : [...cur, g])
+    setFaOpen(false)
+  }
+
   return (
     <Modal prompt={prompt}>
       <div style={styles.generals}>
@@ -200,8 +214,51 @@ function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
             onViewDetail={(name) => useDetailStore.getState().openGeneral(name)} />
         ))}
       </div>
-      <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
+      {/* free-assigned generals that aren't in the candidate list still need a visible
+          chip so the player sees their pick (and can deselect it). */}
+      {picked.some((g) => !generals.includes(g)) && (
+        <div style={styles.faPicked}>
+          自由选将:
+          {picked.filter((g) => !generals.includes(g)).map((g) => (
+            <button key={g} style={styles.faChip} onClick={() => toggle(g)}>{tr(g)} ✕</button>
+          ))}
+        </div>
+      )}
+      <div style={styles.generalBtns}>
+        {freeAssign && <button style={styles.faBtn} onClick={() => setFaOpen(true)}>自由选将</button>}
+        <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
+      </div>
+      {faOpen && <FreeAssignOverlay onPick={freeAssignPick} onClose={() => setFaOpen(false)} />}
     </Modal>
+  )
+}
+
+// FreeAssign all-generals search overlay (Cheat/FreeAssign.qml): a search box + the
+// matching general cards from SearchAllGenerals(word). Picking one calls onPick.
+function FreeAssignOverlay({ onPick, onClose }: { onPick: (g: string) => void; onClose: () => void }) {
+  const vm = useVmStore((s) => s.vm)
+  const [word, setWord] = useState('')
+  // SearchAllGenerals(""): all; else filtered by translated-name substring (VM-side).
+  const results = useMemo(() => (vm ? vm.searchGenerals(word).slice(0, 200) : []), [vm, word])
+  return (
+    <div style={styles.faOverlay} onClick={onClose}>
+      <div style={styles.faPanel} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.faHead}>
+          <span>自由选将 — 搜索全部武将</span>
+          <input autoFocus style={styles.faSearch} placeholder="搜索武将名…" value={word}
+            onChange={(e) => setWord(e.target.value)} />
+          <button style={styles.faClose} onClick={onClose}>关闭</button>
+        </div>
+        <div style={styles.faGrid}>
+          {results.map((g) => (
+            <GeneralCard key={g} name={g} width={72} height={100}
+              onClick={() => onPick(g)}
+              onViewDetail={(name) => useDetailStore.getState().openGeneral(name)} />
+          ))}
+          {results.length === 0 && <div style={styles.faEmpty}>无匹配武将</div>}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -562,6 +619,17 @@ const styles: Record<string, React.CSSProperties> = {
   modal: { background: '#26262b', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', color: '#eee', pointerEvents: 'auto' },
   prompt: { fontSize: 16, textAlign: 'center' },
   generals: { display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', maxWidth: 640 },
+  generalBtns: { display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' },
+  faBtn: { padding: '10px 20px', border: '1px solid #d4af37', borderRadius: 6, background: 'transparent', color: '#d4af37', fontSize: 15, cursor: 'pointer' },
+  faPicked: { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', color: '#d4af37', fontSize: 13, justifyContent: 'center' },
+  faChip: { padding: '2px 8px', border: '1px solid #d4af37', borderRadius: 4, background: 'rgba(212,175,55,0.15)', color: '#f1c40f', fontSize: 13, cursor: 'pointer' },
+  faOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', display: 'grid', placeItems: 'center', zIndex: 200 },
+  faPanel: { width: 'min(92vw, 760px)', maxHeight: '82vh', display: 'flex', flexDirection: 'column', background: '#26262b', borderRadius: 10, padding: 16, gap: 12 },
+  faHead: { display: 'flex', gap: 12, alignItems: 'center', color: '#E4D5A0', fontSize: 15 },
+  faSearch: { flex: 1, padding: '6px 10px', border: '1px solid #555', borderRadius: 4, background: '#1a1a1a', color: '#ddd', fontSize: 14 },
+  faClose: { padding: '6px 14px', border: '1px solid #555', borderRadius: 4, background: 'transparent', color: '#ccc', cursor: 'pointer' },
+  faGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', overflow: 'auto' },
+  faEmpty: { color: '#888', padding: 24 },
   picked: { border: '2px solid #f1c40f', outline: '2px solid #f1c40f' },
   choices: { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
   choice: { padding: '10px 24px', borderRadius: 6, border: '2px solid transparent', background: '#0e639c', color: '#fff', fontSize: 15, cursor: 'pointer' },

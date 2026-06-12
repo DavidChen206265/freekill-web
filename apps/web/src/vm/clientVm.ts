@@ -51,6 +51,8 @@ export class ClientVm {
   private fnTranslate: ((keysJson: string) => string) | null = null
   private fnReadSkills: (() => string) | null = null
   private fnReadGenerals: ((namesJson: string) => string) | null = null
+  private fnSearchGenerals: ((word: string) => string) | null = null
+  private fnGetSetting: ((key: string) => string) | null = null
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
   private fnPoxi: ((kind: string, argsJson: string) => string) | null = null
   private fnChoiceFilter: ((argsJson: string) => string) | null = null
@@ -274,6 +276,25 @@ export class ClientVm {
         end
         return json.encode(out)
       end
+      -- FreeAssign cheat (ChooseGeneralBox.qml:175 onRightClicked → Cheat/FreeAssign.qml):
+      -- when enableFreeAssign is on, the player may replace a candidate with ANY general.
+      -- SearchAllGenerals(word) (client_util.lua:173; ""=all) returns every non-hidden
+      -- general name across GeneralPack packages — the pool the cheat picks from.
+      function __fkSearchGenerals(word)
+        local out = {}
+        local ok, names = pcall(SearchAllGenerals, word or "")
+        if ok and type(names) == "table" then
+          for _, n in ipairs(names) do out[#out+1] = n end
+        end
+        return json.encode(out)
+      end
+      -- Read a client room setting (ClientBase:getSettings, e.g. "enableFreeAssign").
+      -- Returns the JSON-encoded value (bool/number/string) or null.
+      function __fkGetSetting(key)
+        local ok, v = pcall(function() return ClientInstance:getSettings(key) end)
+        if not ok then return "null" end
+        return json.encode(v)
+      end
       -- Choose-general rule helpers (ChooseGeneralBox.qml -> client_util.lua):
       -- prompt(rule,generals,extra), filter(rule,name,selected,generals,extra) per
       -- candidate's selectability, feasible(rule,selected,generals,extra) for OK.
@@ -476,6 +497,8 @@ export class ClientVm {
     this.fnTranslate = lua.global.get('__fkTranslate') as typeof this.fnTranslate
     this.fnReadSkills = lua.global.get('__fkReadSkills') as typeof this.fnReadSkills
     this.fnReadGenerals = lua.global.get('__fkReadGenerals') as typeof this.fnReadGenerals
+    this.fnSearchGenerals = lua.global.get('__fkSearchGenerals') as typeof this.fnSearchGenerals
+    this.fnGetSetting = lua.global.get('__fkGetSetting') as typeof this.fnGetSetting
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
     this.fnPoxi = lua.global.get('__fkPoxi') as typeof this.fnPoxi
     this.fnChoiceFilter = lua.global.get('__fkChoiceFilter') as typeof this.fnChoiceFilter
@@ -605,6 +628,20 @@ export class ClientVm {
   readGenerals(names: string[]): Record<string, GeneralInfo> {
     if (!this.fnReadGenerals || names.length === 0) return {}
     try { return JSON.parse(this.fnReadGenerals(JSON.stringify(names))) as Record<string, GeneralInfo> } catch { return {} }
+  }
+
+  /** FreeAssign cheat: every non-hidden general name (SearchAllGenerals, ""=all,
+   *  else filtered by translated-name substring). Empty when the bridge is absent. */
+  searchGenerals(word: string): string[] {
+    if (!this.fnSearchGenerals) return []
+    try { return JSON.parse(this.fnSearchGenerals(word ?? '')) as string[] } catch { return [] }
+  }
+
+  /** Read a client room setting (ClientBase:getSettings), e.g. "enableFreeAssign".
+   *  Returns the decoded value or undefined. */
+  getSetting(key: string): unknown {
+    if (!this.fnGetSetting) return undefined
+    try { const v = JSON.parse(this.fnGetSetting(key)); return v === null ? undefined : v } catch { return undefined }
   }
 
   /** ChooseGeneralBox rule helpers. prompt → localized prompt string; filter →
