@@ -63,6 +63,16 @@
 		@icons path /pwa-*.png /favicon.png /favicon.ico /apple-touch-icon.png
 		header @icons Cache-Control "no-cache"
 
+		# index.html (and any SPA route falling back to it) MUST always revalidate. It
+		# carries the <script src="/assets/index-<hash>.js"> link; if a browser (or CDN)
+		# serves a stale index.html, it keeps pulling the OLD hashed bundle and never
+		# sees a deploy — the exact "硬刷新也甩不掉旧 JS" symptom. file_server has no
+		# default Cache-Control, so browsers heuristically cache it. Force no-cache
+		# (ETag revalidation) so a new deploy's index.html — and thus the new bundle +
+		# new sw.js — is picked up on the next visit with no user action / no CDN purge.
+		@html path / /index.html
+		header @html Cache-Control "no-cache"
+
 		try_files {path} /index.html
 		file_server
 	}
