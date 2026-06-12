@@ -72,12 +72,13 @@
 - 差异: 不可用手牌不显示禁用原因文字（玩家不知为何某张牌不可选），功能缺失
 
 ### E9 CardItem::禁用变灰 (BasicItem enabled)
-- 状态: 还原错误
+- 状态: 完全还原
 - 原版: BasicItem.qml:16 (property enabled) + BasicCard.qml 无独立灰化（靠 selectable 黑遮罩）
 - web : CardLayer.tsx:227 (disable overlay)
 - 原版行为: BasicItem.enabled=false 时"the card will be grey"（注释承诺），但实际 BasicCard 无灰度滤镜，灰化语义未在 BasicCard 实装；可选与否的唯一可见反馈是 !selectable 的黑遮罩(E22)
 - web 行为: !enabled && !selected 时叠加 rgba(0,0,0,.5) opacity .7 黑遮罩——这其实对应 selectable 黑遮罩(E22)，web 把"enabled"语义映射到此
 - 差异: web 用 interactionStore 的 enabled 驱动遮罩，而原版黑遮罩由 selectable 驱动。两者在请求态下通常一致（不可选=不可用），但语义不是同一字段。归类为"还原错误"偏重于命名/驱动来源差异，视觉表现实际与 E22 一致
+- 修复: 已修复并验证 (复核源码确认这是误判,非真错误：原版 Room.qml:746 + dashboard.applyChange 把 UpdateRequestUI 的 `enabled` 直接绑给 CardItem/Photo 的 `selectable`——即 `selectable = enabled`,同一 VM ui_emu 信号,只是协议字段名。web 用 `enabled` 驱动黑遮罩与原版完全等价。已在 CardLayer.tsx:225-230 注释说明该等价关系;状态升级为完全还原。2026-06-12)
 
 ---
 
@@ -335,9 +336,9 @@
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 16 | E1,E2,E5,E6,E10,E11,E12,E16,E19,E22,E23,E25,E27,E29,E34,E37 |
+| 完全还原 | 17 | E1,E2,E5,E6,E9,E10,E11,E12,E16,E19,E22,E23,E25,E27,E29,E34,E37 |
 | 简化还原 | 6 | E4,E7,E20,E26,E30,E38 |
-| 还原错误 | 1 | E9 |
+| 还原错误 | 0 | （E9 复核为误判，已升级为完全还原 2026-06-12） |
 | 未还原 | 15 | E3,E8,E13,E14,E15,E17,E18,E21,E24,E31,E32,E33,E35,E36 |
 
 （总计 38 条；未还原索引列 14 个视觉子系统，E14/E15 拖拽为同一缺失基础设施的两条。）
@@ -346,6 +347,6 @@
 E3(无色色块) E8(禁用原因文字) E13(无用牌下沉) E14(手牌拖拽) E15(超级拖拽) E17(双击使用) E18(卡牌右键详情) E21(牌桌随机旋转) E24(hover发光/置顶) E31(选将体力勾玉) E32(护盾) E33(珠联璧合) E35(扩展包标签) E36(收藏星标)
 
 ### 还原错误索引
-E9(禁用变灰：enabled 驱动 vs 原版 selectable 驱动遮罩，视觉同 E22 但语义来源不同)
+（无；E9 经源码复核确认是误判——原版同样 selectable=enabled 同一 VM 信号，web 等价，已升级为完全还原 2026-06-12）
 
 

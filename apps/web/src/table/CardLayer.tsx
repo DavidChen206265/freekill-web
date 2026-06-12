@@ -223,7 +223,11 @@ export function CardLayer() {
             {/* selected: chosen.png centered low (BasicCard chosen, y:90 scale 1.25). */}
             {st?.selected && <img src={chosenPic()} alt="" style={styles.chosen} draggable={false} />}
             {/* unselectable: a translucent black overlay (BasicCard disable rect, not
-                a brightness filter — matches the QML rgba(0,0,0,.5) @ opacity .7). */}
+                a brightness filter — matches the QML rgba(0,0,0,.5) @ opacity .7).
+                `enabled` here is the VM's per-request selectability: QML binds
+                CardItem/Photo.selectable = uiUpdate.enabled (Room.qml:746,
+                dashboard.applyChange), so driving the overlay off `enabled` matches the
+                original's selectable-driven overlay — same VM signal, protocol name. */}
             {st && !st.enabled && !st.selected && <div style={styles.disable} />}
           </div>
         )
