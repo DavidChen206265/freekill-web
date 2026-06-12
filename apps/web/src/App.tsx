@@ -8,6 +8,7 @@ import { useEffect } from 'react'
 import { useConnectionStore } from './stores/index.js'
 import { LoginPage } from './pages/LoginPage.js'
 import { LobbyPage } from './pages/LobbyPage.js'
+import { PwaUpdater } from './pwa/PwaUpdater.js'
 
 export function App() {
   const status = useConnectionStore((s) => s.status)
@@ -29,6 +30,9 @@ export function App() {
           <div style={badge}>连接断开,正在重连…</div>
         </div>
       )}
+      {/* PWA self-update: reloads onto a new build automatically in the lobby, defers
+          (shows a tap-to-update banner) while in a room so a game isn't interrupted. */}
+      <PwaUpdater />
     </>
   )
 }
