@@ -81,4 +81,3 @@ const badge: React.CSSProperties = {
   background: 'rgba(40,110,90,.95)', color: '#fff', padding: '8px 18px', borderRadius: 16,
   fontSize: 13, fontFamily: 'system-ui, sans-serif', boxShadow: '0 2px 12px rgba(0,0,0,.4)',
 }
-// pwa updater — (whitespace-safe marker for deploy test) 
