@@ -72,7 +72,7 @@ export function LoginPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  wrap: { minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#15803d', color: '#eee', fontFamily: 'system-ui, sans-serif' },
+  wrap: { minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#1b1b1f', color: '#eee', fontFamily: 'system-ui, sans-serif' },
   card: { display: 'flex', flexDirection: 'column', gap: 12, width: 320, padding: 28, background: '#26262b', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,.4)' },
   title: { margin: '0 0 8px', fontSize: 22, textAlign: 'center' },
   label: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: '#bbb' },
