@@ -52,7 +52,8 @@ export class ClientVm {
   private fnReadSkills: (() => string) | null = null
   private fnReadGenerals: ((namesJson: string) => string) | null = null
   private fnSkillData: ((name: string) => string) | null = null
-  private fnSearchGenerals: ((word: string) => string) | null = null
+  private fnSearchGenerals: ((word: string, pack: string) => string) | null = null
+  private fnGeneralPacks: (() => string) | null = null
   private fnGetSetting: ((key: string) => string) | null = null
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
   private fnPoxi: ((kind: string, argsJson: string) => string) | null = null
@@ -288,13 +289,43 @@ export class ClientVm {
       end
       -- FreeAssign cheat (ChooseGeneralBox.qml:175 onRightClicked → Cheat/FreeAssign.qml):
       -- when enableFreeAssign is on, the player may replace a candidate with ANY general.
-      -- SearchAllGenerals(word) (client_util.lua:173; ""=all) returns every non-hidden
-      -- general name across GeneralPack packages — the pool the cheat picks from.
-      function __fkSearchGenerals(word)
+      -- Returns [{name, extension, kingdom}] so the caller can register translations +
+      -- face info (portrait/kingdom) in ONE round-trip — without this the FreeAssign
+      -- grid showed raw pinyin + no portrait (the names were never in the popup's
+      -- active.generals that vmStore registers). word filters by translated-name
+      -- substring (SearchAllGenerals, ""=all); pack ("" = all) restricts to one package.
+      function __fkSearchGenerals(word, pack)
+        local names = {}
+        if pack and pack ~= "" then
+          local ok, g = pcall(GetGenerals, pack)
+          if ok and type(g) == "table" then names = g end
+          -- apply the word filter client-side parity: SearchAllGenerals does it per pack
+          if word and word ~= "" then
+            local filtered = {}
+            for _, n in ipairs(names) do
+              if string.find(Translate(n), word, 1, true) then filtered[#filtered+1] = n end
+            end
+            names = filtered
+          end
+        else
+          local ok, g = pcall(SearchAllGenerals, word or "")
+          if ok and type(g) == "table" then names = g end
+        end
         local out = {}
-        local ok, names = pcall(SearchAllGenerals, word or "")
-        if ok and type(names) == "table" then
-          for _, n in ipairs(names) do out[#out+1] = n end
+        for _, n in ipairs(names) do
+          local okd, d = pcall(GetGeneralData, n)
+          out[#out+1] = okd and d and { name = n, extension = d.extension, kingdom = d.kingdom }
+            or { name = n, extension = "", kingdom = "" }
+        end
+        return json.encode(out)
+      end
+      -- FreeAssign pack filter: every GeneralPack package name (GetAllGeneralPack,
+      -- client_util.lua:136). Used to populate the pack <select>.
+      function __fkGeneralPacks()
+        local out = {}
+        local ok, packs = pcall(GetAllGeneralPack)
+        if ok and type(packs) == "table" then
+          for _, p in ipairs(packs) do out[#out+1] = p end
         end
         return json.encode(out)
       end
@@ -509,6 +540,7 @@ export class ClientVm {
     this.fnReadGenerals = lua.global.get('__fkReadGenerals') as typeof this.fnReadGenerals
     this.fnSkillData = lua.global.get('__fkSkillData') as typeof this.fnSkillData
     this.fnSearchGenerals = lua.global.get('__fkSearchGenerals') as typeof this.fnSearchGenerals
+    this.fnGeneralPacks = lua.global.get('__fkGeneralPacks') as typeof this.fnGeneralPacks
     this.fnGetSetting = lua.global.get('__fkGetSetting') as typeof this.fnGetSetting
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
     this.fnPoxi = lua.global.get('__fkPoxi') as typeof this.fnPoxi
@@ -648,11 +680,18 @@ export class ClientVm {
     try { const v = JSON.parse(this.fnSkillData(name)); return v === null ? null : v } catch { return null }
   }
 
-  /** FreeAssign cheat: every non-hidden general name (SearchAllGenerals, ""=all,
-   *  else filtered by translated-name substring). Empty when the bridge is absent. */
-  searchGenerals(word: string): string[] {
+  /** FreeAssign cheat: generals (name + extension + kingdom for portrait/translation
+   *  registration) matching `word` (translated-name substring, ""=all) optionally
+   *  restricted to `pack` (""=all). Empty when the bridge is absent. */
+  searchGenerals(word: string, pack = ''): { name: string; extension: string; kingdom: string }[] {
     if (!this.fnSearchGenerals) return []
-    try { return JSON.parse(this.fnSearchGenerals(word ?? '')) as string[] } catch { return [] }
+    try { return JSON.parse(this.fnSearchGenerals(word ?? '', pack ?? '')) as { name: string; extension: string; kingdom: string }[] } catch { return [] }
+  }
+
+  /** FreeAssign pack filter: every GeneralPack package name (GetAllGeneralPack). */
+  generalPacks(): string[] {
+    if (!this.fnGeneralPacks) return []
+    try { return JSON.parse(this.fnGeneralPacks()) as string[] } catch { return [] }
   }
 
   /** Read a client room setting (ClientBase:getSettings), e.g. "enableFreeAssign".

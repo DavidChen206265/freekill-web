@@ -15,7 +15,8 @@ import { CardFaceView } from './CardFaceView.js'
 import { GeneralCard } from './GeneralCard.js'
 import { useDetailStore } from '../stores/detailStore.js'
 import { PromptText } from './PromptText.js'
-import { tr } from '../i18n/zh.js'
+import { tr, registerTranslations, hasTranslation } from '../i18n/zh.js'
+import { useCardFaceStore } from '../stores/cardFaceStore.js'
 
 // Translate a (possibly dual) general name. RoomLogic.js:1125-1131 splits a
 // "general/deputyGeneral" string on '/', translates EACH segment, and rejoins —
@@ -233,26 +234,64 @@ function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
   )
 }
 
-// FreeAssign all-generals search overlay (Cheat/FreeAssign.qml): a search box + the
-// matching general cards from SearchAllGenerals(word). Picking one calls onPick.
+// FreeAssign all-generals search overlay (Cheat/FreeAssign.qml): a search box, pack +
+// kingdom filters, and the matching general cards. Picking one calls onPick.
+const FA_KINGDOMS: { value: string; label: string }[] = [
+  { value: '', label: '全部势力' }, { value: 'wei', label: '魏' }, { value: 'shu', label: '蜀' },
+  { value: 'wu', label: '吴' }, { value: 'qun', label: '群' }, { value: 'god', label: '神' }, { value: 'qin', label: '秦' },
+]
+
 function FreeAssignOverlay({ onPick, onClose }: { onPick: (g: string) => void; onClose: () => void }) {
   const vm = useVmStore((s) => s.vm)
   const [word, setWord] = useState('')
-  // SearchAllGenerals(""): all; else filtered by translated-name substring (VM-side).
-  const results = useMemo(() => (vm ? vm.searchGenerals(word).slice(0, 200) : []), [vm, word])
+  const [pack, setPack] = useState('')
+  const [kingdom, setKingdom] = useState('')
+  // Pack list for the filter (GetAllGeneralPack). Memoized once per vm.
+  const packs = useMemo(() => (vm ? vm.generalPacks() : []), [vm])
+  // Search results carry {name, extension, kingdom}. Filter by kingdom client-side
+  // (the VM search is by name+pack); cap render at 240.
+  const raw = useMemo(() => (vm ? vm.searchGenerals(word, pack) : []), [vm, word, pack])
+  const results = useMemo(
+    () => (kingdom ? raw.filter((g) => g.kingdom === kingdom) : raw).slice(0, 240),
+    [raw, kingdom],
+  )
+  // CRITICAL (#1): these names are NOT in the popup's active.generals, so vmStore never
+  // registered their translations / face info → raw pinyin + no portrait. Register both
+  // here whenever results change (mirrors vmStore's popup-open registration). Any future
+  // on-demand general list outside active.generals MUST do the same.
+  useEffect(() => {
+    if (!vm || results.length === 0) return
+    const keys = results.map((g) => g.name).filter((n) => !hasTranslation(n))
+    if (keys.length > 0) registerTranslations(vm.translate(keys))
+    const cached = useCardFaceStore.getState().generals
+    const need = results.filter((g) => !cached[g.name] && g.extension)
+    if (need.length > 0) {
+      const info: Record<string, { extension: string; kingdom: string }> = {}
+      for (const g of need) info[g.name] = { extension: g.extension, kingdom: g.kingdom }
+      useCardFaceStore.getState().mergeGenerals(info)
+    }
+  }, [vm, results])
+
   return (
     <div style={styles.faOverlay} onClick={onClose}>
       <div style={styles.faPanel} onClick={(e) => e.stopPropagation()}>
         <div style={styles.faHead}>
-          <span>自由选将 — 搜索全部武将</span>
+          <span style={styles.faTitle}>自由选将</span>
           <input autoFocus style={styles.faSearch} placeholder="搜索武将名…" value={word}
             onChange={(e) => setWord(e.target.value)} />
+          <select style={styles.faSelect} value={pack} onChange={(e) => setPack(e.target.value)}>
+            <option value="">全部扩展包</option>
+            {packs.map((p) => <option key={p} value={p}>{tr(p)}</option>)}
+          </select>
+          <select style={styles.faSelect} value={kingdom} onChange={(e) => setKingdom(e.target.value)}>
+            {FA_KINGDOMS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+          </select>
           <button style={styles.faClose} onClick={onClose}>关闭</button>
         </div>
         <div style={styles.faGrid}>
           {results.map((g) => (
-            <GeneralCard key={g} name={g} width={72} height={100}
-              onClick={() => onPick(g)}
+            <GeneralCard key={g.name} name={g.name} width={72} height={100}
+              onClick={() => onPick(g.name)}
               onViewDetail={(name) => useDetailStore.getState().openGeneral(name)} />
           ))}
           {results.length === 0 && <div style={styles.faEmpty}>无匹配武将</div>}
@@ -624,11 +663,15 @@ const styles: Record<string, React.CSSProperties> = {
   faPicked: { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', color: '#d4af37', fontSize: 13, justifyContent: 'center' },
   faChip: { padding: '2px 8px', border: '1px solid #d4af37', borderRadius: 4, background: 'rgba(212,175,55,0.15)', color: '#f1c40f', fontSize: 13, cursor: 'pointer' },
   faOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', display: 'grid', placeItems: 'center', zIndex: 200 },
-  faPanel: { width: 'min(92vw, 760px)', maxHeight: '82vh', display: 'flex', flexDirection: 'column', background: '#26262b', borderRadius: 10, padding: 16, gap: 12 },
-  faHead: { display: 'flex', gap: 12, alignItems: 'center', color: '#E4D5A0', fontSize: 15 },
-  faSearch: { flex: 1, padding: '6px 10px', border: '1px solid #555', borderRadius: 4, background: '#1a1a1a', color: '#ddd', fontSize: 14 },
+  faPanel: { width: 'min(92vw, 760px)', height: 'min(80vh, 600px)', display: 'flex', flexDirection: 'column', background: '#26262b', borderRadius: 10, padding: 16, gap: 12 },
+  faHead: { display: 'flex', gap: 8, alignItems: 'center', color: '#E4D5A0', fontSize: 15, flexWrap: 'wrap', flexShrink: 0 },
+  faTitle: { fontWeight: 700, whiteSpace: 'nowrap' },
+  faSearch: { flex: 1, minWidth: 120, padding: '6px 10px', border: '1px solid #555', borderRadius: 4, background: '#1a1a1a', color: '#ddd', fontSize: 14 },
+  faSelect: { padding: '6px 8px', border: '1px solid #555', borderRadius: 4, background: '#1a1a1a', color: '#ddd', fontSize: 13 },
   faClose: { padding: '6px 14px', border: '1px solid #555', borderRadius: 4, background: 'transparent', color: '#ccc', cursor: 'pointer' },
-  faGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', overflow: 'auto' },
+  // grid scrolls WITHIN the fixed-height panel — flex:1 + minHeight:0 is what lets a
+  // flex child actually overflow-scroll instead of growing the panel past the viewport (#2).
+  faGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', overflowY: 'auto', flex: 1, minHeight: 0, alignContent: 'flex-start' },
   faEmpty: { color: '#888', padding: 24 },
   picked: { border: '2px solid #f1c40f', outline: '2px solid #f1c40f' },
   choices: { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
