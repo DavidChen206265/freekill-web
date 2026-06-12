@@ -21,7 +21,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "wasmoon": "^1.16.0",
-    "zustand": "^5.0.2"
+    "zustand": "^5.0.2",
+    "workbox-window": "^7.4.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

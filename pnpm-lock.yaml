@@ -57,6 +57,9 @@ importers:
       wasmoon:
         specifier: ^1.16.0
         version: 1.16.0
+      workbox-window:
+        specifier: ^7.4.1
+        version: 7.4.1
       zustand:
         specifier: ^5.0.2
         version: 5.0.14(@types/react@18.3.31)(react@18.3.1)
