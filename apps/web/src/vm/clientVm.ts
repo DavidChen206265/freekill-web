@@ -51,6 +51,7 @@ export class ClientVm {
   private fnTranslate: ((keysJson: string) => string) | null = null
   private fnReadSkills: (() => string) | null = null
   private fnReadGenerals: ((namesJson: string) => string) | null = null
+  private fnSkillData: ((name: string) => string) | null = null
   private fnSearchGenerals: ((word: string) => string) | null = null
   private fnGetSetting: ((key: string) => string) | null = null
   private fnChooseGeneral: ((kind: string, argsJson: string) => string) | null = null
@@ -261,6 +262,15 @@ export class ClientVm {
           end
         end
         return json.encode(out)
+      end
+      -- Skill classification for the LimitSkillArea (UpdateLimitSkill render): the
+      -- skilltype is switchSkillName≠"" → 'switch' else frequency (limit/wake/quest)
+      -- (LimitSkillItem.qml:43-45 getSkillData.frequency/switchSkillName). Localized
+      -- name for the label text. Used per pid×skill from the UpdateLimitSkill command.
+      function __fkSkillData(name)
+        local d = GetSkillData(name)
+        if not d then return "null" end
+        return json.encode({ name = d.skill, frequency = d.frequency, switchSkillName = d.switchSkillName })
       end
       -- General -> {extension, kingdom} for resolving portrait paths.
       function __fkReadGenerals(namesJson)
@@ -497,6 +507,7 @@ export class ClientVm {
     this.fnTranslate = lua.global.get('__fkTranslate') as typeof this.fnTranslate
     this.fnReadSkills = lua.global.get('__fkReadSkills') as typeof this.fnReadSkills
     this.fnReadGenerals = lua.global.get('__fkReadGenerals') as typeof this.fnReadGenerals
+    this.fnSkillData = lua.global.get('__fkSkillData') as typeof this.fnSkillData
     this.fnSearchGenerals = lua.global.get('__fkSearchGenerals') as typeof this.fnSearchGenerals
     this.fnGetSetting = lua.global.get('__fkGetSetting') as typeof this.fnGetSetting
     this.fnChooseGeneral = lua.global.get('__fkChooseGeneral') as typeof this.fnChooseGeneral
@@ -628,6 +639,13 @@ export class ClientVm {
   readGenerals(names: string[]): Record<string, GeneralInfo> {
     if (!this.fnReadGenerals || names.length === 0) return {}
     try { return JSON.parse(this.fnReadGenerals(JSON.stringify(names))) as Record<string, GeneralInfo> } catch { return {} }
+  }
+
+  /** Skill classification for the LimitSkillArea: {name, frequency, switchSkillName}.
+   *  skilltype = switchSkillName!=='' ? 'switch' : frequency (limit/wake/quest). */
+  skillData(name: string): { name: string; frequency?: string; switchSkillName?: string } | null {
+    if (!this.fnSkillData) return null
+    try { const v = JSON.parse(this.fnSkillData(name)); return v === null ? null : v } catch { return null }
   }
 
   /** FreeAssign cheat: every non-hidden general name (SearchAllGenerals, ""=all,

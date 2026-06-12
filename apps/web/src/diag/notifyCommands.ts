@@ -35,6 +35,8 @@ export const HANDLED_EXPLICIT = new Set<string>([
   'Chat',
   // M5-a — table misc status (miscStore → MiscStatus):
   'UpdateDrawPile', 'UpdateRoundNum',
+  // N1-2 — Photo LimitSkillArea (limitSkillStore → Photo): limit/wake/switch/quest marks.
+  'UpdateLimitSkill',
 ])
 
 // Commands consumed INDIRECTLY via the VM mirror: the VM applies them to its own
@@ -49,14 +51,17 @@ export const MIRROR_DRIVEN = new Set<string>([
   // VM applies these to its own state; the change surfaces via the mirror re-read
   // (SetCardMark also triggers a separate UpdateCard which the web handles).
   'SetCardMark', 'SetCurrent',
+  // UpdateGameData: VM setGameData → surfaced via readPlayers gameData snapshot
+  // (WaitingRoom WinRatePanel, C29/C3); no delta case, consumed by the mirror.
+  'UpdateGameData',
 ])
 
 // Known-unimplemented commands scoped to a LATER milestone (M5 — extension UI /
 // status overlays). Flagged at INFO so they're visible but not mistaken for
 // 五谷-class bugs. (Animate/LogEvent/ShowToast/SetCardFootnote done in M4 slice V.)
 export const KNOWN_DEFERRED = new Set<string>([
-  'SetBanner', 'ShowVirtualCard', 'UpdateLimitSkill', 'ChangeSkin',
-  'UpdateGameData', 'UpdateMarkArea',
+  'SetBanner', 'ShowVirtualCard', 'ChangeSkin',
+  'UpdateMarkArea',
   'UpdateMiniGame', 'ServerMessage',
 ])
 

@@ -20,6 +20,7 @@ import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
 import { useRoleGuessStore } from './roleGuessStore.js'
 import { useRoomChatStore } from './roomChatStore.js'
+import { useLimitSkillStore } from './limitSkillStore.js'
 import { parsePresent } from './roomChatStore.js'
 import { useAnimationStore } from './animationStore.js'
 import { useMiscStore } from './miscStore.js'
@@ -462,6 +463,21 @@ export const useVmStore = create<VmState>((set, get) => ({
           // Current round (RoomLogic.js:1525 → miscStatus.roundNum). data = int.
           useMiscStore.getState().setRoundNum(Number(Array.isArray(e.data) ? e.data[0] : e.data) || 0)
         }
+        else if (e.command === 'UpdateLimitSkill') {
+          // Photo LimitSkillArea (client.lua updateLimitSkill → {pid, skill, times};
+          // RoomLogic.js:1509-1518). Resolve skilltype (switch/limit/wake/quest) +
+          // localized label via the VM once, then store keyed by pid×skill. The render
+          // rules (limit-used X, switch-yin, wake-on-awaken) live in limitSkillStore.
+          const d = e.data as [number, string, number] | { pid?: number; skill?: string; times?: number }
+          const pid = Array.isArray(d) ? Number(d[0]) : Number(d.pid)
+          const skill = Array.isArray(d) ? String(d[1]) : String(d.skill ?? '')
+          const times = Array.isArray(d) ? Number(d[2]) : Number(d.times)
+          if (skill && !Number.isNaN(pid)) {
+            const sd = get().vm?.skillData(skill)
+            const skilltype = sd?.switchSkillName ? 'switch' : (sd?.frequency ?? 'limit')
+            useLimitSkillStore.getState().update(pid, skill, times, skilltype, sd?.name ?? skill)
+          }
+        }
         else if (e.command === 'Animate') {
           // Pure visual effect (room.lua doAnimate). data={type, ...}. RoomLogic.js
           // callbacks["Animate"]:1310-1372 dispatches by type.
@@ -708,6 +724,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useAnimationStore.getState().reset()
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
+    useLimitSkillStore.getState().reset() // limit/wake/switch marks (delta); reconnect re-emits via addSkill/reconnect path
     stopBgm() // stop game BGM on leave/reconnect (StartGame replay restarts it)
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
@@ -726,6 +743,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useAnimationStore.getState().reset()
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
+    useLimitSkillStore.getState().reset() // clear limit/wake/switch marks for the next game
     useMiscStore.getState().clearClock() // back-to-room after GameOver → next game's clock is fresh (2b)
     useRoleGuessStore.getState().reset() // IG-3: new game → wipe local role guesses + persisted copy
     useRoomChatStore.getState().reset() // IG-5: clear room chat log for the next game

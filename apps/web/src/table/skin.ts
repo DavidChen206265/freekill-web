@@ -104,6 +104,12 @@ export function emojiPic(n: string | number): string {
   return `${FK}/image/emoji/${n}.png`
 }
 
+/** Limit-skill background (LimitSkillItem.qml: SkinBank.limitSkillDir + type).
+ *  type ∈ limit | limit-used | wake | switch | switch-yin. Dir = /image/photo/skill/. */
+export function limitSkillBg(type: string): string {
+  return `${FK}/image/photo/skill/${type}.png`
+}
+
 // ---- general-card chrome (built-in, /fk/image/card/general) ----------------
 // GeneralCardItem.qml: a faction-framed portrait card used in the general-choose
 // box. border = SkinBank.generalCardDir+'border'; the kingdom icon (top-left) =

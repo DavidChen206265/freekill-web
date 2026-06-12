@@ -14,9 +14,10 @@ import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { useDetailStore } from '../stores/detailStore.js'
 import { useRoleGuessStore, GUESS_ROLES } from '../stores/roleGuessStore.js'
 import { useRoomChatStore } from '../stores/roomChatStore.js'
+import { useLimitSkillStore, limitSkillRender } from '../stores/limitSkillStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
 import { useRef, useState, useEffect } from 'react'
-import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon } from './skin.js'
+import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon, limitSkillBg } from './skin.js'
 import { ChatText } from './ChatText.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
@@ -125,10 +126,14 @@ export function Photo({ player, playerNum, isSelf }: {
           />
         )
       })()}
+
+      {/* limit/awaken/switch/quest skill marks (Photo LimitSkillArea, top-right column).
+          Fed by UpdateLimitSkill → limitSkillStore; render rules per LimitSkillItem.qml. */}
+      <LimitSkillArea playerId={player.id} />
+
       {/* role-guess picker (RoleComboBox.qml optionPopupBox): a vertical 4-choice
           column of role icons; clicking sets the local guess. */}
-      {pickerOpen === player.id && (
-        <div style={styles.rolePicker} onClick={(e) => e.stopPropagation()}>
+      {pickerOpen === player.id && (        <div style={styles.rolePicker} onClick={(e) => e.stopPropagation()}>
           {GUESS_ROLES.map((r) => (
             <img
               key={r} src={rolePic(r)} alt={r} draggable={false} onError={hideImg}
@@ -227,6 +232,27 @@ function PicMark({ mark }: { mark: { name: string; value: string; extra: string 
   )
 }
 
+// LimitSkillArea (Photo/LimitSkillArea.qml + LimitSkillItem.qml): a top-right column
+// of limit/awaken/switch/quest skill marks. Fed by limitSkillStore (UpdateLimitSkill).
+// Each entry's bg/X/visibility comes from limitSkillRender (ports LimitSkillItem rules).
+function LimitSkillArea({ playerId }: { playerId: number }) {
+  const entries = useLimitSkillStore((s) => s.byPlayer[playerId])
+  if (!entries) return null
+  const items = Object.values(entries).map((e) => ({ e, r: limitSkillRender(e) })).filter((x) => x.r.visible)
+  if (items.length === 0) return null
+  return (
+    <div style={styles.limitSkillArea}>
+      {items.map(({ e, r }) => (
+        <div key={e.skill} style={styles.limitSkillItem}>
+          <img src={limitSkillBg(r.bg)} alt="" style={styles.limitSkillBg} draggable={false} onError={hideImg} />
+          <span style={styles.limitSkillName}>{tr(e.label)}</span>
+          {r.showX && <span style={styles.limitSkillX}>X</span>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function Portrait({ name, ext, bg, dual }: { name: string; ext?: string; bg: string; dual?: boolean }) {
   // Portrait image fills its slot (single = full width, dual = 50% via flex). Walk the
   // package candidates on <img> error (idx++) so an extension-pack general (or a stale
@@ -305,6 +331,12 @@ const styles: Record<string, React.CSSProperties> = {
   hp: { position: 'absolute', left: 5, bottom: 27, zIndex: 4 },
   role: { position: 'absolute', top: -2, right: -2, width: 30, height: 33, zIndex: 4 },
   roleGuessable: { cursor: 'pointer' },
+  // LimitSkillArea: top-right column under the role pic (LimitSkillItem bg ~39×21 @0.45).
+  limitSkillArea: { position: 'absolute', top: 34, right: 0, display: 'flex', flexDirection: 'column', gap: 1, zIndex: 5, pointerEvents: 'none' },
+  limitSkillItem: { position: 'relative', width: 39, height: 21, display: 'grid', placeItems: 'center' },
+  limitSkillBg: { position: 'absolute', inset: 0, width: 39, height: 21, objectFit: 'fill' },
+  limitSkillName: { position: 'relative', color: '#F0E5DA', fontSize: 11, fontWeight: 700, textShadow: '0 0 2px #3D2D1C, 0 1px 1px #3D2D1C', whiteSpace: 'nowrap', maxWidth: 39, overflow: 'hidden' },
+  limitSkillX: { position: 'absolute', right: -4, top: -6, color: 'red', fontSize: 20, fontWeight: 900, lineHeight: 1, textShadow: '0 0 2px #000' },
   rolePicker: { position: 'absolute', top: 32, right: -2, display: 'flex', flexDirection: 'column', gap: 2, padding: 3, background: 'rgba(0,0,0,.8)', borderRadius: 5, zIndex: 20 },
   rolePickerItem: { width: 30, height: 33, cursor: 'pointer' },
   chatBubble: { position: 'absolute', left: '50%', top: -8, transform: 'translate(-50%,-100%)', maxWidth: 160, padding: '4px 8px', background: '#fff', color: '#222', borderRadius: 8, fontSize: 12, lineHeight: 1.3, whiteSpace: 'normal', wordBreak: 'break-word', boxShadow: '0 2px 6px rgba(0,0,0,.5)', zIndex: 30, pointerEvents: 'none' },
