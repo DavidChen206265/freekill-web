@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:下一步 N1 对局正确性缺口(还原错误 10 条 → 限定/觉醒/转换技显示 → 投降/托管/踢人入口 → 出牌交互),执行顺序见 `WEB_ONLY_ROADMAP.md`。
+**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:N1-1 还原错误 10 条已清零,N1-2 限定/觉醒/转换技与 banner/mark 区已完成并部署;下一步集中做 **N1-3 对局上报入口**(投降菜单 → 托管 Trust → 房主踢人 KickPlayer),执行顺序见 `WEB_ONLY_ROADMAP.md`。
 
 基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;完全还原率 165/459≈36%。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
 
@@ -16,9 +16,10 @@
 
 ## 待办(下一步)
 
-**已完成 W0/PACE/FEAT-IG/W1-RES;现进入审计驱动的缺口收尾。执行顺序见 `WEB_ONLY_ROADMAP.md`(2026-06-12 据 audit 重排):**
+**已完成 W0/PACE/FEAT-IG/W1-RES;现进入审计驱动的缺口收尾。执行顺序见 `WEB_ONLY_ROADMAP.md`(2026-06-13 据当前部署状态更新):**
 
-- **N1 对局正确性(最高优先)**:① 还原错误 10 条(audit §3:双将立绘 N2、牌堆标记计数 M3、座位补间 D11、旁观聊天 I8、多余红环 H6、禁用语义 E9、过期房可点 B41/密码框 B40、战绩 C29、送礼退化 N20);② 限定/觉醒/转换技显示(解除 UpdateLimitSkill/SetBanner/UpdateMarkArea 的 KNOWN_DEFERRED + LimitSkillArea/banner/标记区);③ 投降/托管/踢人上报入口 + 对局菜单 overlay;④ 出牌交互(拖拽/双击)+ 手牌速览/上限。
+- **N1 对局正确性(最高优先)**:① 还原错误 10 条已完成(audit 错误 10→0);② 限定/觉醒/转换技显示 + SetBanner/UpdateMarkArea 已完成并部署;③ **当前执行:投降/托管/踢人上报入口 + 对局菜单 overlay**;④ 之后再做出牌交互(拖拽/双击)+ 手牌速览/上限。
+- **N1-3 近期拆分**:先做局内菜单 + 投降确认并发送 `PushRequest("surrender,true")`;再做托管按钮发送 `Trust` 并反映状态;再做等待房房主踢人 `KickPlayer`(非房主隐藏/禁用)。每项都以单测/封装测试 + 真 asio/Web 手测为完成标准。
 - **N2 信息完整度**:行动者高亮/翻面/垂死(数据已镜像未消费,低成本)、总览/详情/战绩页族(audit J 23 条)、建房筛选/禁将子系统、个人设置族、等待房 WaitingPhoto。
 - **N3 Web 账户与个性化**:`globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
 - **N4 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
@@ -34,12 +35,14 @@
 - **通用行为准则并入工作流(2026-06-13)**:所有 AI agent 必须先明确假设/成功标准/验证方式,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标闭环;已同步写入部署根 `CLAUDE.md` 与 `AGENTS.md`。
 - **Codex 第三方技能库(2026-06-13)**:`alirezarezvani/claude-skills` 已克隆到 `~/.codex/skill-repos/claude-skills`。`~/.codex/skills` 已按 freekill-web 裁剪为 38 个顶层目录(含 `.system`),只保留工程开发/测试/调试/部署/安全/性能/skill 自维护相关技能;其余 290 个归档到 `~/.codex/skills-archive/freekill-web-20260613-0638/`。新增 `.codex/scripts/select-skill.mjs` 用于按任务描述选择候选 skill;已修复 `md-slides`/`design-system`/`skill-tester` sample 的 frontmatter 加载报错,当前安装目录 43 个递归 `SKILL.md` 均通过 PyYAML 解析。使用前必须完整读取对应 `SKILL.md`,且项目硬约束优先。
 - 客户端逻辑层 = WASM 托管原版 Lua(见 freekill_web_implementation_plan.md §4)。
-- 自动化工作流:SessionStart 钩子自动重建 PROJECT_STATE.md 并注入上下文;`/sync` 命令在收尾时更新 PROGRESS.md/计划/风险。事实层(脚本生成)与判断层(AI 维护)分离。
+- 自动化工作流:SessionStart 钩子自动重建 PROJECT_STATE.md 并注入上下文;每次开始任务必须读取 `WEB_ONLY_ROADMAP.md` + `PROGRESS.md` 的当前阶段/待办,需要时再读实现计划和 audit;`/sync` 命令在收尾时更新 PROGRESS.md/近期规划/实现计划/风险。事实层(脚本生成)与判断层(AI 维护)分离。
 - **R-PERF 度量法**:每场景独立子进程 + `--expose-gc`,挂载后/启动后各 GC 再读 RSS,delta 即引擎成本。三场景:base(4 包)/ selective(base+utility,sp,tenyear,ol)/ full(全量)。代码 `freekill-web-spike/src/perf_{spike,run}.mjs`,`npm run perf`,结果 `perf-result.json`。
 - **R-VM 度量法**:回放 `captured-packets.json`(server VM 自打一局的真实 packet 流,player-1 视角 1357 包/803 notifyUI)N 局,每局后 GC 再采样内存。两模式对比:`fresh`(每局 new LuaFactory,全新 WASM 实例)vs `reuse`(单 factory 复用,每局 createEngine+close)。代码 `freekill-web-spike/src/vm_{spike,run}.mjs`,`npm run vm`,结果 `vm-result.json`。**判定以 `process.memoryUsage().external`(ArrayBuffer/WASM 线性堆的真实归属)为准,非 RSS**——Node/glibc 保留已释放页,RSS 因碎片爬升不代表泄漏。
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **近期规划与工作流自动读写规则更新(本次)**。把当前下一步明确为 N1-3 对局上报入口,执行顺序为:局内菜单 + 投降确认发送 `PushRequest("surrender,true")` → 托管入口发送 `Trust` 并反映状态 → 等待房房主踢人 `KickPlayer`;随后做 N2 低成本状态视觉(playing/faceturned/saveme),N1-4 拖拽/双击和总览/详情页暂不插队。同步更新 `WEB_ONLY_ROADMAP.md` 的近期推荐顺序。工作流追加硬约束:接任务时自动读取 `WEB_ONLY_ROADMAP.md` + `PROGRESS.md`,收尾若状态/优先级/风险变化则同步更新两者(以及必要的实现计划/audit)。
 
 - 2026-06-13 **修复 Codex skill 加载报错并优化中文任务自动选择(本次)**。修复用户报告的 3 个 invalid `SKILL.md`:安装目录 `~/.codex/skills/md-slides/SKILL.md`、`~/.codex/skills/design-system/SKILL.md` 的长 `description` 改为 YAML block scalar,`~/.codex/skills/skill-tester/assets/sample-skill/SKILL.md` 补合法 frontmatter;同步修复源克隆 `~/.codex/skill-repos/claude-skills` 中对应文件,避免后续重同步复发。优化 `.codex/scripts/select-skill.mjs`:支持 `description: >-` 多行解析,对中文“技能/报错/修复/YAML/frontmatter/调用/选择”类输入扩展英文检索词,并降低泛化 `*-skills` 路由技能权重。验证:PyYAML 解析安装目录 333 个递归 `SKILL.md` 为 `errors=0`,相关源目录 44 个为 `errors=0`;用用户这句中文命令测试时 `skill-tester` 排名第 1。
 

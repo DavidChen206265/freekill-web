@@ -33,6 +33,7 @@ Claude 侧不是单一提示词,而是以下组件协同:
 - 不复制事实快照脚本,避免 Claude/Codex 两套扫描逻辑漂移。
 - 把会话开始和收尾变成显式命令,适配 Codex 当前没有项目级 hook/slash command 的现实。
 - `AGENTS.md` 只保留执行规则和硬约束,长历史继续放在 `PROGRESS.md`,减少未来上下文噪声。
+- `WEB_ONLY_ROADMAP.md` 与 `PROGRESS.md` 作为近期计划/详细进度的双入口:接任务时默认自动读取,收尾若执行顺序、状态、风险或下一步建议变化则同步更新。
 - 保留强门禁:Codex 当前 shell 权限宽,所以 push、部署、改只读参考仓库都必须显式确认。
 - 把验证基线写成按风险选择的命令集合,避免每次从历史变更日志里反查。
 - 2026-06-13 追加通用行为准则:先澄清假设与成功标准,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标后闭环。
@@ -43,10 +44,10 @@ Claude 侧不是单一提示词,而是以下组件协同:
 ## Codex 执行清单
 
 1. 进入 `/home/ubuntu/freekill/freekill-vps-deploy` 后运行 `node .codex/scripts/session-start.mjs`。
-2. 读取 `PROJECT_STATE.md` 与 `PROGRESS.md`。
+2. 读取 `PROJECT_STATE.md`、`WEB_ONLY_ROADMAP.md` 与 `PROGRESS.md` 的「当前阶段」「待办」「近期推荐顺序」。
 3. 按任务读取 `audit/SUMMARY.md`、具体 Phase、实现计划和对应 QML/Lua 源码。
 4. 对非平凡任务运行 `node .codex/scripts/select-skill.mjs "任务描述"`,若采用 skill 则先读对应 `SKILL.md`。
 5. 先验证事实再改代码;优先移植原版机制,不凭局部猜测自创。
 6. 改完跑匹配风险的 typecheck/build/test/VM/E2E。
-7. 若改了代码、计划、风险或 audit,运行 `node .codex/scripts/sync.mjs "摘要"` 并更新判断层。
+7. 若改了代码、计划、风险或 audit,运行 `node .codex/scripts/sync.mjs "摘要"` 并更新判断层;若近期优先级/状态变化,同步更新 `WEB_ONLY_ROADMAP.md` 与 `PROGRESS.md`。
 8. 自验通过后本地 commit;push 和部署等待用户明确许可。

@@ -3,11 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-13 06:37:29　·　跟踪文件数: 228
+最后更新: 2026-06-13 13:10:15　·　跟踪文件数: 234
 
 ## 自上次重建以来的改动
 
-- 修改 2: freekill-web/analysis/CODEX_WORKFLOW.md, freekill-web/analysis/PROGRESS.md
+- 新增 6: freekill-web/apps/web/src/stores/bannerStore.ts, freekill-web/apps/web/src/table/BannerArea.tsx, freekill-web/apps/web/test/bannerStore.test.ts, freekill-web/apps/web/test/generalPortraitManifest.test.ts, freekill-web/apps/web/test/popupLayering.test.ts, freekill-web/apps/web/test/zustandSelectors.test.ts
+- 修改 18: freekill-web/analysis/CODEX_WORKFLOW.md, freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md, freekill-web/apps/web/src/diag/notifyCommands.ts, freekill-web/apps/web/src/stores/gameStore.ts, freekill-web/apps/web/src/stores/vmStore.ts, freekill-web/apps/web/src/table/GeneralCard.tsx, freekill-web/apps/web/src/table/GeneralDetailModal.tsx, freekill-web/apps/web/src/table/Photo.tsx, freekill-web/apps/web/src/table/RequestPopup.tsx, freekill-web/apps/web/src/table/RoomScene.tsx, freekill-web/apps/web/src/table/skin.ts …
 
 ## 上游参考仓库(只读,不跟踪改动)
 
