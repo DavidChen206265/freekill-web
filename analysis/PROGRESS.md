@@ -31,6 +31,7 @@
 - **fork 仓库布局(2026-06-11 用户拍板)**:服务端 fork 用**独立 git 目录 `freekill-web-asio/`**(远端 `https://github.com/DavidChen206265/freekill-web-asio`,建好时为空待推源码),`freekill-asio/` 保留为只读 diff 基线。否决“直接改 `freekill-asio` 目录”(与 CLAUDE.md 只读约定冲突)。Docker 构建源待切到 fork。
 - **terminal 中文输出(2026-06-11 用户要求)**:直接给用户看的回复用简体中文,已写入 `CLAUDE.md`/`AGENTS.md`「输出语言」节。
 - **Codex 工作流转换(2026-06-13)**:Claude Code 工作流已 1:1 转为 Codex 可执行入口:部署根 `AGENTS.md` 承接项目规则,`.codex/scripts/session-start.mjs` 替代 SessionStart hook,`.codex/scripts/sync.mjs` 替代 `/sync` slash command,二者复用 `.claude/scripts/project-state.mjs` 作为唯一事实快照生成器。分析与映射见 `analysis/CODEX_WORKFLOW.md`。
+- **通用行为准则并入工作流(2026-06-13)**:所有 AI agent 必须先明确假设/成功标准/验证方式,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标闭环;已同步写入部署根 `CLAUDE.md` 与 `AGENTS.md`。
 - 客户端逻辑层 = WASM 托管原版 Lua(见 freekill_web_implementation_plan.md §4)。
 - 自动化工作流:SessionStart 钩子自动重建 PROJECT_STATE.md 并注入上下文;`/sync` 命令在收尾时更新 PROGRESS.md/计划/风险。事实层(脚本生成)与判断层(AI 维护)分离。
 - **R-PERF 度量法**:每场景独立子进程 + `--expose-gc`,挂载后/启动后各 GC 再读 RSS,delta 即引擎成本。三场景:base(4 包)/ selective(base+utility,sp,tenyear,ol)/ full(全量)。代码 `freekill-web-spike/src/perf_{spike,run}.mjs`,`npm run perf`,结果 `perf-result.json`。
@@ -38,6 +39,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **通用 LLM 编码防错准则并入项目工作流(本次)**。用户提供的四类行为准则已合并进部署根 `CLAUDE.md` 与 `AGENTS.md`:实现前明确假设/成功标准/验证方式,需求多义时先问;只写当前请求所需的最小代码,不做投机抽象/配置/功能;只改必须改的行,不顺手重构或清理无关代码;把 bugfix/校验/重构等任务转成可验证目标并闭环。`analysis/CODEX_WORKFLOW.md` 同步记录该追加约束。
 
 - 2026-06-13 **Codex 工作流 1:1 转换 + 适配优化(本次)**。对 VPS 上 Claude Code 工作流做完整拆解:核心为 `CLAUDE.md` 项目规则、SessionStart hook、`/sync` skill、确定性 `project-state.mjs`、`PROJECT_STATE.md`/`PROGRESS.md` 双层状态、audit 修复闭环和 push/deploy 门禁。已新增部署根 `AGENTS.md` 作为 Codex 项目规则,新增 `.codex/scripts/session-start.mjs`/`sync.mjs` 作为 Codex 显式入口,两者复用现有 `.claude/scripts/project-state.mjs` 避免事实生成逻辑分叉;新增 `analysis/CODEX_WORKFLOW.md` 记录 Claude→Codex 映射、差异和优化。Codex 侧保留中文输出、先读后写、VM 真相源、audit 回写、完成切片后 commit、push/deploy 须用户批准等硬约束。
 
