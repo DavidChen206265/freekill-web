@@ -54,6 +54,14 @@ export const MIRROR_DRIVEN = new Set<string>([
   // UpdateGameData: VM setGameData → surfaced via readPlayers gameData snapshot
   // (WaitingRoom WinRatePanel, C29/C3); no delta case, consumed by the mirror.
   'UpdateGameData',
+  // RoomOwner / ReadyChanged: VM sets p.owner / p.ready (clientbase.lua changeRoomOwner/
+  // changeReady) → surfaced via readPlayers owner/ready → gameStore.syncPlayers →
+  // WaitingRoom 房主/已准备 chips. ReadyChanged also recomputes start-enabled.
+  'RoomOwner', 'ReadyChanged',
+  // NetStateChanged: VM applies p.player:setState(online/trust/run/robot/offline)
+  // (clientbase.lua changeNetState). The VM state changes via the mirror; the on-face
+  // netstat ICON is the separate unported gap (audit D23), not a command-routing gap.
+  'NetStateChanged',
 ])
 
 // Known-unimplemented commands scoped to a LATER milestone (M5 — extension UI /

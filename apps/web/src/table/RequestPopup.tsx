@@ -17,6 +17,7 @@ import { useDetailStore } from '../stores/detailStore.js'
 import { PromptText } from './PromptText.js'
 import { tr, registerTranslations, hasTranslation } from '../i18n/zh.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
+import { Portal } from './Portal.js'
 
 // Translate a (possibly dual) general name. RoomLogic.js:1125-1131 splits a
 // "general/deputyGeneral" string on '/', translates EACH segment, and rejoins —
@@ -273,6 +274,7 @@ function FreeAssignOverlay({ onPick, onClose }: { onPick: (g: string) => void; o
   }, [vm, results])
 
   return (
+    <Portal>
     <div style={styles.faOverlay} onClick={onClose}>
       <div style={styles.faPanel} onClick={(e) => e.stopPropagation()}>
         <div style={styles.faHead}>
@@ -298,6 +300,7 @@ function FreeAssignOverlay({ onPick, onClose }: { onPick: (g: string) => void; o
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 
@@ -634,6 +637,7 @@ function DraggableBox({ prompt, children, top }: { prompt: string; children: Rea
     ? { ...styles.modal, transform: `translate(${pos.x}px, ${pos.y}px)` }
     : styles.modal!
   return (
+    <Portal>
     <div style={wrapStyle}>
       <div style={boxStyle}>
         <div style={styles.boxHeader} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
@@ -645,6 +649,7 @@ function DraggableBox({ prompt, children, top }: { prompt: string; children: Rea
         {!collapsed && children}
       </div>
     </div>
+    </Portal>
   )
 }
 

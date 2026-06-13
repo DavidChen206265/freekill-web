@@ -12,6 +12,7 @@ import { useVmStore } from '../stores/vmStore.js'
 import { useConnectionStore } from '../stores/index.js'
 import type { GameSummaryRow } from '../vm/clientVm.js'
 import { tr } from '../i18n/zh.js'
+import { Portal } from './Portal.js'
 
 function resultOf(winner: string, role?: string): 'win' | 'lose' | 'draw' {
   if (winner === '') return 'draw'
@@ -75,6 +76,7 @@ export function GameOverModal() {
   }
 
   return (
+    <Portal>
     <div style={styles.backdrop}>
       <div style={styles.modal}>
         <div style={styles.head}>
@@ -109,11 +111,12 @@ export function GameOverModal() {
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  backdrop: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.6)', display: 'grid', placeItems: 'center', zIndex: 120, pointerEvents: 'auto' },
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', display: 'grid', placeItems: 'center', zIndex: 120, pointerEvents: 'auto' },
   modal: { background: '#26262b', borderRadius: 12, padding: '24px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, maxWidth: 780, maxHeight: '85vh', overflow: 'auto' },
   head: { display: 'flex', alignItems: 'center', gap: 16 },
   title: { fontSize: 36, fontWeight: 800, letterSpacing: 4 },

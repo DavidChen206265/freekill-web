@@ -11,6 +11,7 @@ import { useGameStore } from '../stores/gameStore.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { GeneralCard } from './GeneralCard.js'
 import { PromptText } from './PromptText.js'
+import { Portal } from './Portal.js'
 import { suitSymbol, isRedSuit, numberStr } from '../stores/cardFaceStore.js'
 import { tr, hasTranslation, registerTranslations } from '../i18n/zh.js'
 import type { PlayerCardInfo, GeneralDetail } from '../vm/clientVm.js'
@@ -62,6 +63,7 @@ export function GeneralDetailModal() {
   if (generalName != null) {
     const onBackdropG = () => { if (Date.now() - openedAt.current > 350) close() }
     return (
+      <Portal>
       <div style={styles.backdrop} onClick={onBackdropG}>
         <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
           <div style={styles.header}>
@@ -84,6 +86,7 @@ export function GeneralDetailModal() {
           </div>
         </div>
       </div>
+      </Portal>
     )
   }
 
@@ -92,6 +95,7 @@ export function GeneralDetailModal() {
   const onBackdrop = () => { if (Date.now() - openedAt.current > 350) close() }
 
   return (
+    <Portal>
     <div style={styles.backdrop} onClick={onBackdrop}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
@@ -127,6 +131,7 @@ export function GeneralDetailModal() {
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 
@@ -158,7 +163,7 @@ function CardLine({ c }: { c: PlayerCardInfo }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  backdrop: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: 120, pointerEvents: 'auto' },
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: 120, pointerEvents: 'auto' },
   modal: { background: '#26262b', borderRadius: 10, padding: 20, display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 640, maxHeight: '85vh', overflowY: 'auto', color: '#E4D5A0' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   name: { fontSize: 18, fontWeight: 700 },
