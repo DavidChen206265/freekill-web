@@ -17,7 +17,16 @@ const PRELUDE = path.join(WEB, 'packages', 'lua-native', 'lua', 'fkprelude.lua')
 
 const VFS_CORE = '/fk/packages/freekill-core'
 const EXTS = new Set(['.lua', '.json', '.txt'])
+const EXTENSION_PACKS = ['utility', 'standard_ex', 'sp', 'shzl']
 const ready = fs.existsSync(CORE) && fs.existsSync(PRELUDE)
+const extensionReady = ready && EXTENSION_PACKS.every((pkg) => fs.existsSync(path.join(packageSource(pkg), 'init.lua')))
+
+function packageSource(pkg: string): string {
+  const mirror = path.join(WEB, 'packages-upstream', pkg)
+  return fs.existsSync(path.join(mirror, 'init.lua'))
+    ? mirror
+    : path.join(REPO, 'FreeKill-release', 'packages', pkg)
+}
 
 function collect(dir: string): string[] {
   const out: string[] = []
@@ -29,6 +38,14 @@ function collect(dir: string): string[] {
   }
   if (fs.existsSync(dir)) walk(dir)
   return out
+}
+
+function mountTree(factory: LuaFactory, luaModule: Awaited<ReturnType<LuaFactory['getLuaModule']>>, src: string, vfsBase: string) {
+  for (const full of collect(src)) {
+    const rel = path.relative(src, full).replace(/\\/g, '/')
+    if (rel.startsWith('image/') || rel.startsWith('audio/')) continue
+    factory.mountFileSync(luaModule, `${vfsBase}/${rel}`, fs.readFileSync(full))
+  }
 }
 
 describe('catalog VM bridge', () => {
@@ -77,4 +94,39 @@ describe('catalog VM bridge', () => {
 
     lua.global.close()
   }, 30_000)
+
+  it.skipIf(!extensionReady)('loads enabled extension packs including shzl into the lobby catalog VM', async () => {
+    const factory = new LuaFactory()
+    const luaModule = await factory.getLuaModule()
+    const FS = luaModule.module.FS
+    for (const sub of ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']) {
+      mountTree(factory, luaModule, path.join(CORE, sub), `${VFS_CORE}/${sub}`)
+    }
+    for (const pkg of EXTENSION_PACKS) {
+      mountTree(factory, luaModule, packageSource(pkg), `/fk/packages/${pkg}`)
+    }
+
+    const lua = await factory.createEngine({ injectObjects: true })
+    FS.chdir(VFS_CORE)
+    await bootClient({
+      lua: lua as never,
+      natives: createNatives({ emfs: FS as never, onNotifyUI: () => {}, log: () => {} }),
+      preludeLua: fs.readFileSync(PRELUDE, 'utf8'),
+    })
+
+    const catalog = await installCatalogBridge(lua as never)
+    expect(catalog.allModNames()).toContain('shzl')
+    expect(catalog.generalPacks()).toEqual(expect.arrayContaining(['wind', 'fire', 'forest', 'mountain', 'shadow', 'thunder', 'shzl_god']))
+    expect(catalog.generals('wind')).toContain('xiahouyuan')
+    expect(catalog.searchGeneralNames('wind', '夏侯')).toContain('xiahouyuan')
+    expect(catalog.generalData('xiahouyuan')).toMatchObject({ package: 'wind', extension: 'shzl', kingdom: 'wei' })
+    expect(catalog.translate(['shzl', 'wind', 'xiahouyuan', 'shensu'])).toMatchObject({
+      shzl: '神话再临',
+      wind: '神话再临·风',
+      xiahouyuan: '夏侯渊',
+      shensu: '神速',
+    })
+
+    lua.global.close()
+  }, 45_000)
 })

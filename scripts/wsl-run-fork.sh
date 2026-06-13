@@ -5,6 +5,28 @@ set -uo pipefail
 
 DST=$HOME/freekill-web-asio
 SRC_RT=$HOME/freekill-asio   # existing built upstream runtime (has packages + packages.db)
+RELEASE=/mnt/e/Games/freekill/FreeKill-release/packages
+ENABLED_PACKS=(freekill-core utility standard_ex sp shzl)
+
+enable_packs() {
+  local db="$DST/packages/packages.db"
+  [ -f "$db" ] || return 0
+  if command -v sqlite3 >/dev/null 2>&1; then
+    sqlite3 "$db" "UPDATE packages SET enabled=1 WHERE name IN ('utility','standard_ex','sp','shzl');"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$db" <<'PY'
+import sqlite3
+import sys
+db = sys.argv[1]
+con = sqlite3.connect(db)
+con.execute("UPDATE packages SET enabled=1 WHERE name IN ('utility','standard_ex','sp','shzl')")
+con.commit()
+con.close()
+PY
+  else
+    echo "WARN: sqlite3/python3 not found; cannot flip extension packs in packages.db"
+  fi
+}
 
 cd "$DST"
 
@@ -16,6 +38,17 @@ if [ ! -d "$DST/packages/freekill-core" ]; then
   echo "=== copying packages from $SRC_RT ==="
   cp -r "$SRC_RT/packages/." "$DST/packages/"
 fi
+echo "=== ensure enabled packages from FreeKill-release ==="
+mkdir -p "$DST/packages"
+for p in "${ENABLED_PACKS[@]}"; do
+  if [ -d "$RELEASE/$p" ]; then
+    rm -rf "$DST/packages/$p"
+    cp -r "$RELEASE/$p" "$DST/packages/$p"
+  fi
+done
+[ -f "$RELEASE/packages.db" ] && cp "$RELEASE/packages.db" "$DST/packages/packages.db"
+[ -f "$RELEASE/init.sql" ] && cp "$RELEASE/init.sql" "$DST/packages/init.sql"
+enable_packs
 
 # Web-only config with WRONG md5 path irrelevant; key is checkClientMd5:false
 cat > "$DST/freekill.server.config.json" <<'JSON'

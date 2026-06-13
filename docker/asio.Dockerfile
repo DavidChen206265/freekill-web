@@ -49,6 +49,7 @@ COPY FreeKill-release/packages/freekill-core ./packages/freekill-core
 COPY FreeKill-release/packages/utility ./packages/utility
 COPY FreeKill-release/packages/standard_ex ./packages/standard_ex
 COPY FreeKill-release/packages/sp ./packages/sp
+COPY FreeKill-release/packages/shzl ./packages/shzl
 # packages.db / init.sql live alongside packages in the release tree.
 COPY FreeKill-release/packages/packages.db ./packages/packages.db
 COPY FreeKill-release/packages/init.sql ./packages/init.sql
@@ -59,7 +60,7 @@ COPY FreeKill-release/packages/init.sql ./packages/init.sql
 # reproducible regardless of the (git-untracked) release db's enabled flags.
 RUN apt-get update && apt-get install -y --no-install-recommends sqlite3 \
     && sqlite3 ./packages/packages.db \
-         "UPDATE packages SET enabled=1 WHERE name IN ('utility','standard_ex','sp');" \
+         "UPDATE packages SET enabled=1 WHERE name IN ('utility','standard_ex','sp','shzl');" \
     && apt-get purge -y sqlite3 && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 COPY freekill-web/docker/freekill.server.config.json ./freekill.server.config.json
 # DB init scripts asio needs in server/ to create users.db (server/init.sql,

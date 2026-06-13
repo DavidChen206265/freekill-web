@@ -32,12 +32,12 @@ console.log(`[sync] packages source: ${PACKAGES}`)
 const EXTS = new Set(['.lua', '.json', '.txt'])
 const MOUNT_DIRS = ['lua', 'standard', 'standard_cards', 'maneuvering', 'test']
 const IMG_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp'])
-// Extension packs to ship (must match the asio server's ENABLED pack set, or the
-// handshake MD5 won't match — recompute FK_MD5 with packages/assets/compute-md5.mjs).
+// Extension packs to ship (must match the asio server's ENABLED pack set).
 // Their lua is mounted into the VM VFS; their image/anim/audio synced for the browser.
 // Most depend on `utility` (shared skills/qml). To add a pack: add it here, put it in
-// asio's packages/ (enabled in packages.db), and recompute FK_MD5.
-const EXTENSION_PACKS = ['utility', 'standard_ex', 'sp']
+// asio's packages/ (enabled in packages.db). Web-only fork skips the client MD5
+// check, so the server manifest is the pack-set truth source at runtime.
+const EXTENSION_PACKS = ['utility', 'standard_ex', 'sp', 'shzl']
 // Packs whose per-package art/anim/audio the browser loads (core art packs + the
 // extension packs that carry their own image/audio).
 const ART_PACKS = ['standard', 'standard_cards', 'maneuvering', ...EXTENSION_PACKS]
@@ -81,7 +81,7 @@ relPaths.sort()
 // ---- Extension packs: mount their lua/json into the VFS (manifest.extra) ---------
 // Each pack's code tree (excluding image/audio, which load lazily as static assets)
 // is copied to public/fk/packages/<pkg>/ and listed under manifest.extra so the VM
-// mounts it at /fk/packages/<pkg>/. MUST match asio's enabled pack set (handshake MD5).
+// mounts it at /fk/packages/<pkg>/. MUST match asio's enabled pack set.
 const extra = []
 for (const pkg of EXTENSION_PACKS) {
   const srcDir = path.join(PACKAGES, pkg)

@@ -2,7 +2,7 @@
 
 > 目标:Linux VPS + 域名,Docker Compose 一键起全栈,Caddy 自动 HTTPS。
 > 服务端:**`freekill-web-asio`(Web-only fork)**,默认 `checkClientMd5:false` —— 不再需要重算 FK_MD5。
-> 包集合:仅 `freekill-core`(基础身份局)。
+> 包集合:`freekill-core` + `utility` / `standard_ex` / `sp` / `shzl`。
 
 ## 架构
 
@@ -24,7 +24,7 @@
 3. VPS 防火墙放行 **80 + 443**(TCP;443 也放 UDP 给 HTTP/3,可选)。
 4. 把**整个仓库**(`E:/Games/freekill/` 对应的目录树:`freekill-web-asio/`、`freekill-web/`、`FreeKill-release/`、`FreeKill-sourcecode/`)传到 VPS。
    - asio 镜像从 **`freekill-web-asio/`**(Web-only fork)编译,不再用上游 `freekill-asio/`(后者仅作只读 diff 基线,`.dockerignore` 已排除,不必传)。
-   - `FreeKill-release/packages/` 有 1.5GB,但 `.dockerignore` 只放行 `freekill-core` + `packages.db` + `init.sql` + `standard`/`standard_cards`/`maneuvering` 的 `image/`+`audio/`。**传之前可只传这些**(其余 packages 不需要),能省大量上传。
+   - `FreeKill-release/packages/` 有 1.5GB,但 `.dockerignore` 只放行 `freekill-core` + `packages.db` + `init.sql` + `standard`/`standard_cards`/`maneuvering` 的 `image/`+`audio/`,以及 `utility`/`standard_ex`/`sp`/`shzl` 全树。**传之前可只传这些**(其余 packages 不需要),能省大量上传。
    - `freekill-web/node_modules`、`freekill-web-asio/build/`、`freekill-web-asio/packages/`、`analysis/`、`audit/`、`freekill-web-spike/` 都不需要传(`.dockerignore` 已排除)。
    - **音频/动画资源(M4 切片 V)**:web 的 `sync-fk-assets` 在镜像内从 `FreeKill-sourcecode/audio`+`image/anim` 和各包 `audio/`+`image/anim/` 生成音效与精灵帧。**这些目录必须随仓库传到 VPS**,否则构建出的 web 无声音、无技能/出牌精灵动画(浏览器静默 404)。
    - **`.dockerignore` 必须在构建上下文根**(= `freekill-web` 的上一级,即 `E:/Games/freekill/`)。仓库里 `git pull` 拿不到它(它在 freekill-web 之外)。本仓库存了一份权威副本 `freekill-web/docker/dockerignore.repo-root`——**每次 `git pull` 后把它复制到上下文根**:

@@ -9,8 +9,9 @@
 1. **asio 构建源**:`asio.Dockerfile` 现在从 **`freekill-web-asio/`**(我们维护的 Web-only fork)编译,**不再用** `freekill-asio/`。所以 VPS 上必须有 `freekill-web-asio/` 这个目录(新仓库)。
 2. **服务端配置**:`docker/freekill.server.config.json` 新增 4 个 Web-only 开关(`webOnly`/`checkClientMd5:false`/`invalidateRoomsOnPackageChange:false`/`tempBanByIp:false`)——跳过 MD5 登录、改包不踢房、不按 IP 封禁。
 3. **不再需要 FK_MD5**:`docker-compose.yml` 去掉了 FK_MD5 主流程(asio 现在忽略客户端 MD5)。
-4. **客户端**:登录页、加载页、Photo 势力 icon、BGM/音效、计时器/牌堆数、同账号顶号等一批修复。
-5. **`.dockerignore` 变了**:放行 `freekill-web-asio/`、排除其 `build/`+`packages/` 和只读的 `freekill-asio/`。
+4. **启用包集合**:Web/asio/Docker 统一为 `freekill-core + utility + standard_ex + sp + shzl`,其中 `shzl` 必须在 `FreeKill-release/packages/shzl` 保留全树。
+5. **客户端**:登录页、加载页、Photo 势力 icon、BGM/音效、计时器/牌堆数、同账号顶号等一批修复。
+6. **`.dockerignore` 变了**:放行 `freekill-web-asio/`、排除其 `build/`+`packages/` 和只读的 `freekill-asio/`。
 
 ## 仓库准备(关键:多了一个新仓库)
 
@@ -22,7 +23,7 @@ VPS 上的目录树应是(都在同一个父目录,比如 `~/freekill/`):
 freekill/
   freekill-web/            # 主仓(web + gateway + docker + 计划)
   freekill-web-asio/       # 服务端 fork(asio 镜像从这里编译)  ← 本次新增/必须有
-  FreeKill-release/        # 上游包(freekill-core + 美术/音频)
+  FreeKill-release/        # 上游包(freekill-core + 启用扩展包 + 美术/音频)
   FreeKill-sourcecode/     # 上游素材(photo/card/anim/audio)
   # freekill-asio/         # 上游基线,只读,部署不需要(.dockerignore 已排除)
 ```

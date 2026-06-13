@@ -1,6 +1,6 @@
 #!/bin/bash
 cd /home/david/freekill-asio/packages || exit 1
-keep="freekill-core sp standard_ex utility"
+keep="freekill-core sp standard_ex utility shzl"
 for d in */; do
   n="${d%/}"
   skip=0

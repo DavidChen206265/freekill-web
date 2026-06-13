@@ -3,12 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-13 20:18:22　·　跟踪文件数: 2450
+最后更新: 2026-06-13 20:33:16　·　跟踪文件数: 3020
 
 ## 自上次重建以来的改动
 
-- 新增 1: freekill-web/apps/web/test/freeAssignFilter.test.ts
-- 修改 4: freekill-web/.tmp/vite-5174.log, freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/src/components/CreateRoomDialog.tsx, freekill-web/apps/web/src/table/RequestPopup.tsx
+- 新增 570: freekill-web/apps/web/public/fk/packages/shzl/ai/init.lua, freekill-web/apps/web/public/fk/packages/shzl/audio/death/caiwenji.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/caopi.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/caoren.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/chendao.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/dengai.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/dianwei.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/dongzhuo.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/godcaocao.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/goddiaochan.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/godganning.mp3, freekill-web/apps/web/public/fk/packages/shzl/audio/death/godliubei.mp3 …
+- 修改 14: freekill-web/.tmp/asio-9527.log, freekill-web/apps/web/public/fk/anim.json, freekill-web/apps/web/public/fk/audio.json, freekill-web/apps/web/public/fk/file-list.json, freekill-web/apps/web/public/fk/images.json, freekill-web/apps/web/scripts/sync-fk-assets.mjs, freekill-web/apps/web/test/catalogVm.test.ts, freekill-web/docker/asio.Dockerfile, freekill-web/docker/dockerignore.repo-root, freekill-web/docker/README.md, freekill-web/docker/VPS_UPDATE_GUIDE.md, freekill-web/scripts/wsl-build-fork.sh …
 
 ## 上游参考仓库(只读,不跟踪改动)
 

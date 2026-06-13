@@ -46,6 +46,8 @@
 
 ## 变更日志
 
+- 2026-06-13 **启用 shzl 神话再临拓展包(本次)**。Web 资源同步 `EXTENSION_PACKS` 加入 `shzl`,重新生成本地 `/fk` 资源:manifest extra 为 utility 23 / standard_ex 51 / sp 114 / shzl 150,`images.json` 含 shzl 立绘 74 项、`audio.json` 含 shzl 音频 346 项,`verify-fk-assets` 检查 2577 项通过。服务端部署链同步: Docker `.dockerignore` 放行 `FreeKill-release/packages/shzl`,asio 镜像复制 shzl 并在 `packages.db` 启用,WSL 构建/运行脚本刷新 `freekill-core + utility + standard_ex + sp + shzl` 并用 sqlite3/python3 启用扩展包。新增 catalog VM 真 VM 测试,验证 `shzl`、风火林山阴雷神分包、夏侯渊中文搜索/翻译和 `extension=shzl`。验证:`pnpm --filter @freekill-web/web sync-assets`、`node packages/assets/scripts/verify-fk-assets.mjs apps/web/public/fk`、`pnpm --filter @freekill-web/web test -- catalogVm generalPortraitManifest skin`、`typecheck`、`build`、`wsl-build-fork.sh` 通过;WSL 启动新实例时 9527 被旧 `$HOME/freekill-web-asio` 实例占用,未强制杀进程,但目标运行目录包文件齐全且 `packages.db` 中 utility/standard_ex/sp/shzl 均为 enabled=1。同步更新部署/包镜像文档,并按用户要求把既有 `Photo.tsx` 改动纳入同一提交。
+
 - 2026-06-13 **自由选将可选受禁将限制(本次)**。建房开局选项新增「禁将限制自由选将」开关,写入 `_game.freeAssignRespectBan`;自由选将 overlay 开启时读取 `disabledGenerals`/`disabledPack`,过滤掉被禁武将与被禁包武将,关闭时维持原有全量自由选将。验证:`pnpm --filter @freekill-web/web test -- freeAssignFilter`、`typecheck`、`build` 通过。
 
 - 2026-06-13 **武将立绘空白真因修复(本次)**。确认 Vite dev 下 service worker 不注册是 `vite.config.ts devOptions.enabled=false` 的预期行为,不是图片空白根因。实际根因是旧生成的 `/fk/images.json` 只含 card PNG、不含 `packages/*/image/generals/*.jpg`,而 `generalPicCandidates` 在 manifest 非空时把武将候选全部剪空。已重新运行 `pnpm --filter @freekill-web/web sync-assets` 刷新本地 `images.json`,并在 `skin.ts` 增加旧 card-only manifest 兼容:只有 manifest 明确包含 generals 条目时才用它剪枝武将立绘候选。验证:`pnpm --filter @freekill-web/web test -- generalPortraitManifest skin`、`typecheck`、`build` 通过,build 继续生成 `dist/sw.js`。

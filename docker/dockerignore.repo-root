@@ -62,6 +62,7 @@ FreeKill-release/packages/maneuvering/*
 !FreeKill-release/packages/utility
 !FreeKill-release/packages/standard_ex
 !FreeKill-release/packages/sp
+!FreeKill-release/packages/shzl
 # (their .git subdirs are still excluded by the global **/.git rule above)
 # FreeKill-release/server/ holds a previous run's users.db/game.db/RSA (don't ship
 # those), but asio needs the two static DB init scripts. Exclude the dir, keep the

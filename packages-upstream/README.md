@@ -11,15 +11,15 @@
 ## 这是什么 / 不是什么
 
 - **是**:Web 客户端构建期的"上游包源"。`sync-fk-assets.mjs` 从这里把启用包的 lua/json(VFS 挂载)+ 美术/音频(懒加载)拷进 `apps/web/public/fk/`。
-- **不是**:运行时目录。浏览器不直接读这里;asio 服务端有自己独立的 `packages/`(WSL `~/freekill-asio/packages`)。**Web 启用的包集合必须与 asio 启用集合一致**。当前上游兼容模式下还需保持握手 MD5 一致;Web-only P0 落地后改由 manifest/capabilities 声明包集合与资源版本。
+- **不是**:运行时目录。浏览器不直接读这里;asio 服务端有自己独立的 `packages/`(WSL `~/freekill-web-asio/packages`,Docker 镜像内 `/app/packages`)。**Web 启用的包集合必须与 asio 启用集合一致**。Web-only fork 由 manifest/capabilities 声明包集合与资源版本,MD5 仅作诊断。
 
 ## 当前 Web 实际加载的包
 
-`sync-fk-assets.mjs` 的 `EXTENSION_PACKS`(当前 = `utility, standard_ex, sp`)+ freekill-core 内置的基础包(standard / standard_cards / maneuvering / test)。其余包**已镜像在此但未启用**,启用时:
+`sync-fk-assets.mjs` 的 `EXTENSION_PACKS`(当前 = `utility, standard_ex, sp, shzl`)+ freekill-core 内置的基础包(standard / standard_cards / maneuvering / test)。其余包**已镜像在此但未启用**,启用时:
 1. 把包名加入 `sync-fk-assets.mjs` 的 `EXTENSION_PACKS`(art/audio 自动随 `ART_PACKS` 同步)。
 2. 在 asio 的 `packages.db` 启用同一包(`enabled=1`)并把包拷到 asio 的 `packages/`。
-3. 当前上游兼容模式:用 `compute-md5.mjs` 对 asio 的 `packages/` 重算 FK_MD5,更新网关 `FK_MD5`。Web-only fork 落地后此步改为更新 manifest/capabilities,MD5 只作诊断。
-4. `.dockerignore` 放行该包(部署时)。
+3. Docker 部署时在 `docker/asio.Dockerfile` 复制该包并在启用 SQL 中列出它。
+4. `.dockerignore` 放行该包(部署时),本地 WSL 脚本同步 `ENABLED_PACKS`。
 
 ## 从 FreeKill 移植/同步新包
 
@@ -27,7 +27,7 @@
 # 把某个上游包同步进来(覆盖式,内容仍被 gitignore):
 cp -r /path/to/FreeKill-release/packages/<pack>/. freekill-web/packages-upstream/<pack>/
 touch freekill-web/packages-upstream/<pack>/.gitkeep   # 新包补占位
-# 然后按"启用"步骤接入 Web + asio;当前兼容模式还需同步 MD5。
+# 然后按"启用"步骤接入 Web + asio。
 ```
 
 ## 包清单(镜像于 2026-06-10,大小供参考)
@@ -51,7 +51,7 @@ touch freekill-web/packages-upstream/<pack>/.gitkeep   # 新包补占位
 | offline_new | 100M | 线下新 |
 | yj | 46M | 阴间(界面?) |
 | mougong | 39M | 谋攻 |
-| shzl | 35M | 谁是真凶/十周年? |
+| shzl | 35M | 神话再临(**Web 已启用**) |
 | mini | 32M | mini 包 |
 | jsrg | 26M | — |
 | gamemode | 13M | 游戏模式 |
