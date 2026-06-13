@@ -30,6 +30,7 @@
 - **Web-only 转向(2026-06-11 用户拍板)**:放弃“原版 asio 零改 + Qt/Web 混连”目标,允许维护 `freekill-web-asio` 小 fork,只支持 Web 客户端。MD5 不再是登录/部署门槛,改由 manifest/capabilities 管资源版本、启用包和 Web 功能。旧 M5/M6 详细计划已删除,短期路线为 `WEB_ONLY_ROADMAP.md`。
 - **fork 仓库布局(2026-06-11 用户拍板)**:服务端 fork 用**独立 git 目录 `freekill-web-asio/`**(远端 `https://github.com/DavidChen206265/freekill-web-asio`,建好时为空待推源码),`freekill-asio/` 保留为只读 diff 基线。否决“直接改 `freekill-asio` 目录”(与 CLAUDE.md 只读约定冲突)。Docker 构建源待切到 fork。
 - **terminal 中文输出(2026-06-11 用户要求)**:直接给用户看的回复用简体中文,已写入 `CLAUDE.md`/`AGENTS.md`「输出语言」节。
+- **Codex 工作流转换(2026-06-13)**:Claude Code 工作流已 1:1 转为 Codex 可执行入口:部署根 `AGENTS.md` 承接项目规则,`.codex/scripts/session-start.mjs` 替代 SessionStart hook,`.codex/scripts/sync.mjs` 替代 `/sync` slash command,二者复用 `.claude/scripts/project-state.mjs` 作为唯一事实快照生成器。分析与映射见 `analysis/CODEX_WORKFLOW.md`。
 - 客户端逻辑层 = WASM 托管原版 Lua(见 freekill_web_implementation_plan.md §4)。
 - 自动化工作流:SessionStart 钩子自动重建 PROJECT_STATE.md 并注入上下文;`/sync` 命令在收尾时更新 PROGRESS.md/计划/风险。事实层(脚本生成)与判断层(AI 维护)分离。
 - **R-PERF 度量法**:每场景独立子进程 + `--expose-gc`,挂载后/启动后各 GC 再读 RSS,delta 即引擎成本。三场景:base(4 包)/ selective(base+utility,sp,tenyear,ol)/ full(全量)。代码 `freekill-web-spike/src/perf_{spike,run}.mjs`,`npm run perf`,结果 `perf-result.json`。
@@ -37,6 +38,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **Codex 工作流 1:1 转换 + 适配优化(本次)**。对 VPS 上 Claude Code 工作流做完整拆解:核心为 `CLAUDE.md` 项目规则、SessionStart hook、`/sync` skill、确定性 `project-state.mjs`、`PROJECT_STATE.md`/`PROGRESS.md` 双层状态、audit 修复闭环和 push/deploy 门禁。已新增部署根 `AGENTS.md` 作为 Codex 项目规则,新增 `.codex/scripts/session-start.mjs`/`sync.mjs` 作为 Codex 显式入口,两者复用现有 `.claude/scripts/project-state.mjs` 避免事实生成逻辑分叉;新增 `analysis/CODEX_WORKFLOW.md` 记录 Claude→Codex 映射、差异和优化。Codex 侧保留中文输出、先读后写、VM 真相源、audit 回写、完成切片后 commit、push/deploy 须用户批准等硬约束。
 
 - 2026-06-12 **VM调试误报命令分类 + 弹窗滚动条(缩放舞台根因,未 push)**。**① 五谷类隐患误报**(RoomOwner/ReadyChanged/NetStateChanged):三者都改 VM 玩家状态(clientbase.lua changeRoomOwner/changeReady/changeNetState),vmStore 每包后 readPlayers 重读→实为快照消费,非未消费。修:加入 MIRROR_DRIVEN(RoomOwner/ReadyChanged 经 owner/ready 快照字段→等待房 chips+开局判定;NetStateChanged 改 setState,脸上 netstat 图标是另一未还原项 audit D23)。**② 弹窗超出屏幕无滚动**(用户:局内右键查看武将详情等):根因——in-game 弹窗都渲染在 `<Stage>` 内,而 Stage 是 `transform:scale()` 缩放的(1200×540→窗口);position:absolute/fixed 后代相对**被缩放的 Stage**定位,故 maxHeight:85vh+overflowY 对真实屏幕失效→高弹窗底部被裁、无可达滚动条。修:新增 `Portal`(createPortal→document.body)把弹窗移出缩放容器,fixed backdrop 覆盖真视口、内层面板可滚;GeneralDetailModal/GameOverModal backdrop 由 absolute→fixed;**DraggableBox 也 portal→统一覆盖所有 RequestPopup 操作框**(general/poxi/choice/AG/arrange/cardsAndChoice/moveBoard);FreeAssignOverlay 同。typecheck/build/161 测试全绿。**1 个 fix commit,未 push**。
 
