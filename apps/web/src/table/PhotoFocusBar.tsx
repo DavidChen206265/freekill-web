@@ -49,5 +49,5 @@ const styles: Record<string, React.CSSProperties> = {
   track: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 4, background: 'rgba(0,0,0,.5)', zIndex: 7 },
   fill: { height: '100%', background: 'linear-gradient(90deg, orange, red)', transition: 'width 80ms linear' },
   // "<cmd> thinking..." tip just under the bar.
-  tip: { position: 'absolute', left: 2, bottom: -16, fontSize: 12, color: '#fff', whiteSpace: 'nowrap', textShadow: '0 0 2px #000, 0 0 2px #000', zIndex: 7 },
+  tip: { position: 'absolute', left: 17, bottom: -16, fontSize: 12, color: '#fff', whiteSpace: 'nowrap', textShadow: '0 0 2px #000, 0 0 2px #000', zIndex: 7 },
 }

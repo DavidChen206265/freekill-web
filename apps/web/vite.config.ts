@@ -26,7 +26,8 @@ export default defineConfig({
         lang: 'zh-CN',
         theme_color: '#1a1a1f',
         background_color: '#1a1a1f',
-        display: 'standalone',
+        display: 'fullscreen',
+        orientation: 'landscape',
         start_url: '/',
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },

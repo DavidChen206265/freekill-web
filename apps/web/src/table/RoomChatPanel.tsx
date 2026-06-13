@@ -1,4 +1,4 @@
-// RoomChatPanel.tsx — IG-5 in-game chat + 送花/砸蛋. Bottom-right collapsible panel.
+// RoomChatPanel.tsx — IG-5 in-game chat + 送花/砸蛋. Bottom-left collapsible panel.
 // Text chat sends Chat {type:2, msg} (asio broadcasts to room + observers); the VM's
 // ClientBase:chat enriches it and notifyUI("Chat") → roomChatStore (handleChat in
 // vmStore). Presents send "$@<Type>:<pid>" (WaitingRoom.qml givePresent) which fly as
@@ -94,7 +94,7 @@ export function RoomChatPanel() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  wrap: { position: 'absolute', right: 8, bottom: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, zIndex: 75, pointerEvents: 'auto' },
+  wrap: { position: 'absolute', left: 8, bottom: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, zIndex: 75, pointerEvents: 'auto' },
   toggle: { padding: '3px 10px', border: 'none', borderRadius: 6, background: 'rgba(0,0,0,.6)', color: '#eee', cursor: 'pointer', fontSize: 12 },
   panel: { width: 260, background: 'rgba(0,0,0,.6)', borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 },
   log: { maxHeight: 160, overflowY: 'auto', fontSize: 12, lineHeight: 1.5, color: '#eee', display: 'flex', flexDirection: 'column', gap: 2 },
