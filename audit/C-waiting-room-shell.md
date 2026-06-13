@@ -96,8 +96,9 @@ web 文件：
 - 原版: WaitingRoom.qml:176-286 (photoMenu：Give Flower/Egg/Wine/Shoe + Block Chatter + Kick From Room)
 - web : RoomChatPanel.tsx:13-17,37-83（送礼集中在聊天面板 🎁 菜单，按对象列出 Flower/Egg/GiantEgg/Shoe/Wine）
 - 原版行为: 点击座位弹 Menu：送花/砸蛋（3% 概率巨蛋）/酒（30% enabled）/鞋（30% enabled）→ givePresent 发 Chat "$@Type:pid"；屏蔽该玩家聊天（Block/Unblock Chatter，Config.blockedUsers）；踢人（Kick From Room，房主限定，机器人需 curComp>minComp，notify KickPlayer）。
-- web 行为: 送礼经聊天面板礼物菜单实现（Flower/Egg/GiantEgg/Shoe/Wine，发 $@Type:pid，RoomChatPanel.tsx:37-40），但**无概率门槛**（酒/鞋 30%、巨蛋 3%）；**等待房座位本身无点击菜单**；**无屏蔽聊天（Block Chatter）**；**无踢人（Kick From Room）**。
-- 差异: 仅简化送礼（无概率），但屏蔽聊天、踢人完全缺失，座位无右键菜单。
+- web 行为: 送礼经聊天面板礼物菜单实现（Flower/Egg/GiantEgg/Shoe/Wine，发 $@Type:pid，RoomChatPanel.tsx:37-40），但**无概率门槛**（酒/鞋 30%、巨蛋 3%）；等待房座位卡提供房主「踢出」按钮（KickPlayer）；**等待房座位本身无点击菜单**；**无屏蔽聊天（Block Chatter）**。
+- 差异: 仅简化送礼（无概率）和踢人入口形态（按钮而非 photoMenu）；屏蔽聊天缺失，座位无右键菜单。
+- 修复: 已修复并验证 (房主踢人入口已补,live compose probe 证明 KickPlayer 后目标回大厅;仍因 photoMenu/Block Chatter 缺失保持简化,2026-06-13)
 
 ### C11 WaitingRoom::更改房间设置（Change Room Config）
 - 状态: 未还原
@@ -172,20 +173,22 @@ web 文件：
 - 差异: 仅简化布局（拆面板），但 PlayerList 整页（旁观列表 + netState 标注 + 切换视角）缺失。
 
 ### C19 RoomOverlay::游戏内菜单按钮组（Menu 侧栏）
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: RoomPage.qml:30-50 (menuButton + Escape) + RoomOverlay.qml:30-70 (open/closeOverlay 缩放) + RoomPage.qml:159-294 (Quit/Settings/Info/Surrender/Generals/Cards/Modes/Chat 按钮列)
-- web : 无（LobbyPage.tsx:50-55 顶栏仅：背景音乐开关、VM 调试、离开）
+- web : RoomMenuOverlay.tsx + RoomScene.tsx（局内「菜单」按钮，含投降/托管；LobbyPage 顶栏仍有 BGM/VM 调试/离开）
 - 原版行为: 右上 Menu 按钮（Esc 触发）打开 overlay，游戏内容缩放 0.8 并右移，露出右侧按钮列：退出、设置（音频/操作）、信息(GeneralPool)、投降、武将一览、卡牌一览、模式一览、聊天。
-- web 行为: 无 overlay 菜单、无游戏缩放、无 Esc 快捷键；顶栏仅 BGM 开关 + VM 调试 + 离开三项。
-- 差异: 整个游戏内菜单 overlay 及其 6 个一览/设置/投降入口缺失。
+- web 行为: 有最小局内菜单 overlay，提供 N1-3 需要的投降/托管入口；无游戏缩放、无 Esc 快捷键，设置/信息/武将/卡牌/模式/聊天入口仍未还原。
+- 差异: 仅简化 — 菜单存在但不是原版完整按钮列/缩放效果，仍缺设置与总览入口。
+- 修复: 已修复并验证 (RoomMenuOverlay 接入 RoomScene; web 174 测试、typecheck、build 通过;2026-06-13)
 
 ### C20 RoomOverlay::投降（Surrender）
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: RoomPage.qml:206-232,314-339 (surrenderButton + surrenderDialog + CheckSurrenderAvailable)
-- web : 无
+- web : RoomMenuOverlay.tsx + clientVm __fkCheckSurrenderAvailable
 - 原版行为: 投降按钮（非旁观非录像 enabled）；校验 gameStarted、Self 未死、CheckSurrenderAvailable 各条件（✓/✗ 列表）；确认且全通过发 PushRequest "surrender,true"。
-- web 行为: 无投降功能。
-- 差异: 投降完全缺失。
+- web 行为: 菜单中提供投降按钮；非旁观/未死亡时可打开确认框，展示 CheckSurrenderAvailable 条件；确认时重新校验，全通过才发 PushRequest "surrender,true"。
+- 差异: 仅简化 — 不在原版完整 RoomOverlay 侧栏中，未区分 replaying 分支。
+- 修复: 已修复并验证 (RoomMenuOverlay + VM CheckSurrenderAvailable 桥; web 174 测试、typecheck、build 通过;live compose probe 发送 PushRequest surrender 无错误/断连,2026-06-13)
 
 ### C21 RoomOverlay::设置面板（Audio/Control Settings）
 - 状态: 未还原
@@ -279,12 +282,12 @@ web 文件：
 | 状态 | 数量 | 序号 |
 |------|------|------|
 | 完全还原 | 7 | C5, C7, C15, C26, C27, C28, C29 |
-| 简化还原 | 12 | C1, C3, C6, C8, C10, C12, C14, C16, C17, C18, C25, C30 |
+| 简化还原 | 14 | C1, C3, C6, C8, C10, C12, C14, C16, C17, C18, C19, C20, C25, C30 |
 | 还原错误 | 0 | （C29 已修复并验证 2026-06-12，升级为完全还原） |
-| 未还原 | 11 | C2, C4, C9, C11, C13, C19, C20, C21, C22, C23, C24 |
+| 未还原 | 9 | C2, C4, C9, C11, C13, C21, C22, C23, C24 |
 
-合计 30 项。（2026-06-12：C3 战绩面板由未还原→简化还原，C29 战绩通道由还原错误→完全还原。）
+合计 30 项。（2026-06-12：C3 战绩面板由未还原→简化还原，C29 战绩通道由还原错误→完全还原。2026-06-13：C19/C20 由未还原→简化还原。）
 
 ## 未还原 / 还原错误 索引
-- 未还原(11): C2 WaitingPhoto立绘角标、C4 房间信息面板、C9 房主自动补机器人、C11 更改房间设置、C13 踢房主+计时器、C19 游戏内菜单overlay、C20 投降、C21 设置面板、C22 四类一览总览、C23 弹幕、C24 录像控制条。
+- 未还原(9): C2 WaitingPhoto立绘角标、C4 房间信息面板、C9 房主自动补机器人、C11 更改房间设置、C13 踢房主+计时器、C21 设置面板、C22 四类一览总览、C23 弹幕、C24 录像控制条。
 - 还原错误(0): （C29 已修复并验证，升级为完全还原）

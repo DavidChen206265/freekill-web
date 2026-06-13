@@ -68,6 +68,7 @@ export class ClientVm {
   private fnReadPileNum: (() => string) | null = null
   private fnChangeSelf: ((pid: number) => string) | null = null
   private fnParseLog: ((hex: string) => string) | null = null
+  private fnCheckSurrender: (() => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -185,6 +186,7 @@ export class ClientVm {
               seat = p.seat, general = p.general, deputyGeneral = p.deputyGeneral,
               hp = p.hp, maxHp = p.maxHp, shield = p.shield, role = p.role, kingdom = p.kingdom,
               dead = p.dead, ready = p.ready, owner = p.owner,
+              state = (sp and sp.getState and sp:getState()) or 0,
               chained = p.chained, dying = p.dying, role_shown = p.role_shown, faceup = p.faceup,
               -- roleVisible mirrors RoleVisibility(p.id) = Self:roleVisible(p) (player.lua:1699):
               -- whether THIS client may see p's role. Photo.qml computes the shown role as
@@ -529,6 +531,17 @@ export class ClientVm {
         if not ok2 or type(text) ~= "string" then return "" end
         return text
       end
+      -- RoomPage.qml surrender dialog: CheckSurrenderAvailable() returns
+      -- [{ text, passed }] and an empty list means surrender is disabled.
+      function __fkCheckSurrenderAvailable()
+        local ok, checks = pcall(CheckSurrenderAvailable)
+        if not ok or type(checks) ~= "table" then return json.encode({ ok = false, checks = {} }) end
+        local out = {}
+        for _, c in ipairs(checks) do
+          out[#out+1] = { text = Translate(tostring(c.text)), passed = c.passed and true or false }
+        end
+        return json.encode({ ok = true, checks = out })
+      end
     `)
     this.fnFeed = lua.global.get('__fkFeed') as typeof this.fnFeed
     this.fnReadPlayers = lua.global.get('__fkReadPlayers') as typeof this.fnReadPlayers
@@ -555,6 +568,7 @@ export class ClientVm {
     this.fnReadPileNum = lua.global.get('__fkReadPileNum') as typeof this.fnReadPileNum
     this.fnChangeSelf = lua.global.get('__fkChangeSelf') as typeof this.fnChangeSelf
     this.fnParseLog = lua.global.get('__fkParseLog') as typeof this.fnParseLog
+    this.fnCheckSurrender = lua.global.get('__fkCheckSurrenderAvailable') as typeof this.fnCheckSurrender
 
     return {
       mountFiles: mount.files,
@@ -786,6 +800,13 @@ export class ClientVm {
     if (!this.fnGameSummary) return []
     try { return JSON.parse(this.fnGameSummary()) as GameSummaryRow[] } catch { return [] }
   }
+
+  /** RoomPage.qml surrender gate: [] = disabled in this mode; all passed = send
+   *  PushRequest("surrender,true"). Text is already localized by the VM. */
+  checkSurrenderAvailable(): { ok: boolean; checks: SurrenderCheck[] } {
+    if (!this.fnCheckSurrender) return { ok: false, checks: [] }
+    try { return JSON.parse(this.fnCheckSurrender()) as { ok: boolean; checks: SurrenderCheck[] } } catch { return { ok: false, checks: [] } }
+  }
 }
 
 export interface SkillInfo {
@@ -864,6 +885,7 @@ export interface VmPlayer {
   dead?: boolean
   ready?: boolean
   owner?: boolean
+  state?: number
   chained?: boolean
   dying?: boolean
   role_shown?: boolean
@@ -877,6 +899,11 @@ export interface VmPlayer {
   marks?: { name: string; value: string }[]
   picMarks?: { name: string; value: string; extra: string }[]
   isSelf?: boolean
+}
+
+export interface SurrenderCheck {
+  text: string
+  passed: boolean
 }
 
 interface EmFS { chdir(p: string): void }

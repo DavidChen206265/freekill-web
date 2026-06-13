@@ -91,28 +91,31 @@ PushRequest（其 payload 子命令：surrender / prelight / changeskin / update
 - 差异: 无
 
 ### P9 上报::KickPlayer
-- 状态: 未还原
+- 状态: 完全还原
 - 原版: Fk 房主 UI notifyServer("KickPlayer", pid)；asio room.cpp:936 room_actions["KickPlayer"]
-- web : 无（grep apps/web/src 无 KickPlayer 调用点）
+- web : apps/web/src/table/WaitingRoom.tsx (房主对非自己玩家显示「踢出」→ client.notify("KickPlayer", pid))
 - 原版行为: 房主在等待房可踢人
-- web 行为: web 等待房（WaitingRoom.tsx）未提供踢人按钮，从不发 KickPlayer
-- 差异: 房主踢人功能缺失（仅等待房 UI 能力缺口；协议层 gateway 可透传，但前端无触发点）
+- web 行为: 等待房房主可对其它玩家发送 KickPlayer；非房主/自己不显示踢人入口。
+- 差异: 无（C10 仍记录座位菜单/屏蔽聊天/机器人 minComp 等表现层简化）
+- 修复: 已修复并验证 (WaitingRoom 加房主踢人按钮 + canKickPlayer helper；web 174 测试、typecheck、build 通过；live compose probe 证明 KickPlayer 后被踢玩家回大厅，2026-06-13)
 
 ### P10 上报::Trust（托管）
-- 状态: 未还原
+- 状态: 完全还原
 - 原版: Fk 房内菜单 notifyServer("Trust")；asio room.cpp:939 room_actions["Trust"]
-- web : 无（grep 无 Trust 触发点）
+- web : apps/web/src/table/RoomMenuOverlay.tsx (对局菜单「托管/取消托管」→ client.notify("Trust",""))
 - 原版行为: 房内切换托管/取消托管，server 改 player state 为 trust
-- web 行为: web 房内无托管按钮，从不发 Trust
-- 差异: 托管功能缺失（前端无触发点）
+- web 行为: 房内菜单可发送 Trust；NetStateChanged 由 VM 应用后经 readPlayers state 快照显示托管状态。
+- 差异: 无（D23 状态图标仍属 Photo 表现层缺口）
+- 修复: 已修复并验证 (RoomMenuOverlay 加 Trust 入口；clientVm/readPlayers 暴露 player state；web 174 测试、typecheck、build 通过；live compose probe 收到 NetStateChanged，2026-06-13)
 
 ### P11 上报::PushRequest::surrender（投降）
-- 状态: 未还原
+- 状态: 完全还原
 - 原版: Fk/Pages/Common/RoomPage.qml:327-329 notifyServer("PushRequest","surrender,true")；asio room.cpp:944-952 PushRequest → pushRequest("<pid>,surrender,true")
-- web : 无（grep apps/web/src 无 surrender / PushRequest 触发点）
+- web : apps/web/src/table/RoomMenuOverlay.tsx + apps/web/src/vm/clientVm.ts (CheckSurrenderAvailable 桥；确认后 client.notify("PushRequest","surrender,true"))
 - 原版行为: 房内投降，先 CheckSurrenderAvailable 校验再上报
-- web 行为: web 无投降 UI，从不发 PushRequest("surrender")
-- 差异: 投降功能缺失（前端无触发点；gateway 可透传 PushRequest）
+- web 行为: 房内菜单打开投降确认，显示 CheckSurrenderAvailable 条件，且确认时重新校验；全通过才发 PushRequest("surrender,true")。
+- 差异: 无（C19 overlay 外观仍为简化）
+- 修复: 已修复并验证 (RoomMenuOverlay + __fkCheckSurrenderAvailable；web 174 测试、typecheck、build 通过；live compose probe 发送 PushRequest surrender 无错误/断连，2026-06-13)
 
 ### P12 上报::PushRequest::prelight（预亮技能）
 - 状态: 未还原
@@ -240,15 +243,15 @@ PushRequest（其 payload 子命令：surrender / prelight / changeskin / update
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 18 | P1 P2 P3 P4 P5 P6 P7 P8 P15 P17 P18 P19 P20 P21 P22 P23 P24 P25 |
+| 完全还原 | 21 | P1 P2 P3 P4 P5 P6 P7 P8 P9 P10 P11 P15 P17 P18 P19 P20 P21 P22 P23 P24 P25 |
 | 简化还原 | 1 | P16 |
 | 还原错误 | 0 | — |
-| 未还原 | 6 | P9 P10 P11 P12 P13 P14 |
+| 未还原 | 3 | P12 P13 P14 |
 | 合计 | 25 | |
 
 ## 未还原 / 还原错误 序号索引
 
-- **未还原（6）**：P9 KickPlayer（房主踢人）、P10 Trust（托管）、P11 PushRequest::surrender（投降）、P12 PushRequest::prelight（预亮技能）、P13 PushRequest::changeskin/updatemini（换肤）、P14 ChangeRoom（改房设置）
+- **未还原（3）**：P12 PushRequest::prelight（预亮技能）、P13 PushRequest::changeskin/updatemini（换肤）、P14 ChangeRoom（改房设置）
   - 共性：均为 **client→server 上报且前端缺触发 UI**。gateway 透传层本身能传 PushRequest/对应命令（P1 已证），缺口纯在 web 前端未提供按钮/入口。无一是 gateway 改写/丢弃导致。
 - **还原错误（0）**：无。
 - **简化还原（1）**：P16 登录完成判定改用 gateway 命令白名单启发式（语义等价，存在白名单遗漏的理论风险面）。

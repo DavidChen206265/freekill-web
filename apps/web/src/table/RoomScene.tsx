@@ -15,6 +15,7 @@ import { Toast } from './Toast.js'
 import { GameOverModal } from './GameOverModal.js'
 import { GeneralDetailModal } from './GeneralDetailModal.js'
 import { BannerArea } from './BannerArea.js'
+import { RoomMenuOverlay } from './RoomMenuOverlay.js'
 import { useGameStore } from '../stores/gameStore.js'
 
 export function RoomScene() {
@@ -40,6 +41,7 @@ export function RoomScene() {
       <GameLogPanel />
       <RoomChatPanel />
       <MiscStatus />
+      <RoomMenuOverlay />
       <Toast />
       <RequestPopup />
       <GameOverModal />

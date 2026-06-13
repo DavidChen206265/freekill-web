@@ -54,14 +54,16 @@
 - 标准三包不触发(audit O 确认),扩展包对局必需;若 VM 镜像已含状态则低成本补渲染。
 
 ### N1-3 对局上报入口(audit P 阶段:asio 支持、web 无前端入口)
+状态:已完成并验证(2026-06-13)。P9/P10/P11 已从未还原升级为完全还原;C19/C20 降为简化还原。
+
 - 投降(PushRequest surrender)、托管(Trust)、房主踢人(KickPlayer)。
 - 配合 audit C19/C20:对局内菜单 overlay + 投降按钮。
 
 近期执行拆分:
 
-1. **投降 + 对局内菜单 overlay**:先做局内菜单入口与确认框,确认后发送 `PushRequest("surrender,true")`。验证:发送命令的单测/封装测试 + 真 asio/Web 手测。
-2. **托管 Trust**:在同一局内菜单或明确控制入口加入托管切换,发送 `Trust` 并通过 VM/NetStateChanged 反映状态。验证:命令发送测试 + 真 asio/Web 手测。
-3. **房主踢人 KickPlayer**:在等待房房主可见的座位/玩家菜单加入踢人入口,非房主隐藏或禁用,发送 `KickPlayer`。验证:owner/non-owner UI 测试 + 真 asio/Web 手测。
+1. **投降 + 对局内菜单 overlay**:已完成。局内菜单入口与确认框,确认时重跑 CheckSurrenderAvailable,通过后发送 `PushRequest("surrender,true")`。
+2. **托管 Trust**:已完成。同一局内菜单可发送 `Trust`,并通过 VM/NetStateChanged/readPlayers state 反映状态。
+3. **房主踢人 KickPlayer**:已完成。等待房房主可见「踢出」按钮,非房主/自己隐藏,发送 `KickPlayer`。
 4. **N2 低成本状态视觉紧随其后**:N1-3 闭环后立即做 playing 高亮、faceturned 翻面、saveme 垂死三项纯渲染缺口。
 
 暂不插队:手牌拖拽/超级拖拽/双击(N1-4)涉及 CardLayer 交互面较大;总览/详情页族和个性化账户也不抢在 N1-3 前。
@@ -111,9 +113,9 @@
 
 ## 近期推荐顺序
 
-1. **当前立即做 N1-3 对局上报入口**:按「投降菜单 → 托管 Trust → 房主踢人 KickPlayer」顺序,每个入口都要能证明发出了正确协议命令。
-2. **随后做 N2 低成本状态视觉**:playing 高亮、faceturned 翻面、saveme 垂死,数据已在 VM/玩家快照中,优先纯渲染补齐。
-3. **再回到 N1-4 出牌交互**:手牌拖拽、超级拖拽、双击使用、手牌速览/上限显示;这是更大的 CardLayer 交互面,不与 N1-3 混做。
+1. **当前立即做 N2 低成本状态视觉**:playing 高亮、faceturned 翻面、saveme 垂死,数据已在 VM/玩家快照中,优先纯渲染补齐。
+2. **再回到 N1-4 出牌交互**:手牌拖拽、超级拖拽、双击使用、手牌速览/上限显示;这是更大的 CardLayer 交互面,不与 N2 状态视觉混做。
+3. **随后补 N1-3 周边剩余简化项**:完整 RoomOverlay 按钮列/Esc/缩放、等待房 photoMenu/Block Chatter/机器人 minComp 踢人约束、踢房主计时器。
 4. **之后推进等待房 WaitingPhoto → 总览/详情页框架 → 建房/个人设置族**。
 5. **N3 账户个性化(房间预设/禁将)** → N4 生产化(session token 优先)。
 6. **N5 观感打磨 / N6 工坊+AI** 按产品节奏排。

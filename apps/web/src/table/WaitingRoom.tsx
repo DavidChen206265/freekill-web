@@ -8,6 +8,7 @@
 import { useGameStore } from '../stores/gameStore.js'
 import { useConnectionStore } from '../stores/index.js'
 import { useServerManifestStore } from '../stores/serverManifestStore.js'
+import { canKickPlayer, playerStateLabel } from './roomActions.js'
 import { deriveWaitingState } from './waitingState.js'
 
 export function WaitingRoom() {
@@ -23,8 +24,13 @@ export function WaitingRoom() {
   const list = Object.values(players)
   const { playerNum, isFull, showReady, showAddRobot, showStart, startEnabled, isReady } =
     deriveWaitingState(players, selfId, capacity, received ? webFeatures : undefined)
+  const selfIsOwner = selfId !== undefined ? !!players[selfId]?.owner : false
 
   const notify = (cmd: string) => () => client?.notify(cmd, '')
+  const kickPlayer = (pid: number) => {
+    if (!window.confirm('确定将该玩家移出房间？')) return
+    client?.notify('KickPlayer', pid)
+  }
 
   // Seats: real players first (by index), then sealed empty slots up to capacity.
   const seats: ({ id: number } | null)[] = []
@@ -51,6 +57,10 @@ export function WaitingRoom() {
                   <div style={{ ...styles.readyTag, color: p.ready ? '#2ecc71' : '#888' }}>
                     {p.owner ? '—' : p.ready ? '已准备' : '未准备'}
                   </div>
+                  {p.state !== undefined && p.state !== 1 && playerStateLabel(p.state) && <div style={styles.stateTag}>{playerStateLabel(p.state)}</div>}
+                  {canKickPlayer(selfId, p, selfIsOwner) && (
+                    <button style={styles.kickBtn} onClick={() => kickPlayer(p.id)}>踢出</button>
+                  )}
                   <WinRatePanel data={p.gameData} />
                 </>
               ) : (
@@ -118,6 +128,8 @@ const styles: Record<string, React.CSSProperties> = {
   name: { fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 },
   ownerTag: { fontSize: 10, background: '#d4af37', color: '#222', borderRadius: 3, padding: '0 4px' },
   readyTag: { fontSize: 12 },
+  stateTag: { fontSize: 10, color: '#cfd6df', lineHeight: 1 },
+  kickBtn: { padding: '2px 8px', border: '1px solid #855', borderRadius: 4, background: '#5c2424', color: '#fff', cursor: 'pointer', fontSize: 11 },
   winRate: { fontSize: 10, lineHeight: 1.25, textAlign: 'center', background: '#CC3C3229', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 6, padding: '2px 6px', minWidth: 96 },
   actions: { display: 'flex', gap: 12 },
   btn: { padding: '10px 28px', border: 'none', borderRadius: 6, background: '#0e639c', color: '#fff', fontSize: 16, cursor: 'pointer' },

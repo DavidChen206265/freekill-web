@@ -28,6 +28,8 @@ export interface GamePlayer {
   dead?: boolean
   ready?: boolean
   owner?: boolean
+  /** ServerPlayer state (fk.Player_*): 1 online, 2 trust, 3 run, 5 robot, 6 offline. */
+  state?: number
   chained?: boolean
   dying?: boolean
   role_shown?: boolean
@@ -91,6 +93,7 @@ export interface VmPlayerLike {
   dead?: boolean
   ready?: boolean
   owner?: boolean
+  state?: number
   shield?: number
   chained?: boolean
   dying?: boolean
@@ -192,7 +195,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   backToRoom: (capacity) => set((s) => {
     const players: Record<number, GamePlayer> = {}
     for (const [id, p] of Object.entries(s.players)) {
-      players[Number(id)] = { id: p.id, name: p.name, avatar: p.avatar, index: p.index, seat: p.seat, owner: p.owner, ready: p.ready, marks: {} }
+      players[Number(id)] = { id: p.id, name: p.name, avatar: p.avatar, index: p.index, seat: p.seat, owner: p.owner, ready: p.ready, state: p.state, marks: {} }
     }
     return { started: false, winner: undefined, capacity, seatOrder: [], selfSkills: [], players }
   }),
@@ -219,6 +222,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           dead: vp.dead ?? prev.dead,
           ready: vp.ready ?? prev.ready,
           owner: vp.owner ?? prev.owner,
+          state: vp.state ?? prev.state,
           chained: vp.chained ?? prev.chained,
           dying: vp.dying ?? prev.dying,
           role_shown: vp.role_shown ?? prev.role_shown,
