@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeStageViewport, STAGE_H, STAGE_W } from '../src/table/stageViewport.js'
+import { computeStageLayout, computeStageViewport, STAGE_H, STAGE_W } from '../src/table/stageViewport.js'
 
 describe('stage viewport sizing', () => {
   it('keeps desktop scaling on window inner size even when visualViewport differs', () => {
@@ -92,5 +92,26 @@ describe('stage viewport sizing', () => {
     expect(state.width).toBe(844)
     expect(state.height).toBe(390)
     expect(state.scale).toBeCloseTo(Math.min(844 / STAGE_W, 390 / STAGE_H))
+  })
+
+  it('lays out the fixed stage so at least one axis fills the container', () => {
+    const layout = computeStageLayout(2844, 1280)
+
+    expect(layout.scale).toBeCloseTo(Math.min(2844 / STAGE_W, 1280 / STAGE_H))
+    expect(STAGE_W * layout.scale).toBeCloseTo(2844)
+    expect(layout.left).toBeCloseTo(0)
+    expect(layout.top).toBeGreaterThanOrEqual(0)
+  })
+
+  it('centers green bars on the spare axis without changing aspect ratio', () => {
+    const wide = computeStageLayout(2400, 900)
+    expect(STAGE_H * wide.scale).toBeCloseTo(900)
+    expect(wide.left).toBeGreaterThan(0)
+    expect(wide.top).toBeCloseTo(0)
+
+    const tall = computeStageLayout(1000, 900)
+    expect(STAGE_W * tall.scale).toBeCloseTo(1000)
+    expect(tall.left).toBeCloseTo(0)
+    expect(tall.top).toBeGreaterThan(0)
   })
 })

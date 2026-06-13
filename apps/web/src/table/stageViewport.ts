@@ -23,6 +23,14 @@ export interface StageViewportState {
   scale: number
 }
 
+export interface StageLayoutState {
+  width: number
+  height: number
+  scale: number
+  left: number
+  top: number
+}
+
 function positive(value: number | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
@@ -49,6 +57,19 @@ export function computeStageViewport(input: StageViewportInput): StageViewportSt
     width,
     height,
     scale: Math.min(width / STAGE_W, height / STAGE_H),
+  }
+}
+
+export function computeStageLayout(width: number, height: number): StageLayoutState {
+  const safeWidth = positive(width) ? width : STAGE_W
+  const safeHeight = positive(height) ? height : STAGE_H
+  const scale = Math.min(safeWidth / STAGE_W, safeHeight / STAGE_H)
+  return {
+    width: safeWidth,
+    height: safeHeight,
+    scale,
+    left: (safeWidth - STAGE_W * scale) / 2,
+    top: (safeHeight - STAGE_H * scale) / 2,
   }
 }
 
