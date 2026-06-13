@@ -21,4 +21,21 @@ describe('general portrait manifest pruning', () => {
     ])
     expect(skin.generalPicCandidates('blank_shibing', 'maneuvering')).toEqual([])
   })
+
+  it('falls back to probing portraits when images.json is an old card-only manifest', async () => {
+    vi.resetModules()
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ['packages/standard_cards/image/card/jink.png'],
+    })))
+
+    const skin = await import('../src/table/skin.js')
+    await skin.loadImageManifest()
+    skin.setArtPacks(['standard', 'sp'])
+
+    expect(skin.generalPicCandidates('caocao', 'standard')).toEqual([
+      '/fk/packages/standard/image/generals/caocao.jpg',
+      '/fk/packages/sp/image/generals/caocao.jpg',
+    ])
+  })
 })

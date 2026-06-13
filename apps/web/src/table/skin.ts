@@ -45,6 +45,15 @@ export function isImageManifestLoaded(): boolean {
 // Keep only candidates that exist per the manifest. Before the manifest loads (or if
 // it's empty/unavailable) return the list unchanged so the <img> onError chain still
 // works — only the console-noise reduction is deferred, never correctness.
+function manifestHasAny(match: (path: string) => boolean): boolean {
+  const m = imageManifest
+  if (!m || m.size === 0) return false
+  for (const path of m) {
+    if (match(path)) return true
+  }
+  return false
+}
+
 function pruneToExisting(urls: string[], fallbackWhenEmpty = true): string[] {
   const m = imageManifest
   if (!m || m.size === 0) return urls
@@ -83,6 +92,9 @@ export function generalPicCandidates(name: string, ext?: string): string[] {
     const u = `${FK}/packages/${p}/image/generals/${name}.jpg`
     if (!urls.includes(u)) urls.push(u)
   }
+  // Older generated images.json files only listed card PNGs. Treat those manifests
+  // as non-authoritative for portraits; otherwise every general candidate is pruned.
+  if (!manifestHasAny((p) => p.includes('/image/generals/'))) return urls
   return pruneToExisting(urls, false)
 }
 
@@ -100,6 +112,7 @@ export function generalDualPicCandidates(name: string, ext?: string): string[] {
     const u = `${FK}/packages/${p}/image/generals/dual/${name}.jpg`
     if (!dual.includes(u)) dual.push(u)
   }
+  if (!manifestHasAny((p) => p.includes('/image/generals/'))) return [...dual, ...generalPicCandidates(name, ext)]
   // dual/ paths first (pruned to existing), then the normal-portrait fallback chain.
   return [...pruneToExisting(dual, false), ...generalPicCandidates(name, ext)]
 }
