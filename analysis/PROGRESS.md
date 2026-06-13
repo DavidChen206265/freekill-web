@@ -33,6 +33,7 @@
 - **fork 仓库布局(2026-06-11 用户拍板)**:服务端 fork 用**独立 git 目录 `freekill-web-asio/`**(远端 `https://github.com/DavidChen206265/freekill-web-asio`,建好时为空待推源码),`freekill-asio/` 保留为只读 diff 基线。否决“直接改 `freekill-asio` 目录”(与 CLAUDE.md 只读约定冲突)。Docker 构建源待切到 fork。
 - **terminal 中文输出(2026-06-11 用户要求)**:直接给用户看的回复用简体中文,已写入 `CLAUDE.md`/`AGENTS.md`「输出语言」节。
 - **Codex 工作流转换(2026-06-13)**:Claude Code 工作流已 1:1 转为 Codex 可执行入口:部署根 `AGENTS.md` 承接项目规则,`.codex/scripts/session-start.mjs` 替代 SessionStart hook,`.codex/scripts/sync.mjs` 替代 `/sync` slash command,二者复用 `.claude/scripts/project-state.mjs` 作为唯一事实快照生成器。分析与映射见 `analysis/CODEX_WORKFLOW.md`。
+- **Codex 工作流迁移包(2026-06-13)**:新增 `analysis/CODEX_WORKFLOW_RESTORE.md` 与 `analysis/CODEX_WORKFLOW_BUNDLE_MANIFEST.md`,用于把当前 Codex 工作流 1:1 迁移到另一台设备。当前本机包位于部署根 `freekill-web-codex-workflow-migration-20260613.tar.gz`,包含根规则、`.codex`/`.claude` 工作流脚本、analysis/audit 入口、裁剪后的 `~/.codex/skills` 快照和恢复校验元数据;不包含业务源码全集、上游版权资源、secrets、本机 `.claude/settings.local.json` 或部署脚本。
 - **通用行为准则并入工作流(2026-06-13)**:所有 AI agent 必须先明确假设/成功标准/验证方式,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标闭环;已同步写入部署根 `CLAUDE.md` 与 `AGENTS.md`。
 - **Codex 第三方技能库(2026-06-13)**:`alirezarezvani/claude-skills` 已克隆到 `~/.codex/skill-repos/claude-skills`。`~/.codex/skills` 已按 freekill-web 裁剪为 38 个顶层目录(含 `.system`),只保留工程开发/测试/调试/部署/安全/性能/skill 自维护相关技能;其余 290 个归档到 `~/.codex/skills-archive/freekill-web-20260613-0638/`。新增 `.codex/scripts/select-skill.mjs` 用于按任务描述选择候选 skill;已修复 `md-slides`/`design-system`/`skill-tester` sample 的 frontmatter 加载报错,当前安装目录 43 个递归 `SKILL.md` 均通过 PyYAML 解析。使用前必须完整读取对应 `SKILL.md`,且项目硬约束优先。
 - 客户端逻辑层 = WASM 托管原版 Lua(见 freekill_web_implementation_plan.md §4)。
@@ -42,6 +43,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **Codex 工作流迁移包完成(本次)**。新增 `analysis/CODEX_WORKFLOW_RESTORE.md`(另一个 Codex 的还原指南)与 `analysis/CODEX_WORKFLOW_BUNDLE_MANIFEST.md`(包清单),并在部署根生成 `freekill-web-codex-workflow-migration-20260613.tar.gz`。包内包含 `AGENTS.md`/`CLAUDE.md`、`.codex/scripts/*`、`.claude/scripts/project-state.mjs`、Claude `project-sync` 参考、analysis/audit 入口、当前裁剪版 `~/.codex/skills` 快照、第三方 skills 源仓库修补 diff 与元数据;显式排除 secrets、本机 settings.local、上游版权资源、完整源码仓库和部署脚本。验证:tar 内容检查未命中 `settings.local|.env|.pem|.key|public/fk|packages-upstream|node_modules|deploy.sh`;包内 43 个 `SKILL.md` frontmatter 解析 `errors=0`。
 
 - 2026-06-13 **托管进入/Photo 手动坐标/超级拖拽释放确认修复完成并验证(本次)**。保留并应用用户对 `Photo.tsx` 的手动坐标:身份图标 `top:-6.5/right:-5`,底栏裁剪,姓名/座位相对偏移,手牌徽章 `left:-20/bottom:-15`,势力图标 `32px` 并允许出框。修复点击「托管」后进入托管又被旧 VM 快照瞬间带回在线态的问题:RoomMenuOverlay 不再乐观写本地 Self player state,只用 `trustUiStore.pending` 表示进入/退出 pending,直到服务端 NetStateChanged/readPlayers 校准。补强超级拖拽:移动中先选牌并经过 Photo 时切换目标;释放到 OK 区时按顺序补选牌/补目标并重新读取 OK enabled 后确认,避免旧渲染快照导致无法拖到目标或 OK 使用。验证:web 35 文件/187 测试、typecheck、build 全绿。audit 更新:P10/D24/D57/E14/E15 追加补强说明,计数不变。
 
