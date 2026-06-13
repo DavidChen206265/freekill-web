@@ -61,7 +61,7 @@ function TrembleDriver({ effect, boxRef }: { effect: PlayerEffect | undefined; b
 // (never invented art). Exported so CardLayer can play setCardEmotion on a table card.
 const FRAME_MS = 50 // PixmapAnimation.qml interval
 
-export function EmotionSprite({ emotion, scale = 0.75 }: { emotion: string; scale?: number }) {
+export function EmotionSprite({ emotion, scale = 0.75, loop = false }: { emotion: string; scale?: number; loop?: boolean }) {
   const [frames, setFrames] = useState<number | null>(null)
   const [frame, setFrame] = useState(0)
   const { key, base } = resolveAnim(emotion)
@@ -92,8 +92,8 @@ export function EmotionSprite({ emotion, scale = 0.75 }: { emotion: string; scal
       const tick = () => {
         if (cancelled) return
         const i = Math.floor((performance.now() - t0) / FRAME_MS)
-        if (i >= frames) { setFrame(-1); return } // done, hide
-        setFrame(i)
+        if (!loop && i >= frames) { setFrame(-1); return } // done, hide
+        setFrame(loop ? i % frames : i)
         raf = requestAnimationFrame(tick)
       }
       raf = requestAnimationFrame(tick)
@@ -110,7 +110,7 @@ export function EmotionSprite({ emotion, scale = 0.75 }: { emotion: string; scal
     timer = window.setTimeout(() => { if (!cancelled) start() }, 600)
     setFrame(0)
     return () => { cancelled = true; cancelAnimationFrame(raf); clearTimeout(timer); imgs.forEach((im) => { im.onload = im.onerror = null }) }
-  }, [frames, base])
+  }, [frames, base, loop])
 
   if (!frames || frames <= 0 || frame < 0) return null
   return (

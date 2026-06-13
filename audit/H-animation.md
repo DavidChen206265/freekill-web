@@ -14,20 +14,21 @@ web：`/home/ubuntu/freekill/freekill-vps-deploy/freekill-web/`
 - 原版: `Fk/Components/LunarLTK/PixmapAnimation.qml`:27-98（Repeater 帧 Image + Timer 50ms 推进 + start/stop/loop/keepAtStop + loaded/started/finished 信号；`Backend.ls(folder).length` 取帧数）
 - web : `apps/web/src/table/PhotoEffects.tsx`:88-149 (`EmotionSprite`)
 - 原版行为: 加载目录下全部编号帧 Image；Timer interval 50ms repeat；currentFrame 推进，前帧 visible=false 后帧 true；到尾若 loop 则归零，否则 stop + finished()；keepAtStop 控制末帧是否保留；autoStart 在 loaded 后启动；fileModel 由 `Backend.ls` 在 Component.onCompleted 数出。
-- web 行为: fetch `/fk/anim.json` 取帧数（浏览器不能 ls 目录，构建期生成 manifest）；预加载全部帧 PNG 后再播；用 requestAnimationFrame + 墙钟 `performance.now()` 推进（非 timer tick）；FRAME_MS=50 一致；一次性（无 loop 暴露）；600ms 预载超时兜底；末帧后 setFrame(-1) 隐藏（≈非 keepAtStop）。
-- 差异: 帧数来源由 manifest 取代 ls（必要的浏览器适配，行为等价）；驱动方式改 rAF+墙钟（比 QML 50ms Timer 更稳，视觉等价）；未暴露 loop/keepAtStop/started 信号——下文循环精灵（playing/selected/selectable）因此缺失。
+- web 行为: fetch `/fk/anim.json` 取帧数（浏览器不能 ls 目录，构建期生成 manifest）；预加载全部帧 PNG 后再播；用 requestAnimationFrame + 墙钟 `performance.now()` 推进（非 timer tick）；FRAME_MS=50 一致；支持 loop；600ms 预载超时兜底；非 loop 末帧后 setFrame(-1) 隐藏（≈非 keepAtStop）。
+- 差异: 帧数来源由 manifest 取代 ls（必要的浏览器适配，行为等价）；驱动方式改 rAF+墙钟（比 QML 50ms Timer 更稳，视觉等价）；未暴露 keepAtStop/started 信号；selected/selectable 循环精灵仍缺失。
 
 ---
 
 ## 二、Photo 上的逐帧循环精灵（未经 server 指令，纯状态驱动）
 
 ### H2 Photo精灵::playing（出牌中循环光环）
-- 状态: 未还原
+- 状态: 完全还原
 - 原版: `Fk/Components/LunarLTK/Photo.qml`:51-59 (`animPlaying`，source `pixAnimDir+"playing"`，loop:true，scale 0.825，visible/running 绑定 `root.playing`)
-- web : 无
+- web : `apps/web/src/table/Photo.tsx`:173 (`EmotionSprite emotion="playing" scale=0.825 loop`) + `clientVm.ts`:191 (`ClientInstance.current`)
 - 原版行为: 当前行动玩家 Photo 上持续循环播放 playing 光环动画精灵（PropertyUpdate phase<8 → playing=true，RoomLogic.js:663-666）。
-- web 行为: Photo.tsx 无任何 playing 精灵；行动玩家仅靠 PhotoFocusBar 倒计时条 + 选将描边体现，无循环光环动画。
-- 差异: 整个循环光环精灵缺失。
+- web 行为: VM 快照标记当前行动者，Photo 上持续循环播放原版 `playing` 帧动画，scale 0.825。
+- 差异: 无。
+- 修复: 已修复并验证 (EmotionSprite 新增 loop;Photo 渲染原版 playing 帧;gameStore/skin 单测、typecheck、build 全绿。2026-06-13,未还原→完全还原。)
 
 ### H3 Photo精灵::selected（候选已选循环光环）
 - 状态: 未还原
@@ -161,8 +162,9 @@ web：`/home/ubuntu/freekill/freekill-vps-deploy/freekill-web/`
 - 原版: `Photo.qml`:226-239（saveme/surrender/role 死亡图，按 surrendered/dead/dying 切换，`getRoleDeathPic(role)`）+ `PhotoBase.qml`:181-187（Colorize saturation0 opacity 过渡 300ms 灰度化）
 - web : `Photo.tsx`:88（`filter: grayscale(1) brightness(0.6)`）+ 176-179（`deathPic(role)` 阵亡贴图）
 - 原版行为: 死亡→按身份贴 role 死亡图；投降→surrender 图；濒死(dying,!rest)→saveme 求救图；立绘 Colorize 去饱和 300ms 淡入灰度。
-- web 行为: dead→灰度+压暗滤镜 + role 死亡贴图；无濒死 saveme 图、无投降 surrender 图、无 300ms 灰度过渡动画（直接切）。
-- 差异: 缺濒死求救图（dying/saveme）与投降图（surrender）；灰度无 300ms Behavior 过渡（瞬切）；death 贴图位置/缩放近似。
+- web 行为: dead→灰度+压暗滤镜 + role 死亡贴图；dying 且未 dead→saveme 求救图；无投降 surrender 图、无 300ms 灰度过渡动画（直接切）。
+- 差异: 缺投降图（surrender）；灰度无 300ms Behavior 过渡（瞬切）；death 贴图位置/缩放近似。
+- 修复: 已修复并验证 (Photo 消费 dying 并渲染 saveme 原版贴图;skin 路径单测、typecheck、build 全绿。2026-06-13,仍为简化还原。)
 
 ---
 
@@ -249,14 +251,13 @@ web：`/home/ubuntu/freekill/freekill-vps-deploy/freekill-web/`
 
 | 状态 | 序号 | 计数 |
 |------|------|------|
-| 完全还原 | H6, H11, H12, H13, H14, H15, H16, H17, H18 | 9 |
+| 完全还原 | H2, H6, H11, H12, H13, H14, H15, H16, H17, H18 | 10 |
 | 简化还原 | H1, H5, H7, H8, H9, H19, H20, H21, H22, H23, H24, H25 | 12 |
 | 还原错误 | （无；H6 已修复并验证 2026-06-12） | 0 |
-| 未还原 | H2, H3, H4, H10, H26, H27 | 6 |
+| 未还原 | H3, H4, H10, H26, H27 | 5 |
 | 合计 | | 27 |
 
 ### 未还原索引
-- H2 Photo精灵::playing（出牌循环光环）
 - H3 Photo精灵::selected（候选已选循环光环）
 - H4 Photo精灵::selectable（候选可选循环光环）
 - H10 Animate::SuperLightBox（剧情全屏动画）

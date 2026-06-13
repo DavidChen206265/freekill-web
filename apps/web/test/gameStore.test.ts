@@ -13,7 +13,7 @@ describe('gameStore.backToRoom', () => {
     const g = useGameStore.getState()
     // Seed a finished-game roster with rich per-game state.
     g.syncPlayers([
-      { id: 1, name: 'alice', avatar: 'a1', seat: 1, owner: true, ready: true, general: 'caocao', hp: 2, maxHp: 4, role: 'lord', dead: false, marks: [{ name: '@x', value: '3' }] },
+      { id: 1, name: 'alice', avatar: 'a1', seat: 1, owner: true, ready: true, general: 'caocao', hp: 2, maxHp: 4, role: 'lord', dead: false, playing: true, marks: [{ name: '@x', value: '3' }] },
       { id: 2, name: 'bob', avatar: 'a2', seat: 2, owner: false, ready: true, general: 'liubei', hp: 0, maxHp: 4, role: 'rebel', dead: true },
     ], true)
     expect(useGameStore.getState().players[1]!.general).toBe('caocao')
@@ -34,9 +34,29 @@ describe('gameStore.backToRoom', () => {
     expect(s.players[1]!.general).toBeUndefined()
     expect(s.players[1]!.hp).toBeUndefined()
     expect(s.players[1]!.role).toBeUndefined()
+    expect(s.players[1]!.playing).toBeUndefined()
     expect(s.players[1]!.displayMarks ?? []).toEqual([])
     expect(s.players[2]!.dead).toBeUndefined()
     expect(s.players[2]!.general).toBeUndefined()
+  })
+})
+
+describe('gameStore.syncPlayers playing mirror', () => {
+  it('updates the current-player marker from each VM mirror snapshot', () => {
+    const g = useGameStore.getState()
+    g.syncPlayers([
+      { id: 1, name: 'alice', avatar: 'a1', playing: true },
+      { id: 2, name: 'bob', avatar: 'a2', playing: false },
+    ], true)
+    expect(useGameStore.getState().players[1]!.playing).toBe(true)
+    expect(useGameStore.getState().players[2]!.playing).toBe(false)
+
+    g.syncPlayers([
+      { id: 1, name: 'alice', avatar: 'a1', playing: false },
+      { id: 2, name: 'bob', avatar: 'a2', playing: true },
+    ], true)
+    expect(useGameStore.getState().players[1]!.playing).toBe(false)
+    expect(useGameStore.getState().players[2]!.playing).toBe(true)
   })
 })
 

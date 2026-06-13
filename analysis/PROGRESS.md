@@ -4,9 +4,9 @@
 
 ## 当前阶段
 
-**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:N1-1 还原错误 10 条已清零,N1-2 限定/觉醒/转换技与 banner/mark 区已完成并部署,N1-3 投降/托管/房主踢人入口已完成并验证;下一步集中做 **N2 低成本状态视觉**(playing 高亮 → faceturned 翻面 → saveme 垂死贴图),执行顺序见 `WEB_ONLY_ROADMAP.md`。
+**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:N1-1 还原错误 10 条已清零,N1-2 限定/觉醒/转换技与 banner/mark 区已完成并部署,N1-3 投降/托管/房主踢人入口已完成并验证,N2 低成本状态视觉(playing 高亮/faceturned 翻面/saveme 垂死贴图)已完成并验证;下一步建议进入 **N1-4 出牌交互/手牌信息** 或 N2 后续页面族,执行顺序见 `WEB_ONLY_ROADMAP.md`。
 
-基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;完全还原率 165/459≈36%。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
+基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;当前完全还原率 179/459≈39%。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
 
 服务端改动进独立 fork `freekill-web-asio`(GitHub `DavidChen206265/freekill-web-asio`,项目内目录 `freekill-web-asio/`,自带 git;`freekill-asio/` 留作只读 diff 基线);Docker 构建源已切到 fork。fork HEAD 见 PROJECT_STATE.md。push 须经用户允许(见 CLAUDE.md「Git 工作流」)。长期/短期计划以 `freekill_web_implementation_plan.md` + `WEB_ONLY_ROADMAP.md` 为准。
 
@@ -19,7 +19,8 @@
 **已完成 W0/PACE/FEAT-IG/W1-RES;现进入审计驱动的缺口收尾。执行顺序见 `WEB_ONLY_ROADMAP.md`(2026-06-13 据当前部署状态更新):**
 
 - **N1 对局正确性(最高优先)**:① 还原错误 10 条已完成(audit 错误 10→0);② 限定/觉醒/转换技显示 + SetBanner/UpdateMarkArea 已完成并部署;③ 投降/托管/踢人上报入口 + 最小对局菜单 overlay 已完成并 live 验证;④ 之后再做出牌交互(拖拽/双击)+ 手牌速览/上限。
-- **N2 当前执行**:行动者 playing 高亮、faceturned 翻面、saveme 垂死贴图。数据已镜像未消费,应按纯渲染小切片完成并验证。
+- **N2 当前小切片**:已完成。行动者 playing 高亮、faceturned 翻面、saveme 垂死贴图已接入 VM 镜像并通过测试/typecheck/build。
+- **下一步建议**:优先 N1-4 出牌交互/手牌信息(拖拽/双击/超级拖拽、`n/maxCard/∞`、HandcardViewer),其次 N2 后续总览/详情/战绩页族。
 - **N2 后续**:总览/详情/战绩页族(audit J 23 条)、建房筛选/禁将子系统、个人设置族、等待房 WaitingPhoto。
 - **N3 Web 账户与个性化**:`globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
 - **N4 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
@@ -41,6 +42,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **N2 低成本状态视觉完成并验证(本次)**。补齐 D12/H2 playing、D20 faceturned、D22/H19 saveme:VM `readPlayers` 增加 `playing = ClientInstance.current.id==p.id`,gameStore 同步后 Photo 复用 `EmotionSprite loop` 播原版 `/fk/image/anim/playing` 帧;`faceup=false` 时按原版位置/0.75 尺寸叠 `faceturned.png`;`dying&&!dead` 时叠 `death/saveme.png`。`EmotionSprite` 新增默认关闭的 loop 参数,不影响既有一次性 emotion/skill 动画。验证:`pnpm --filter @freekill-web/web test -- skin gameStore`(当前配置实际跑全部 32 文件/175 测试)、typecheck、build 全绿。audit 更新:D12/H2 未→完全,D20 未→简,D22/H19 既有简化项内补强;全局计数 未145 / 简135 / 错0 / 完179。下一步建议:N1-4 出牌交互/手牌信息。
 
 - 2026-06-13 **N1-3 对局上报入口完成并验证(本次)**。补齐 P9/P10/P11:等待房房主可对其它玩家发送 `KickPlayer`;局内新增最小 `RoomMenuOverlay`,可发送 `Trust`,并通过 `NetStateChanged`→VM→`readPlayers.state` 反映托管状态;投降按钮调用新 VM 桥 `CheckSurrenderAvailable`,展示条件,确认时重新校验,全通过后发送 `PushRequest("surrender,true")`。C19/C20 仍因非完整原版 overlay/侧栏/Esc/设置/总览入口记为简化还原,C10 仍因 photoMenu/Block Chatter/机器人 minComp 约束缺失记简化。验证:web 174 测试、typecheck、build 通过;live compose probe 直连 `ws://127.0.0.1:8088/ws`,KickPlayer 使目标回大厅,Trust 收到 NetStateChanged,PushRequest surrender 无错误/断连。audit 计数更新为 未148 / 简134 / 错0 / 完177。下一步:N2 playing/faceturned/saveme 纯渲染。
 

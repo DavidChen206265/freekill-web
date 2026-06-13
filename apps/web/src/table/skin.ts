@@ -215,6 +215,16 @@ export function deathPic(role?: string): string {
   return `${PHOTO}/death/${r}.png`
 }
 
+/** Dying overlay (Photo.qml dead/dying image source: deathDir + "saveme"). */
+export function saveMePic(): string {
+  return `${PHOTO}/death/saveme.png`
+}
+
+/** Face-turned overlay (Photo.qml faceturned, optional Heg variant). */
+export function faceTurnedPic(heg = false): string {
+  return `${PHOTO}/faceturned${heg ? '-heg' : ''}.png`
+}
+
 /** Chain (连环) overlay. */
 export function chainPic(): string {
   return `${PHOTO}/chain.png`

@@ -32,6 +32,8 @@ export interface GamePlayer {
   state?: number
   chained?: boolean
   dying?: boolean
+  /** True when this player is ClientInstance.current (Photo.qml root.playing). */
+  playing?: boolean
   role_shown?: boolean
   roleVisible?: boolean
   faceup?: boolean
@@ -97,6 +99,7 @@ export interface VmPlayerLike {
   shield?: number
   chained?: boolean
   dying?: boolean
+  playing?: boolean
   role_shown?: boolean
   roleVisible?: boolean
   faceup?: boolean
@@ -225,6 +228,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           state: vp.state ?? prev.state,
           chained: vp.chained ?? prev.chained,
           dying: vp.dying ?? prev.dying,
+          playing: vp.playing ?? prev.playing,
           role_shown: vp.role_shown ?? prev.role_shown,
           roleVisible: vp.roleVisible ?? prev.roleVisible,
           faceup: vp.faceup ?? prev.faceup,

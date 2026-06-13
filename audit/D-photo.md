@@ -98,12 +98,13 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 ## B. Photo.qml 主体覆盖层
 
 ### D12 Photo::playing 行动中动画(animPlaying)
-- 状态: 未还原
+- 状态: 完全还原
 - 原版: Photo.qml:51-59 (PixmapAnimation "playing", centerIn, loop, scale 0.825, visible root.playing)
-- web : 无（VM 未暴露 playing/当前回合标记到 Photo）
+- web : clientVm.ts:191 (playing = ClientInstance.current.id==p.id) → gameStore.ts:231 → Photo.tsx:173 (`EmotionSprite emotion="playing" scale=0.825 loop`)
 - 原版行为: 轮到该角色行动时叠加循环旋转的 "playing" 光环动画。
-- web 行为: 无行动中视觉标记。
-- 差异: 当前行动者无任何高亮（focusStore 仅驱动 thinking 进度条，非 playing 光环）。
+- web 行为: VM 快照暴露当前行动者，Photo 上循环播放 `/fk/image/anim/playing` 原版帧动画，scale 0.825。
+- 差异: 无。
+- 修复: 已修复并验证 (readPlayers 暴露 playing 快照字段;gameStore 同步;Photo 复用 EmotionSprite loop 播放原版 playing 帧;skin/gameStore 单测、typecheck、build 全绿。2026-06-13,未还原→完全还原。)
 
 ### D13 Photo::candidate selected 动画(animSelected)
 - 状态: 简化还原
@@ -158,12 +159,13 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - web 行为: 无。
 
 ### D20 Photo::翻面(faceturned, !faceup)
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: Photo.qml:158-165 (Image turnedOver, visible !faceup, "faceturned"(+"-heg"), x22 y4 scale 0.75)
-- web : 无（faceup 字段已入 store gameStore.ts:35/214 但 Photo.tsx 未消费）
+- web : Photo.tsx:178 (`player.faceup === false` → `faceTurnedPic()`), skin.ts:224
 - 原版行为: 角色被翻面(!faceup)时叠 faceturned 贴图（heg 模式专用图）。
-- web 行为: faceup 数据已同步但无任何渲染。
-- 差异: 数据已就绪，UI 未渲染。
+- web 行为: faceup=false 时按原版位置/0.75 尺寸叠加基础 faceturned 贴图。
+- 差异: Heg 模式 `faceturned-heg` 变体尚未接入 web Config.heg，先使用基础图。
+- 修复: 已修复并验证 (faceup 已有 VM 快照字段;Photo 消费并渲染 faceturned 基础贴图;skin 路径单测、typecheck、build 全绿。2026-06-13,未还原→简化还原。)
 
 ### D21 Photo::铁索(chain)
 - 状态: 简化还原
@@ -178,8 +180,9 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - 原版: Photo.qml:226-239 (Image, visible (dead&&!rest)||dying||surrendered；surrendered→surrender，dead→getRoleDeathPic(role)，else→saveme)
 - web : Photo.tsx:177-179,325 (仅 dead → deathPic(role)，居中)
 - 原版行为: 三种来源——投降图 / 身份阵亡图 / 垂死求救图(saveme)。
-- web 行为: 仅死亡时显示 deathPic(role)。
-- 差异: 缺 dying→saveme 垂死求救贴图；缺 surrendered→surrender 投降贴图（dying 字段已入 store 但未渲染）。
+- web 行为: dead 时显示 deathPic(role)；dying 且未 dead 时显示 saveme。
+- 差异: 缺 surrendered→surrender 投降贴图（VM 未暴露 surrendered）；death 贴图缩放仍为 web 旧实现。
+- 修复: 已修复并验证 (dying 已有 VM 快照字段;Photo 消费并渲染 death/saveme 原版贴图路径;skin 路径单测、typecheck、build 全绿。2026-06-13,仍为简化还原。)
 
 ### D23 Photo::网络状态(netstat)
 - 状态: 未还原
@@ -553,32 +556,30 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 30 | D1,D2,D3,D9,D11,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67 |
-| 简化还原 | 19 | D5,D7,D8,D13,D14,D15,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53,D56 |
+| 完全还原 | 31 | D1,D2,D3,D9,D11,D12,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67 |
+| 简化还原 | 20 | D5,D7,D8,D13,D14,D15,D20,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53,D56 |
 | 还原错误 | 0 | （D11 已修复并验证 2026-06-12，升级为完全还原） |
-| 未还原 | 18 | D4,D6,D10,D12,D16,D17,D18,D19,D20,D23,D30,D31,D32,D37,D44,D45,D51,D59 |
+| 未还原 | 16 | D4,D6,D10,D16,D17,D18,D19,D23,D30,D31,D32,D37,D44,D45,D51,D59 |
 
 （注：计数含 D1–D67 共 67 项。）
 
 实际四态计数（按各条目"状态"字段）：
-- 完全还原：30（D1,D2,D3,D9,D11,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67）
-- 简化还原：19（D5,D7,D8,D13,D14,D15,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53,D56；D56 于 2026-06-12 未还原→简化）
+- 完全还原：31（D1,D2,D3,D9,D11,D12,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67；D12 于 2026-06-13 未还原→完全）
+- 简化还原：20（D5,D7,D8,D13,D14,D15,D20,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53,D56；D20 于 2026-06-13 未还原→简化,D56 于 2026-06-12 未还原→简化）
 - 还原错误：0（D11 已修复并验证 2026-06-12）
-- 未还原：18（D4,D6,D10,D12,D16,D17,D18,D19,D20,D23,D30,D31,D32,D37,D44,D45,D51,D59）
+- 未还原：16（D4,D6,D10,D16,D17,D18,D19,D23,D30,D31,D32,D37,D44,D45,D51,D59）
 - 合计：67
 
 ## 未还原 / 还原错误 序号索引
 
-**未还原（18）**：
+**未还原（16）**：
 - D4 deputy-split 分隔线
 - D6 副将名独立竖排
 - D10 换肤图标+Hover
-- D12 playing 行动中光环动画
 - D16 醉酒红幕(drank)
 - D17 休整(rest)文字组
 - D18 装备背景(equipbg)
 - D19 状态贴图(status)
-- D20 翻面(faceturned)
 - D23 网络状态(netstat)
 - D30 目标提示(targetTip)
 - D31 距离调试框(distance)
@@ -595,5 +596,5 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 ## 最关键 3 缺口
 
 1. **D32 HandcardViewer + D24 手牌上限**——对手可见手牌速览浮窗完全未实现，且手牌数仅显示当前数无"n/maxCard"上限与 ∞ 逻辑，削弱了关键战术信息。
-2. **D12/D20/D22 行动者与状态视觉**——当前行动者无 playing 光环（无任何"轮到谁"高亮）、翻面(faceturned)与垂死求救(saveme)/投降贴图未渲染（dying/faceup 数据已同步却未消费），对局态势可读性明显下降。
+2. **D22/D24/D32 剩余手牌与状态信息**——playing 光环、翻面(faceturned)与垂死求救(saveme)已补；投降贴图、对手可见手牌速览和"n/maxCard/∞"上限显示仍缺，削弱关键战术信息。
 3. **D4/D6/D10 双将细节与换肤入口**——副将分隔线/副将名独立竖排/换肤图标缺失，影响双将与皮肤操作的原版观感。

@@ -165,23 +165,23 @@ Web-only 后的目标:
 
 ## 9. 审计缺口纳入路线
 
-缺口底账 = `freekill-web/audit/SUMMARY.md`(459 条:未还原 160 / 简化 124 / 还原错误 10 / 完全 165)。按对局影响纳入:
+缺口底账 = `freekill-web/audit/SUMMARY.md`(459 条当前值:未还原 145 / 简化 135 / 还原错误 0 / 完全 179；初始审计为未还原 160 / 简化 124 / 还原错误 10 / 完全 165)。按对局影响纳入:
 
 ### P1 对局正确性(最高优先)
-- **还原错误 10 条**(audit §3):双将分屏立绘 N2、牌堆标记 `@$`/`@&` 计数显示 M3、座位移动补间 D11、旁观者聊天进弹幕 I8、Indicate 多余红环 H6、卡牌禁用语义 E9、RoomDelegate 过期房可点 B41/密码框 B40、UpdateGameData 战绩 C29、送礼动画退化 N20。
-- **限定/觉醒/转换技显示**:`UpdateLimitSkill`/`SetBanner`/`UpdateMarkArea` 解除 KNOWN_DEFERRED,补 LimitSkillArea + 顶部 banner + 标记区显隐(D56/F14/F15/M14/M15)。标准三包不触发,扩展包必需。
-- **对局上报入口**:投降(PushRequest surrender)、托管(Trust)、房主踢人(KickPlayer)——asio 支持、web 无入口(P 阶段)。
+- **还原错误 10 条**:已清零。双将分屏立绘 N2、牌堆标记 `@$`/`@&` 计数显示 M3、座位移动补间 D11、旁观者聊天进弹幕 I8、Indicate 多余红环 H6、卡牌禁用语义 E9、RoomDelegate 过期房可点 B41/密码框 B40、UpdateGameData 战绩 C29、送礼动画退化 N20 均已处理或订正。
+- **限定/觉醒/转换技显示**:已完成主体。`UpdateLimitSkill`/`SetBanner`/`UpdateMarkArea` 已解除 KNOWN_DEFERRED,补 LimitSkillArea + 顶部 banner + 标记区显隐(D56/F14/F15/M14/M15)。
+- **对局上报入口**:已完成并验证。投降(PushRequest surrender)、托管(Trust)、房主踢人(KickPlayer)均有 web 入口。
 - **出牌交互**:手牌拖拽/超级拖拽/双击使用(E14/E15/E17);对手手牌速览 HandcardViewer + 手牌上限 n/maxCard(D32/D24)。
 
 ### P2 信息完整度
-- 行动者 playing 高亮、翻面 faceturned、垂死 saveme 贴图(D12/D20/D22,数据已镜像未消费)。
+- 行动者 playing 高亮、翻面 faceturned、垂死 saveme 贴图已完成当前小切片；剩余投降 surrender 贴图与 rest/drank/netstate/status 归后续 Photo 状态批。
 - 总览/详情/战绩页族(J 阶段 23 条:武将一览、卡牌一览、武将筛选、武将池、战绩、统计)。
 - 建房筛选 FilterRoom(B4/B17)、Lua 动态设置(B28)、卡包设置(B29)、禁将方案(B30)。
 - 个人设置族(B31~B39:改头像、改密码、音频/控制/UI/背景设置、资料卡)。
 - 等待房 WaitingPhoto 立绘/准备角标/战绩面板/房间配置面板(C2/C3/C4)。
 
 ### P5 观感打磨
-- 大招 UltSkillAnimation(H9)、五种送礼动画(H20~H24+N20)、Photo 循环状态光环(H2~H4)。
+- 大招 UltSkillAnimation(H9)、五种送礼动画(H20~H24+N20)、Photo 候选循环状态光环(H3~H4；H2 playing 已完成)。
 - 弹幕 Danmu(I9/B13)、资源美化包(N1)、内嵌字体 FZLE/FZLBGBK/simli(N 阶段)。
 - Cheat 查看面板族(L 阶段 13 条)、设置/偏好控件族 + Config(K 阶段)。
 

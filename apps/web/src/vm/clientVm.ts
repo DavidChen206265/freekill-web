@@ -188,6 +188,7 @@ export class ClientVm {
               dead = p.dead, ready = p.ready, owner = p.owner,
               state = (sp and sp.getState and sp:getState()) or 0,
               chained = p.chained, dying = p.dying, role_shown = p.role_shown, faceup = p.faceup,
+              playing = (ci.current ~= nil and ci.current.id == p.id) or false,
               -- roleVisible mirrors RoleVisibility(p.id) = Self:roleVisible(p) (player.lua:1699):
               -- whether THIS client may see p's role. Photo.qml computes the shown role as
               --   hidden -> hidden; role_shown -> role; else roleVisible ? role : "unknown".
@@ -889,6 +890,7 @@ export interface VmPlayer {
   chained?: boolean
   dying?: boolean
   role_shown?: boolean
+  playing?: boolean
   /** Whether this client may see the player's role — Self:roleVisible(p). */
   roleVisible?: boolean
   faceup?: boolean

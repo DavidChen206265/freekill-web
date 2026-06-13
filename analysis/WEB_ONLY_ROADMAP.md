@@ -64,7 +64,7 @@
 1. **投降 + 对局内菜单 overlay**:已完成。局内菜单入口与确认框,确认时重跑 CheckSurrenderAvailable,通过后发送 `PushRequest("surrender,true")`。
 2. **托管 Trust**:已完成。同一局内菜单可发送 `Trust`,并通过 VM/NetStateChanged/readPlayers state 反映状态。
 3. **房主踢人 KickPlayer**:已完成。等待房房主可见「踢出」按钮,非房主/自己隐藏,发送 `KickPlayer`。
-4. **N2 低成本状态视觉紧随其后**:N1-3 闭环后立即做 playing 高亮、faceturned 翻面、saveme 垂死三项纯渲染缺口。
+4. **N2 低成本状态视觉**:已完成(2026-06-13)。playing 高亮、faceturned 翻面、saveme 垂死三项纯渲染缺口已补。
 
 暂不插队:手牌拖拽/超级拖拽/双击(N1-4)涉及 CardLayer 交互面较大;总览/详情页族和个性化账户也不抢在 N1-3 前。
 
@@ -74,7 +74,7 @@
 
 ## N2 · 信息完整度缺口(audit §4.2)
 
-- **行动者/状态视觉**:playing 高亮光环、翻面 faceturned、垂死 saveme 贴图(D12/D20/D22,数据已镜像未消费,纯渲染缺口,成本低)。
+- **行动者/状态视觉**:已完成当前小切片(2026-06-13)。playing 高亮光环、翻面 faceturned、垂死 saveme 贴图已补;剩余投降 surrender 贴图与 rest/drank/netstate/status 归后续 Photo 状态批。
 - **总览/详情/战绩页族**(audit J,23 条):武将一览、卡牌一览、武将筛选、武将池、战绩列表、统计页 web 零实现零入口。需先做大厅入口框架。
 - **建房子系统**(audit B):FilterRoom 筛选(B4/B17)、Lua 动态设置 UI(B28)、卡包多选(B29)、禁将方案(B30)。
 - **个人设置族**(audit B31~B39):改头像、改密码、音频/控制/UI/背景设置、资料卡。
@@ -113,10 +113,10 @@
 
 ## 近期推荐顺序
 
-1. **当前立即做 N2 低成本状态视觉**:playing 高亮、faceturned 翻面、saveme 垂死,数据已在 VM/玩家快照中,优先纯渲染补齐。
-2. **再回到 N1-4 出牌交互**:手牌拖拽、超级拖拽、双击使用、手牌速览/上限显示;这是更大的 CardLayer 交互面,不与 N2 状态视觉混做。
-3. **随后补 N1-3 周边剩余简化项**:完整 RoomOverlay 按钮列/Esc/缩放、等待房 photoMenu/Block Chatter/机器人 minComp 踢人约束、踢房主计时器。
-4. **之后推进等待房 WaitingPhoto → 总览/详情页框架 → 建房/个人设置族**。
+1. **当前建议做 N1-4 出牌交互/手牌信息**:手牌拖拽、超级拖拽、双击使用、手牌速览/上限显示;这是更大的 CardLayer 交互面,需单独切片。
+2. **随后补 N1-3 周边剩余简化项**:完整 RoomOverlay 按钮列/Esc/缩放、等待房 photoMenu/Block Chatter/机器人 minComp 踢人约束、踢房主计时器。
+3. **之后推进等待房 WaitingPhoto → 总览/详情页框架 → 建房/个人设置族**。
+4. **Photo 状态后续批**:投降 surrender 贴图、rest/drank/netstate/status/equipbg 等剩余 Photo 状态视觉。
 5. **N3 账户个性化(房间预设/禁将)** → N4 生产化(session token 优先)。
 6. **N5 观感打磨 / N6 工坊+AI** 按产品节奏排。
 

@@ -15,9 +15,9 @@ import { useDetailStore } from '../stores/detailStore.js'
 import { useRoleGuessStore, GUESS_ROLES } from '../stores/roleGuessStore.js'
 import { useRoomChatStore } from '../stores/roomChatStore.js'
 import { useLimitSkillStore, limitSkillRender } from '../stores/limitSkillStore.js'
-import { PhotoEffects } from './PhotoEffects.js'
+import { PhotoEffects, EmotionSprite } from './PhotoEffects.js'
 import { useRef, useState, useEffect } from 'react'
-import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon, limitSkillBg, isImageManifestLoaded, loadImageManifest } from './skin.js'
+import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, saveMePic, faceTurnedPic, chainPic, markPicCandidates, kingdomIcon, limitSkillBg, isImageManifestLoaded, loadImageManifest } from './skin.js'
 import { ChatText } from './ChatText.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
@@ -169,6 +169,13 @@ export function Photo({ player, playerNum, isSelf }: {
       {/* chain overlay */}
       {player.chained && <img src={chainPic()} alt="" style={styles.chain} draggable={false} onError={hideImg} />}
 
+      {/* current actor marker (Photo.qml PixmapAnimation "playing"). */}
+      {player.playing && <div style={styles.playing}><EmotionSprite emotion="playing" scale={0.825} loop /></div>}
+
+      {/* face-turned overlay (Photo.qml turnedOver). Heg variant is deferred until
+          the web config exposes Config.heg; base art restores the state cue now. */}
+      {player.faceup === false && <img src={faceTurnedPic()} alt="翻面" style={styles.faceTurned} draggable={false} onError={hideImg} />}
+
       {/* name + seat bar */}
       <div style={styles.bar}>
         <span style={styles.name}>{player.name || `P${player.id}`}</span>
@@ -181,6 +188,9 @@ export function Photo({ player, playerNum, isSelf }: {
       )}
 
       {/* death overlay */}
+      {!player.dead && player.dying && (
+        <img src={saveMePic()} alt="濒死" style={styles.saveMe} draggable={false} onError={hideImg} />
+      )}
       {player.dead && (
         <img src={deathPic(player.role)} alt="阵亡" style={styles.death} draggable={false} onError={hideImg} />
       )}
@@ -366,11 +376,14 @@ const styles: Record<string, React.CSSProperties> = {
   // under the portrait. Was bottom:22 inside the clip; +60px down → ~2px below.
   judge: { position: 'absolute', left: 2, right: 2, top: PHOTO_H - 3, zIndex: 6 },
   chain: { position: 'absolute', left: '50%', top: '46%', transform: 'translate(-50%,-50%)', width: '92%', zIndex: 2, opacity: 0.9 },
+  playing: { position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' },
+  faceTurned: { position: 'absolute', left: 22, top: 4, width: 105, height: 166, zIndex: 6, pointerEvents: 'none' },
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', background: 'rgba(0,0,0,.6)', zIndex: 5 },
   name: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   seat: { fontSize: 11, color: '#d4af37', fontWeight: 700 },
   handcard: { position: 'absolute', right: 2, bottom: 22, minWidth: 16, height: 18, padding: '0 3px', background: 'rgba(0,0,0,.7)', borderRadius: 3, color: '#fff', fontSize: 12, fontWeight: 700, display: 'grid', placeItems: 'center', zIndex: 6 },
   death: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%)', width: 56, height: 56, zIndex: 7 },
+  saveMe: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%)', width: 36, height: 103, zIndex: 7 },
   // detail (ⓘ) button, top-left corner — reliable web replacement for QML
   // right-click/long-press. Small, semi-transparent so it doesn't fight the art.
   // Kingdom faction icon, top-left corner (GeneralCardItem.qml badge). Slightly
