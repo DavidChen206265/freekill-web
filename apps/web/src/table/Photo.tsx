@@ -574,7 +574,7 @@ const styles: Record<string, React.CSSProperties> = {
   // under the portrait. Was bottom:22 inside the clip; +60px down → ~2px below.
   judge: {
     position: "absolute",
-    left: 2,
+    left: 17,
     right: 2,
     top: PHOTO_H - 3,
     zIndex: 6,

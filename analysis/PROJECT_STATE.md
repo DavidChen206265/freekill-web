@@ -3,11 +3,11 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-13 21:04:25　·　跟踪文件数: 3021
+最后更新: 2026-06-13 21:13:17　·　跟踪文件数: 3021
 
 ## 自上次重建以来的改动
 
-- 修改 3: freekill-web/.tmp/vite-5174.log, freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/src/pages/LoginPage.tsx
+- 修改 2: freekill-web/.tmp/gateway-9529.log, freekill-web/analysis/PROGRESS.md
 
 ## 上游参考仓库(只读,不跟踪改动)
 

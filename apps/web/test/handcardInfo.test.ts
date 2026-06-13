@@ -4,9 +4,9 @@ import { handcardFontSize, handcardText, previewLines } from '../src/table/handc
 describe('N1-4 handcard info helpers', () => {
   it('renders FreeKill handcard count text with max-card and infinity rules', () => {
     expect(handcardText({ handcardNum: 2, maxCard: 4, hp: 4 })).toBe('2')
-    expect(handcardFontSize({ handcardNum: 2, maxCard: 4, hp: 4 })).toBe(24)
+    expect(handcardFontSize({ handcardNum: 2, maxCard: 4, hp: 4 })).toBe(16)
     expect(handcardText({ handcardNum: 5, maxCard: 3, hp: 4 })).toBe('5/3')
-    expect(handcardFontSize({ handcardNum: 5, maxCard: 3, hp: 4 })).toBe(20)
+    expect(handcardFontSize({ handcardNum: 5, maxCard: 3, hp: 4 })).toBe(13)
     expect(handcardText({ handcardNum: 999, maxCard: 900, hp: 4 })).toBe('999/∞')
     expect(handcardText({ handcardNum: 1, maxCard: 2, hp: -1 })).toBe('1')
   })

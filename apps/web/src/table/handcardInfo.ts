@@ -9,6 +9,8 @@ export interface HandcardPreviewLike {
   name: string
 }
 
+const HANDCARD_COUNT_FONT_SCALE = 2 / 3
+
 export function handcardText(player: HandcardCountLike): string {
   const n = player.handcardNum ?? 0
   const max = player.maxCard
@@ -18,7 +20,8 @@ export function handcardText(player: HandcardCountLike): string {
 
 export function handcardFontSize(player: HandcardCountLike): number {
   const max = player.maxCard
-  return max === undefined || max === player.hp || (player.hp ?? 0) < 0 ? 24 : 20
+  const base = max === undefined || max === player.hp || (player.hp ?? 0) < 0 ? 24 : 20
+  return Math.round(base * HANDCARD_COUNT_FONT_SCALE)
 }
 
 export function previewLines(cards: HandcardPreviewLike[], translate: (key: string) => string = (key) => key): string[] {

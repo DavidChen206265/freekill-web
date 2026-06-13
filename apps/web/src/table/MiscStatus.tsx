@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react'
 import { useMiscStore } from '../stores/miscStore.js'
 import { cardBackPic } from './skin.js'
 
+const PILE_NUM_FONT_SIZE = Math.round(28 * 2 / 3)
+
 function fmtTime(totalSec: number): string {
   const s = totalSec % 60
   const m = Math.floor((totalSec - s) / 60) % 60
@@ -54,5 +56,5 @@ const styles: Record<string, React.CSSProperties> = {
   text: { color: '#F0E5DA', fontSize: 18, fontWeight: 700, textShadow: '0 0 2px #3D2D1C, 0 1px 1px #3D2D1C' },
   deck: { position: 'relative', width: 32, height: 42, marginTop: 8, marginRight: 12, display: 'grid', placeItems: 'center' },
   deckImg: { position: 'absolute', inset: 0, width: 32, height: 42, objectFit: 'cover', borderRadius: 3 },
-  pileNum: { position: 'relative', color: '#fff', fontSize: 28, fontWeight: 900, textShadow: '0 0 3px #000, 0 0 3px #000' },
+  pileNum: { position: 'relative', color: '#fff', fontSize: PILE_NUM_FONT_SIZE, fontWeight: 900, textShadow: '0 0 3px #000, 0 0 3px #000' },
 }
