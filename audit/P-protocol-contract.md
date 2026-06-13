@@ -109,7 +109,7 @@ PushRequest（其 payload 子命令：surrender / prelight / changeskin / update
 - 修复: 已修复并验证 (RoomMenuOverlay 加 Trust 入口；clientVm/readPlayers 暴露 player state；web 174 测试、typecheck、build 通过；live compose probe 收到 NetStateChanged，2026-06-13)
 - 修复: 已修复并验证 (补强:点击托管后立即本地 `FinishRequestUI`/清空 interaction popup/timer,并显示 body Portal「退出托管」按钮与交互遮罩；服务端 fork `Room::trust` 已在 thinking 时 `wakeUp("player_trust")` 让当前 request 进入托管 AI；web 183 测试、typecheck、build 通过，2026-06-13)
 - 修复: 已修复并验证 (补强:托管 UI 状态从 `RoomMenuOverlay` 局部 pending 提升为全局 `trustUiStore` + `useSelfTrusting`,首次点击立即让 Dashboard/CardLayer/Photo/RequestPopup 同步进入托管态；退出托管使用 optimistic exit 避免按钮无反馈；GameOver 与 backToRoom/syncPlayers 将 trust 渲染态清回 online；web 186 测试、typecheck、build 通过，2026-06-13)
-- 修复: 已修复并验证 (补强:点击「退出托管」后除 `trustUiStore` optimistic exit 外,同步乐观写本地 Self player state 为 online,让 `useSelfTrusting` 立刻退出托管遮罩/按钮态,再等待服务端 NetStateChanged 校准；web 188 测试、typecheck、build 通过，2026-06-13)
+- 修复: 已修复并验证 (补强:托管进入/退出只用 `trustUiStore.pending` 做乐观 UI,不再写本地 Self player state,避免 pending 被提前清空后又被旧 VM 快照 `state=online` 瞬间带出托管；退出托管仍由 pending 立即恢复非托管 UI,再等待服务端 NetStateChanged/readPlayers 校准；web 187 测试、typecheck、build 通过，2026-06-13)
 
 ### P11 上报::PushRequest::surrender（投降）
 - 状态: 完全还原

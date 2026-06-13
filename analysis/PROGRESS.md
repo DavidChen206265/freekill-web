@@ -43,7 +43,7 @@
 
 ## 变更日志
 
-- 2026-06-13 **退出托管/Photo 坐标/超级拖拽实测修复完成并验证(本次)**。修复点击「退出托管」后遮罩和按钮态未立即退出的问题:RoomMenuOverlay 在 optimistic exit 时同步乐观写本地 Self player state 为 online,让 `useSelfTrusting` 立即恢复非托管 UI,等待服务端 NetStateChanged 再校准。按实测要求调整 Photo:手牌数徽章整体移到 Photo 左侧外部,右侧与 Photo 左侧对齐;身份图标向右上移动,中心与 Photo 右上角对齐。修复超级拖拽时牌面不随指针移动的问题:CardLayer 记录并取消残留 WAAPI 移动动画,拖拽开始前释放动画层对 transform 的覆盖。验证:web 35 文件/188 测试、typecheck、build 全绿。audit 更新:P10/D24/D57/E14/E15 追加补强说明,计数不变。
+- 2026-06-13 **托管进入/Photo 手动坐标/超级拖拽释放确认修复完成并验证(本次)**。保留并应用用户对 `Photo.tsx` 的手动坐标:身份图标 `top:-6.5/right:-5`,底栏裁剪,姓名/座位相对偏移,手牌徽章 `left:-20/bottom:-15`,势力图标 `32px` 并允许出框。修复点击「托管」后进入托管又被旧 VM 快照瞬间带回在线态的问题:RoomMenuOverlay 不再乐观写本地 Self player state,只用 `trustUiStore.pending` 表示进入/退出 pending,直到服务端 NetStateChanged/readPlayers 校准。补强超级拖拽:移动中先选牌并经过 Photo 时切换目标;释放到 OK 区时按顺序补选牌/补目标并重新读取 OK enabled 后确认,避免旧渲染快照导致无法拖到目标或 OK 使用。验证:web 35 文件/187 测试、typecheck、build 全绿。audit 更新:P10/D24/D57/E14/E15 追加补强说明,计数不变。
 
 - 2026-06-13 **托管与不可用手牌遮罩补强完成并验证(本次)**。修复托管 UI 的局部 pending 问题:新增全局 `trustUiStore` + `useSelfTrusting`,首次点击托管后 Dashboard/CardLayer/Photo/RequestPopup 立即同步进入托管态并清空当前 interaction/popup/timer;退出托管使用 optimistic exit,按钮点击后立即恢复 UI,等待服务端 NetStateChanged 校准。GameOver/backToRoom/syncPlayers 均把 trust 渲染态清回 online,避免结算或返回房间后残留托管。CardLayer 改为自己手牌无 VM selectable state 时也显示黑遮罩,对齐原版 HandcardArea 默认 `selectable=false`,覆盖回合外、Cancel/FinishRequestUI 后、托管中等时机。验证:web 35 文件/186 测试、typecheck、build 全绿;raw WS Trust probe 因无浏览器 VM 未形成完整局内请求流,不计入通过验证。
 

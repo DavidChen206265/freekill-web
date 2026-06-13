@@ -127,6 +127,7 @@
 - 修复: 已修复并验证 (新增 cardDrag/cardStore 单测；`pnpm --filter @freekill-web/web test -- cardStore gameStore skin handcardInfo cardDrag`、typecheck、build 通过，2026-06-13)
 - 修复: 已修复并验证 (补强:区分普通拖拽重排与点击选中,仅拖到目标 Photo 或 OK 区时为超级拖拽自动选牌,普通重排不再触发 CardItem click；web 183 测试、typecheck、build 通过，2026-06-13)
 - 修复: 已修复并验证 (补强:CardLayer 跟踪并取消卡牌 WAAPI go-back/settle 动画,拖拽开始前释放动画层对 transform 的覆盖,确保拖拽中 inline transform 能实时移动卡牌；web 188 测试、typecheck、build 通过，2026-06-13)
+- 修复: 已修复并验证 (补强:释放到 OK 区时先按需补发 CardItem selected=true,再重读 VM 交互快照决定是否点 OK；避免旧渲染快照中 OK 仍 disabled 时拖拽使用失败；web 187 测试、typecheck、build 通过，2026-06-13)
 
 ### E15 HandcardArea::超级拖拽 (Config.enableSuperDrag dragMovement)
 - 状态: 简化还原
@@ -138,6 +139,7 @@
 - 修复: 已修复并验证 (新增 cardDrag 纯函数测试；web test/typecheck/build 通过，2026-06-13)
 - 修复: 已修复并验证 (补强:自动选中限定在命中 Photo/OK 的超级拖拽路径,避免重排手牌误选中；web 183 测试、typecheck、build 通过，2026-06-13)
 - 修复: 已修复并验证 (补强:拖拽前取消残留卡牌移动动画,修复超级拖拽时牌面视觉不随指针移动、因此难以拖到目标/OK 区释放的问题；web 188 测试、typecheck、build 通过，2026-06-13)
+- 修复: 已修复并验证 (补强:按 HandcardArea.qml 的 dragMovement 语义,拖动中先选牌、经过 Photo 时切换目标；释放在 OK 区时补选牌/补目标并重新读取 OK enabled 后确认,解决能拖动卡片但不能拖选目标或拖到 OK 使用的问题；web 187 测试、typecheck、build 通过，2026-06-13)
 
 ### E16 CardItem::选中态切换 (selectCard / cardSelected)
 - 状态: 完全还原

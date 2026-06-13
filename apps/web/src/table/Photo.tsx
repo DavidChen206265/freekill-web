@@ -368,7 +368,7 @@ const styles: Record<string, React.CSSProperties> = {
   // bead (trick drawn on top). We keep QML's absolute bottoms shifted up by our
   // 20px name bar (a deviation: QML puts the name at top): 27 → 47.
   hp: { position: 'absolute', left: 5, bottom: 27, zIndex: 4 },
-  role: { position: 'absolute', top: -16.5, right: -15, width: 30, height: 33, zIndex: 4 },
+  role: { position: 'absolute', top: -6.5, right: -5, width: 30, height: 33, zIndex: 4 },
   roleGuessable: { cursor: 'pointer' },
   // LimitSkillArea: top-right column under the role pic (LimitSkillItem bg ~39×21 @0.45).
   limitSkillArea: { position: 'absolute', top: 34, right: 0, display: 'flex', flexDirection: 'column', gap: 1, zIndex: 5, pointerEvents: 'none' },
@@ -398,10 +398,10 @@ const styles: Record<string, React.CSSProperties> = {
   chain: { position: 'absolute', left: '50%', top: '46%', transform: 'translate(-50%,-50%)', width: '92%', zIndex: 2, opacity: 0.9 },
   playing: { position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' },
   faceTurned: { position: 'absolute', left: 22, top: 4, width: 105, height: 166, zIndex: 6, pointerEvents: 'none' },
-  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', background: 'rgba(0,0,0,.6)', zIndex: 5 },
-  name: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  seat: { fontSize: 11, color: '#d4af37', fontWeight: 700 },
-  handcard: { position: 'absolute', left: -40, bottom: -5, width: 40, height: 30, display: 'grid', placeItems: 'center', zIndex: 8 },
+  bar: { position: 'absolute', overflow: 'hidden', left: 0, right: 0, bottom: 0, height: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', background: 'rgba(0,0,0,.6)', zIndex: 5 },
+  name: { position: 'relative', fontSize: 12, overflow: 'hidden', left: 10, textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  seat: { position: 'relative', fontSize: 11, overflow: 'hidden', left: -10, color: '#d4af37', fontWeight: 700 },
+  handcard: { position: 'absolute', left: -20, bottom: -15, width: 40, height: 30, display: 'grid', placeItems: 'center', zIndex: 8 },
   handcardBg: { position: 'absolute', inset: 0, width: 40, height: 30, objectFit: 'fill' },
   handcardText: { position: 'relative', color: '#fff', fontWeight: 700, lineHeight: 1, textShadow: '0 0 2px #000, 0 1px 1px #000' },
   handcardViewer: { position: 'absolute', right: PHOTO_W + 4, top: 22, width: 44, minHeight: 88, padding: '2px 0', background: '#CC2E2C27', border: '1px solid #A6967A', borderRadius: 6, color: '#E4D5A0', fontSize: 18, lineHeight: '22px', textAlign: 'center', fontWeight: 700, textShadow: '0 0 2px #000', zIndex: 7, pointerEvents: 'none' },
@@ -411,5 +411,5 @@ const styles: Record<string, React.CSSProperties> = {
   // right-click/long-press. Small, semi-transparent so it doesn't fight the art.
   // Kingdom faction icon, top-left corner (GeneralCardItem.qml badge). Slightly
   // inset, above the portrait; non-interactive (detail opens via right-click/long-press).
-  kingdomIcon: { position: 'absolute', left: 1, top: 1, width: 22, height: 22, zIndex: 8, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.6))' },
+  kingdomIcon: { position: 'absolute', left: -3, top: -3, width: 32, height: 32, zIndex: 8, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.6))' },
 }

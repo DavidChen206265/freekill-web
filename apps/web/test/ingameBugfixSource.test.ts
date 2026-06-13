@@ -10,15 +10,22 @@ describe('in-game interaction bugfix wiring', () => {
     expect(src).toContain("photo: { position: 'absolute', inset: 0, borderRadius: 8, overflow: 'visible'")
     expect(src).toContain("portraitClip: { position: 'absolute'")
     expect(src).toContain("overflow: 'hidden', display: 'flex'")
-    expect(src).toContain("role: { position: 'absolute', top: -16.5, right: -15")
-    expect(src).toContain("handcard: { position: 'absolute', left: -40")
+    expect(src).toContain("role: { position: 'absolute', top: -6.5, right: -5")
+    expect(src).toContain("name: { position: 'relative', fontSize: 12")
+    expect(src).toContain("kingdomIcon: { position: 'absolute', left: -3, top: -3, width: 32, height: 32")
+    expect(src).toContain("handcard: { position: 'absolute', left: -20")
   })
 
-  it('does not select a dragged hand card unless the drop targets a player or OK area', () => {
+  it('selects a super-dragged card during movement before hitting targets or OK', () => {
     const src = readFileSync(join(SRC, 'table/CardLayer.tsx'), 'utf8')
-    expect(src).toContain('const hitPhoto =')
-    expect(src).toContain('const hitOk =')
-    expect(src).toContain("!st.selected && (hitPhoto || hitOk)) void interact('CardItem'")
+    expect(src).toContain('const hitOkArea =')
+    expect(src).toContain('const DASHBOARD_Y = STAGE_H - 150')
+    expect(src).toContain("void interact('CardItem', drag.cid, 'click', { selected: true")
+    expect(src).toContain("await interact('CardItem', cid, 'click', { selected: true")
+    expect(src).toContain("void interact('Photo', pid, 'click'")
+    expect(src).toContain('pid !== null && pid !== finalDrag.clickedPhoto')
+    expect(src).toContain('useInteractionStore.getState().buttons.OK?.enabled')
+    expect(src).toContain("await interact('Button', 'OK', 'click', {})")
   })
 
   it('keeps self hand cards masked whenever the VM has not marked them selectable', () => {

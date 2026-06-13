@@ -15,7 +15,7 @@ import { useAnimationStore } from '../stores/animationStore.js'
 import { EmotionSprite } from './PhotoEffects.js'
 import { useVmStore } from '../stores/vmStore.js'
 import { resolveAreaBox, CARD_W, CARD_H, TABLE_PILE } from './areas.js'
-import { STAGE_W } from './Stage.js'
+import { STAGE_W, STAGE_H } from './Stage.js'
 import { seatPosition, PHOTO_WIDTH, PHOTO_HEIGHT } from './seatLayout.js'
 import { CardFaceView } from './CardFaceView.js'
 import { chosenPic } from './skin.js'
@@ -25,6 +25,7 @@ import { useSelfTrusting } from './useSelfTrusting.js'
 
 const GO_BACK_MS = 500
 const EASE_OUT_QUAD = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+const DASHBOARD_Y = STAGE_H - 150
 
 interface Target { x: number; y: number; faceUp: boolean }
 
@@ -56,7 +57,7 @@ export function CardLayer() {
   const [flights, setFlights] = useState<{ id: number; cid: number; from: { x: number; y: number }; to: { x: number; y: number }; faceUp: boolean }[]>([])
   const flightSeq = useRef(0)
   const layerRef = useRef<HTMLDivElement | null>(null)
-  const [drag, setDrag] = useState<{ cid: number; x: number; y: number; dx: number; dy: number; startX: number; startY: number; moved: boolean } | null>(null)
+  const [drag, setDrag] = useState<{ cid: number; x: number; y: number; dx: number; dy: number; startX: number; startY: number; moved: boolean; superSelected: boolean; clickedPhoto: number | null } | null>(null)
   const suppressClick = useRef(false)
 
   const cancelCardAnimation = (cid: number) => {
@@ -259,6 +260,12 @@ export function CardLayer() {
     }
     return null
   }
+  const selfPhotoLeft = () => {
+    if (selfId === undefined) return STAGE_W
+    const p = players[selfId]
+    if (!p) return STAGE_W
+    return seatPosition(p.index, playerNum).x
+  }
   const onPointerDown = (cid: number, t: Target, e: React.PointerEvent<HTMLDivElement>) => {
     if (selfTrusting) return
     if (!selfHandCids.has(cid)) return
@@ -266,7 +273,7 @@ export function CardLayer() {
     if (!pt) return
     cancelCardAnimation(cid)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    setDrag({ cid, x: t.x, y: t.y, dx: pt.x - t.x, dy: pt.y - t.y, startX: pt.x, startY: pt.y, moved: false })
+    setDrag({ cid, x: t.x, y: t.y, dx: pt.x - t.x, dy: pt.y - t.y, startX: pt.x, startY: pt.y, moved: false, superSelected: false, clickedPhoto: null })
   }
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (selfTrusting) return
@@ -274,7 +281,31 @@ export function CardLayer() {
     const pt = stagePoint(e.clientX, e.clientY)
     if (!pt) return
     const moved = drag.moved || dragMoved(drag.startX, drag.startY, pt.x, pt.y)
-    setDrag({ ...drag, x: pt.x - drag.dx, y: pt.y - drag.dy, moved })
+    const next = { ...drag, x: pt.x - drag.dx, y: pt.y - drag.dy, moved }
+    if (moved) {
+      const center = { x: next.x + CARD_W / 2, y: next.y + CARD_H / 2 }
+      const st = cardStates[drag.cid]
+      const inOwnDashboard = center.y >= DASHBOARD_Y && center.x <= selfPhotoLeft()
+      if (!inOwnDashboard && st && (st.enabled || st.selected)) {
+        if (!st.selected && !next.superSelected) {
+          next.superSelected = true
+          void interact('CardItem', drag.cid, 'click', { selected: true, autoTarget: false })
+        }
+        const pid = findPhotoAt(center.x, center.y)
+        if (pid === null) {
+          next.clickedPhoto = null
+        } else if (pid !== next.clickedPhoto) {
+          const pst = photoStates[pid]
+          if (pst && (pst.enabled || pst.selected)) {
+            next.clickedPhoto = pid
+            void interact('Photo', pid, 'click', { selected: !pst.selected, autoTarget: false })
+          } else {
+            next.clickedPhoto = null
+          }
+        }
+      }
+    }
+    setDrag(next)
   }
   const onPointerUp = (cid: number, e: React.PointerEvent<HTMLDivElement>) => {
     if (!drag || drag.cid !== cid) return
@@ -287,14 +318,34 @@ export function CardLayer() {
     if (!finalDrag.moved) return
     suppressClick.current = true
     const center = { x: finalDrag.x + CARD_W / 2, y: finalDrag.y + CARD_H / 2 }
+    const hitOkArea = center.y < DASHBOARD_Y || center.x > selfPhotoLeft()
+    if (hitOkArea) {
+      void (async () => {
+        const current = useInteractionStore.getState().cards[cid]
+        if (current && current.enabled && !current.selected) {
+          await interact('CardItem', cid, 'click', { selected: true, autoTarget: false })
+        }
+        const pid = findPhotoAt(center.x, center.y)
+        if (pid !== null && pid !== finalDrag.clickedPhoto) {
+          const pst = useInteractionStore.getState().photos[pid]
+          if (pst && (pst.enabled || pst.selected)) {
+            await interact('Photo', pid, 'click', { selected: !pst.selected, autoTarget: false })
+          }
+        }
+        if (useInteractionStore.getState().buttons.OK?.enabled ?? buttons.OK?.enabled) {
+          await interact('Button', 'OK', 'click', {})
+          return
+        }
+        const selected = useInteractionStore.getState().cards[cid]
+        if (selected?.selected) {
+          await interact('CardItem', cid, 'click', { selected: false, autoTarget: false })
+        }
+      })()
+      return
+    }
     const st = cardStates[cid]
-    const pid = findPhotoAt(center.x, center.y)
-    const pst = pid !== null ? photoStates[pid] : undefined
-    const hitPhoto = pid !== null && !!pst && (pst.enabled || pst.selected)
-    const hitOk = !!buttons.OK?.enabled && center.y < TABLE_PILE.y + TABLE_PILE.h
-    if (st && st.enabled && !st.selected && (hitPhoto || hitOk)) void interact('CardItem', cid, 'click', { selected: true, autoTarget: false })
-    if (pid !== null && pst && (pst.enabled || pst.selected)) {
-      void interact('Photo', pid, 'click', { selected: !pst.selected, autoTarget: false })
+    if ((finalDrag.superSelected || st?.selected) && st) {
+      void interact('CardItem', cid, 'click', { selected: false, autoTarget: false })
     }
     const handKey = `hand:${selfId}` as AreaKey
     const handIds = areas[handKey] ?? []
@@ -304,9 +355,6 @@ export function CardLayer() {
         return ot ? ot.x + CARD_W / 2 : undefined
       })
       useCardStore.getState().reorderArea(handKey, cid, nextIdx)
-    }
-    if (hitOk) {
-      void interact('Button', 'OK', 'click', {})
     }
   }
 

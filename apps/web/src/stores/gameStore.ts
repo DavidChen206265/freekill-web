@@ -76,7 +76,6 @@ interface GameState {
   /** Replace player state from the VM's authoritative mirror (includes Self). */
   syncPlayers: (players: VmPlayerLike[], started?: boolean) => void
   setMarkAreaVisible: (id: number, visible: boolean) => void
-  setPlayerState: (id: number | undefined, state: number) => void
   setSelfSkills: (skills: SkillInfo[]) => void
   setObserving: (observing: boolean) => void
   resetGame: () => void
@@ -194,13 +193,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setSelfSkills: (skills) => set({ selfSkills: skills }),
   setObserving: (observing) => set({ observing }),
-  setPlayerState: (id, state) => {
-    if (id === undefined) return
-    set((s) => {
-      const prev = s.players[id] ?? blankPlayer(id)
-      return { players: { ...s.players, [id]: { ...prev, state } } }
-    })
-  },
   setMarkAreaVisible: (id, visible) => set((s) => {
     const prev = s.players[id] ?? blankPlayer(id)
     return { players: { ...s.players, [id]: { ...prev, markAreaVisible: visible } } }

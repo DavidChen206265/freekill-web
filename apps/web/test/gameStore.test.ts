@@ -79,15 +79,6 @@ describe('gameStore GameOver trust cleanup', () => {
   })
 })
 
-describe('gameStore.setPlayerState', () => {
-  it('optimistically updates one player state for trust enter/exit UI', () => {
-    const g = useGameStore.getState()
-    g.syncPlayers([{ id: 1, name: 'alice', avatar: 'a1', state: 2 }], true)
-    g.setPlayerState(1, 1)
-    expect(useGameStore.getState().players[1]!.state).toBe(1)
-  })
-})
-
 describe('gameStore.syncPlayers handcard info mirror', () => {
   it('keeps maxCard and visible handcard preview from the VM snapshot', () => {
     const g = useGameStore.getState()
