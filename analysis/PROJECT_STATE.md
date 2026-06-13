@@ -3,12 +3,11 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-13 16:17:01　·　跟踪文件数: 245
+最后更新: 2026-06-13 16:40:40　·　跟踪文件数: 245
 
 ## 自上次重建以来的改动
 
-- 新增 2: freekill-web/apps/web/src/stores/trustUiStore.ts, freekill-web/apps/web/src/table/useSelfTrusting.ts
-- 修改 15: freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/src/stores/gameStore.ts, freekill-web/apps/web/src/table/CardLayer.tsx, freekill-web/apps/web/src/table/Dashboard.tsx, freekill-web/apps/web/src/table/Photo.tsx, freekill-web/apps/web/src/table/RequestPopup.tsx, freekill-web/apps/web/src/table/RoomMenuOverlay.tsx, freekill-web/apps/web/src/table/roomActions.ts, freekill-web/apps/web/test/gameStore.test.ts, freekill-web/apps/web/test/ingameBugfixSource.test.ts, freekill-web/apps/web/test/n13Source.test.ts, freekill-web/apps/web/test/roomActions.test.ts …
+- 修改 6: freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md, freekill-web/audit/D-photo.md, freekill-web/audit/E-cards.md, freekill-web/audit/P-protocol-contract.md, freekill-web/audit/SUMMARY.md
 
 ## 上游参考仓库(只读,不跟踪改动)
 

@@ -126,6 +126,7 @@
 - 差异: 核心拖拽/重排已恢复；但 Web 仍无完整 ControlSetting/Config 设置页，拖拽开关与 QML 配置持久化未还原。
 - 修复: 已修复并验证 (新增 cardDrag/cardStore 单测；`pnpm --filter @freekill-web/web test -- cardStore gameStore skin handcardInfo cardDrag`、typecheck、build 通过，2026-06-13)
 - 修复: 已修复并验证 (补强:区分普通拖拽重排与点击选中,仅拖到目标 Photo 或 OK 区时为超级拖拽自动选牌,普通重排不再触发 CardItem click；web 183 测试、typecheck、build 通过，2026-06-13)
+- 修复: 已修复并验证 (补强:CardLayer 跟踪并取消卡牌 WAAPI go-back/settle 动画,拖拽开始前释放动画层对 transform 的覆盖,确保拖拽中 inline transform 能实时移动卡牌；web 188 测试、typecheck、build 通过，2026-06-13)
 
 ### E15 HandcardArea::超级拖拽 (Config.enableSuperDrag dragMovement)
 - 状态: 简化还原
@@ -136,6 +137,7 @@
 - 差异: 核心拖拽选目标/确认已恢复；但 Web 仍无 `Config.enableSuperDrag` 设置入口，且选目标在释放时触发，未逐帧模拟 QML `dragMovement` 进入/离开切换。
 - 修复: 已修复并验证 (新增 cardDrag 纯函数测试；web test/typecheck/build 通过，2026-06-13)
 - 修复: 已修复并验证 (补强:自动选中限定在命中 Photo/OK 的超级拖拽路径,避免重排手牌误选中；web 183 测试、typecheck、build 通过，2026-06-13)
+- 修复: 已修复并验证 (补强:拖拽前取消残留卡牌移动动画,修复超级拖拽时牌面视觉不随指针移动、因此难以拖到目标/OK 区释放的问题；web 188 测试、typecheck、build 通过，2026-06-13)
 
 ### E16 CardItem::选中态切换 (selectCard / cardSelected)
 - 状态: 完全还原

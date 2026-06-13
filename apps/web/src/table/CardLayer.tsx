@@ -47,6 +47,7 @@ export function CardLayer() {
 
   const nodeRefs = useRef(new Map<number, HTMLDivElement>())
   const lastPos = useRef(new Map<number, { x: number; y: number }>())
+  const activeAnims = useRef(new Map<number, Animation>())
   // One-shot "settle" flights for cards entering equip/judge slots: those areas are
   // drawn as static icons inside the Photo (not floating cards), so the card has no
   // resting node to fly to. We render a transient flying card (table → slot box) that
@@ -58,9 +59,21 @@ export function CardLayer() {
   const [drag, setDrag] = useState<{ cid: number; x: number; y: number; dx: number; dy: number; startX: number; startY: number; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
 
+  const cancelCardAnimation = (cid: number) => {
+    const anim = activeAnims.current.get(cid)
+    if (!anim) return
+    anim.cancel()
+    activeAnims.current.delete(cid)
+  }
+
   useEffect(() => {
     if (selfTrusting) setDrag(null)
   }, [selfTrusting])
+
+  useEffect(() => () => {
+    activeAnims.current.forEach((anim) => anim.cancel())
+    activeAnims.current.clear()
+  }, [])
 
   // Compute every card's resting target (area box + slot within area).
   const playerNum = seatOrder.length || 1
@@ -156,13 +169,20 @@ export function CardLayer() {
         if (box) prev = { x: box.x, y: box.y }
       }
       if (prev && (prev.x !== t.x || prev.y !== t.y)) {
-        el.animate(
+        cancelCardAnimation(cid)
+        const anim = el.animate(
           [
             { transform: `translate(${prev.x}px, ${prev.y}px)` },
             { transform: `translate(${t.x}px, ${t.y}px)` },
           ],
           { duration: GO_BACK_MS, easing: EASE_OUT_QUAD, fill: 'forwards' },
         )
+        activeAnims.current.set(cid, anim)
+        anim.onfinish = () => {
+          if (activeAnims.current.get(cid) !== anim) return
+          anim.cancel()
+          activeAnims.current.delete(cid)
+        }
       }
       // commit final transform so it sticks after the animation
       el.style.transform = `translate(${t.x}px, ${t.y}px)`
@@ -244,6 +264,7 @@ export function CardLayer() {
     if (!selfHandCids.has(cid)) return
     const pt = stagePoint(e.clientX, e.clientY)
     if (!pt) return
+    cancelCardAnimation(cid)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     setDrag({ cid, x: t.x, y: t.y, dx: pt.x - t.x, dy: pt.y - t.y, startX: pt.x, startY: pt.y, moved: false })
   }

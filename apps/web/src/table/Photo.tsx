@@ -368,7 +368,7 @@ const styles: Record<string, React.CSSProperties> = {
   // bead (trick drawn on top). We keep QML's absolute bottoms shifted up by our
   // 20px name bar (a deviation: QML puts the name at top): 27 → 47.
   hp: { position: 'absolute', left: 5, bottom: 27, zIndex: 4 },
-  role: { position: 'absolute', top: -2, right: -2, width: 30, height: 33, zIndex: 4 },
+  role: { position: 'absolute', top: -16.5, right: -15, width: 30, height: 33, zIndex: 4 },
   roleGuessable: { cursor: 'pointer' },
   // LimitSkillArea: top-right column under the role pic (LimitSkillItem bg ~39×21 @0.45).
   limitSkillArea: { position: 'absolute', top: 34, right: 0, display: 'flex', flexDirection: 'column', gap: 1, zIndex: 5, pointerEvents: 'none' },
@@ -401,7 +401,7 @@ const styles: Record<string, React.CSSProperties> = {
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', background: 'rgba(0,0,0,.6)', zIndex: 5 },
   name: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   seat: { fontSize: 11, color: '#d4af37', fontWeight: 700 },
-  handcard: { position: 'absolute', left: -5, bottom: -5, width: 40, height: 30, display: 'grid', placeItems: 'center', zIndex: 8 },
+  handcard: { position: 'absolute', left: -40, bottom: -5, width: 40, height: 30, display: 'grid', placeItems: 'center', zIndex: 8 },
   handcardBg: { position: 'absolute', inset: 0, width: 40, height: 30, objectFit: 'fill' },
   handcardText: { position: 'relative', color: '#fff', fontWeight: 700, lineHeight: 1, textShadow: '0 0 2px #000, 0 1px 1px #000' },
   handcardViewer: { position: 'absolute', right: PHOTO_W + 4, top: 22, width: 44, minHeight: 88, padding: '2px 0', background: '#CC2E2C27', border: '1px solid #A6967A', borderRadius: 6, color: '#E4D5A0', fontSize: 18, lineHeight: '22px', textAlign: 'center', fontWeight: 700, textShadow: '0 0 2px #000', zIndex: 7, pointerEvents: 'none' },

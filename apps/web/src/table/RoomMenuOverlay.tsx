@@ -9,6 +9,9 @@ import { useTrustUiStore } from '../stores/trustUiStore.js'
 import { canConfirmSurrender, isTrustState, isSelfTrusting, playerStateLabel, surrenderPayload, type SurrenderCheck } from './roomActions.js'
 import { Portal } from './Portal.js'
 
+const PLAYER_ONLINE = 1
+const PLAYER_TRUST = 2
+
 export function RoomMenuOverlay() {
   const client = useConnectionStore((s) => s.client)
   const vm = useVmStore((s) => s.vm)
@@ -57,8 +60,10 @@ export function RoomMenuOverlay() {
     client?.notify('Trust', '')
     if (!trusting) {
       setTrustPending('enter')
+      useGameStore.getState().setPlayerState(selfId, PLAYER_TRUST)
     } else {
       setTrustPending('exit')
+      useGameStore.getState().setPlayerState(selfId, PLAYER_ONLINE)
     }
     setOpen(false)
   }

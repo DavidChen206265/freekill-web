@@ -200,6 +200,7 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - 差异: 无。
 - 修复: 已修复并验证 (handcardInfo/gameStore/skin 单测；web test/typecheck/build 通过，2026-06-13)
 - 修复: 已修复并验证 (补强:Photo 外层 `overflow:visible`,保留立绘 `portraitClip` 裁剪,手牌数徽章可按原版 x:-5/bottom:-5 出框而不遮挡 Photo 内 UI；web 183 测试、typecheck、build 通过，2026-06-13)
+- 修复: 已修复并验证 (补强:按实测要求将手牌数徽章整体移到 Photo 左侧外部,徽章右侧与 Photo 左侧对齐,避免遮挡立绘/状态层；web 188 测试、typecheck、build 通过，2026-06-13)
 
 ### D25 Photo::右键/长按打开详情(showDetail)
 - 状态: 完全还原
@@ -472,6 +473,7 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - web : Photo.tsx:113-126,268-273 (shownRole 同逻辑, rolePic, hidden 不显示)
 - 原版行为: 按可见性显示身份牌 / unknown。
 - web 行为: shownRole 完整还原 hidden/role_shown/roleVisible 三分支。
+- 修复: 已修复并验证 (补强:身份图标向右上移动,图标中心与 Photo 右上角对齐,保持 RoleComboBox 显示/猜测逻辑不变；web 188 测试、typecheck、build 通过，2026-06-13)
 
 ### D58 RoleComboBox::身份猜测下拉(assumptionBox/optionPopupBox)
 - 状态: 完全还原

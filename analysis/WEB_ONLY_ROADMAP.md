@@ -54,7 +54,7 @@
 - 标准三包不触发(audit O 确认),扩展包对局必需;若 VM 镜像已含状态则低成本补渲染。
 
 ### N1-3 对局上报入口(audit P 阶段:asio 支持、web 无前端入口)
-状态:已完成并验证(2026-06-13)。P9/P10/P11 已从未还原升级为完全还原;C19/C20 降为简化还原。
+状态:已完成并验证(2026-06-13)。P9/P10/P11 已从未还原升级为完全还原;C19/C20 降为简化还原。托管入口已补强为点击托管/退出托管后都立即更新本地渲染态,再由服务端 NetStateChanged 校准。
 
 - 投降(PushRequest surrender)、托管(Trust)、房主踢人(KickPlayer)。
 - 配合 audit C19/C20:对局内菜单 overlay + 投降按钮。
@@ -69,7 +69,7 @@
 N1-4 核心已在 2026-06-13 完成;剩余是配置/设置与 ViewPile 周边简化项,不再阻塞后续页面族推进。
 
 ### N1-4 出牌交互(audit E14/E15/E17 + D32/D24)
-状态:核心已完成并验证(2026-06-13)。E14/E15/E17 已从未还原升级为简化还原;D24 已完全还原;D32 已升级为简化还原。
+状态:核心已完成并验证(2026-06-13)。E14/E15/E17 已从未还原升级为简化还原;D24 已完全还原;D32 已升级为简化还原。实测补强:拖拽开始前取消残留卡牌移动动画,超级拖拽时牌面可实时跟随指针移动到目标/OK 区。
 
 - 已完成:手牌拖拽/重排、SortProhibited 门控、拖到目标/OK、双击使用、手牌数 `n/maxCard/∞`、HandcardViewer 显示。
 - 剩余简化项:完整 ControlSetting/Config 驱动 `enableSuperDrag`/`doubleClickUse`/`autoTarget`;HandcardViewer 点击打开 ViewPile(依赖 Cheat/ViewPile 页族)。

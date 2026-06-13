@@ -15,6 +15,7 @@ describe('N1-3 source wiring', () => {
     expect(src).toContain('useInteractionStore.getState().clear()')
     expect(src).toContain("setTrustPending('enter')")
     expect(src).toContain("setTrustPending('exit')")
+    expect(src).toContain('setPlayerState(selfId, PLAYER_ONLINE)')
   })
 
   it('wires waiting-room owner kick to KickPlayer', () => {
