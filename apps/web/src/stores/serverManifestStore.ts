@@ -19,6 +19,8 @@ export interface ServerManifest {
   assetVersion: string
   /** Full enabled pack set incl. builtins, from real server package state. */
   enabledPacks: string[]
+  /** Hidden package names from SetServerSettings[1], matching Config.serverHiddenPacks. */
+  hiddenPacks: string[]
   /** Server-advertised Web features, e.g. ["AddRobot", "ChangeRoom"]. */
   webFeatures: string[]
   /** True once a manifest has actually been received (vs. defaults). */
@@ -30,6 +32,7 @@ const EMPTY: ServerManifest = {
   serverBuild: '',
   assetVersion: '',
   enabledPacks: [],
+  hiddenPacks: [],
   webFeatures: [],
   received: false,
 }
@@ -48,6 +51,7 @@ export function parseManifest(raw: unknown): ServerManifest | null {
     serverBuild: typeof o.serverBuild === 'string' ? o.serverBuild : '',
     assetVersion: typeof o.assetVersion === 'string' ? o.assetVersion : '',
     enabledPacks: (o.enabledPacks as unknown[]).filter((p): p is string => typeof p === 'string'),
+    hiddenPacks: [],
     webFeatures: Array.isArray(o.webFeatures)
       ? (o.webFeatures as unknown[]).filter((f): f is string => typeof f === 'string')
       : [],

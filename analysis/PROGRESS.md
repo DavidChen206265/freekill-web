@@ -4,9 +4,9 @@
 
 ## 当前阶段
 
-**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:N1-1 还原错误 10 条已清零,N1-2 限定/觉醒/转换技与 banner/mark 区已完成并部署,N1-3 投降/托管/房主踢人入口已完成并验证,N2 低成本状态视觉(playing 高亮/faceturned 翻面/saveme 垂死贴图)已完成并验证,N1-4 出牌交互/手牌信息核心已完成并验证;用户已拍板下一步优先做 **禁将系统 + 大厅武将一览页面**,短期计划见 `GENERAL_BAN_OVERVIEW_PLAN.md`。当前切片 A(Catalog VM/数据桥)已完成并验证,下一步进入切片 B(`disableSchemes` store)。
+**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:N1-1 还原错误 10 条已清零,N1-2 限定/觉醒/转换技与 banner/mark 区已完成并部署,N1-3 投降/托管/房主踢人入口已完成并验证,N2 低成本状态视觉(playing 高亮/faceturned 翻面/saveme 垂死贴图)已完成并验证,N1-4 出牌交互/手牌信息核心已完成并验证;用户已拍板的 **禁将系统 + 大厅武将一览页面** 短期主线已完成切片 A-E 并验证,计划与结果见 `GENERAL_BAN_OVERVIEW_PLAN.md`。下一步建议回补 GeneralDetailPage J6-J17 / GeneralFilter / 卡牌一览与武将池等后续页面族。
 
-基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;当前完全还原率 180/459≈39%。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
+基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;当前完全还原率 180/459≈39%,总体计数为 未135 / 简144 / 错0 / 完180。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
 
 服务端改动进独立 fork `freekill-web-asio`(GitHub `DavidChen206265/freekill-web-asio`,项目内目录 `freekill-web-asio/`,自带 git;`freekill-asio/` 留作只读 diff 基线);Docker 构建源已切到 fork。fork HEAD 见 PROJECT_STATE.md。push 须经用户允许(见 CLAUDE.md「Git 工作流」)。长期/短期计划以 `freekill_web_implementation_plan.md` + `WEB_ONLY_ROADMAP.md` 为准。
 
@@ -20,8 +20,8 @@
 
 - **N1 对局正确性(最高优先)**:① 还原错误 10 条已完成(audit 错误 10→0);② 限定/觉醒/转换技显示 + SetBanner/UpdateMarkArea 已完成并部署;③ 投降/托管/踢人上报入口 + 最小对局菜单 overlay 已完成并 live 验证;④ 出牌交互核心已完成:手牌拖拽/重排、超级拖拽选目标/OK、双击使用、`n/maxCard/∞`、HandcardViewer 显示。剩余为设置/配置驱动与点击 ViewPile 周边简化项。
 - **N2 当前小切片**:已完成。行动者 playing 高亮、faceturned 翻面、saveme 垂死贴图已接入 VM 镜像并通过测试/typecheck/build。
-- **当前短期主线(用户已拍板)**:优先实现禁将系统 + 大厅武将一览页面,计划见 `GENERAL_BAN_OVERVIEW_PLAN.md`。切片 A Catalog VM/数据桥已完成并验证;下一步切片 B: `disableSchemes` store + `CreateRoom.qml` 转换函数单测。后续顺序:大厅 `GeneralsOverview` → `BanGeneralSetting` → `CreateRoomDialog` 禁将 payload 接入 → 后续 GeneralDetailPage 补完。
-- **N2 后续**:总览/详情/战绩页族(audit J 23 条)、建房筛选/禁将子系统、个人设置族、等待房 WaitingPhoto。
+- **当前短期主线(用户已拍板)**:禁将系统 + 大厅武将一览页面切片 A-E 已完成并验证。已具备大厅武将一览、禁包/禁将编辑、禁将方案管理和建房 disabled payload 接入。剩余非阻塞项:完整 GeneralDetailPage、GeneralFilter、卡牌一览/武将池/战绩统计、卡包设置页。
+- **N2 后续**:总览/详情/战绩页族(audit J 当前 18 未还原/8 简化)、建房筛选/卡包设置子系统、个人设置族、等待房 WaitingPhoto。
 - **N3 Web 账户与个性化**:`globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
 - **N4 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
 - **N5 观感打磨**:大招动画、送礼动画(5 种精灵)、状态光环、弹幕、美化包/字体、Cheat 查看面板、设置控件族。
@@ -45,6 +45,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **禁将系统 + 大厅武将一览切片 B-E 完成并验证(本次)**。新增 `apps/web/src/stores/disableSchemesStore.ts` 持久化原版 `Config.disableSchemes` 核心结构,覆盖方案新建/清空/导入/导出/重命名、禁包/禁将/反选和 `CreateRoom.qml` disabled payload 转换;新增 `BanGeneralSetting.tsx` 与 `GeneralsOverviewPage.tsx`,大厅入口支持包列表、搜索、禁包/禁将编辑、三列方案摘要和点击武将详情;`CreateRoomDialog` 在 `lunarltk` 下写入 `disabledGenerals`/`disabledPack`,并接入 `serverHiddenPacks`。验证:`pnpm --filter @freekill-web/web test -- disableSchemes catalogVm serverManifestStore`、web 全量 `test`(37 文件/194 测试)、`typecheck`、`build`、WSL web-asio 构建、gateway WS 探测、真实 asio/gateway E2E 登录→大厅→CreateRoom→EnterRoom。audit 更新:B30/J1-J5 未→简化,K19 补充 Config 覆盖说明,SUMMARY 当前 未135 / 简144 / 错0 / 完180。
 
 - 2026-06-13 **切片 A Catalog VM/数据桥完成并验证(本次)**。新增 `apps/web/src/vm/catalogBridge.ts` 和 `catalogVm.ts`:大厅阶段可 boot 独立只读 wasmoon catalog VM,桥接 `GetAllModNames`/`GetAllGeneralPack`/`GetGenerals`/`SearchAllGenerals`/`SearchGenerals`/`GetGeneralData`/`GetGeneralDetail`/`Translate`,不复用进房后的 `vmStore` 生命周期。新增 `apps/web/test/catalogVm.test.ts` 用真实 freekill-core VM 验证包列表、搜索、翻译、武将详情和 face 元数据。验证:`pnpm --filter @freekill-web/web test -- catalogVm`、`typecheck`、`build`、web 全量 `test`(36 文件/188 测试)通过。构建前发现 `apps/web/node_modules/workbox-window` 链接缺失,运行 `pnpm install --filter @freekill-web/web` 恢复本地依赖链接后 build 通过,lockfile 未变。
 

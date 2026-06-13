@@ -18,6 +18,7 @@ describe('parseManifest', () => {
     expect(m!.serverBuild).toBe('0.1.14')
     expect(m!.assetVersion).toBe('8efa2ccfcfc10ffb84a010f9e87920f6')
     expect(m!.enabledPacks).toContain('utility')
+    expect(m!.hiddenPacks).toEqual([])
     expect(m!.webFeatures).toEqual(['AddRobot', 'ChangeRoom'])
   })
 
@@ -36,6 +37,7 @@ describe('parseManifest', () => {
     const m = parseManifest({ enabledPacks: ['standard', 42, null, 'sp'] })
     expect(m).not.toBeNull()
     expect(m!.enabledPacks).toEqual(['standard', 'sp'])
+    expect(m!.hiddenPacks).toEqual([])
     expect(m!.webFeatures).toEqual([]) // missing → empty
     expect(m!.serverBuild).toBe('') // missing → ''
     expect(m!.webOnly).toBe(false)

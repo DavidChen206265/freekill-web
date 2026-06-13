@@ -6,11 +6,17 @@
 // Field ranges/defaults mirror freekill-core lunarltk/init.lua (SpinRow from/to) +
 // RoomGeneralSettings.qml (operation timeout 10–60; we allow up to 90, default 30).
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useConnectionStore } from '../stores/index.js'
+import { CatalogVm } from '../vm/catalogVm.js'
+import { buildDisabledPayload, useDisableSchemesStore } from '../stores/disableSchemesStore.js'
+import { useServerManifestStore } from '../stores/serverManifestStore.js'
 
 export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   const client = useConnectionStore((s) => s.client)
+  const curScheme = useDisableSchemesStore((s) => s.curScheme)
+  const saveSchemes = useDisableSchemesStore((s) => s.save)
+  const hiddenPacks = useServerManifestStore((s) => s.hiddenPacks)
   const [name, setName] = useState('Web测试房')
   const [capacity, setCapacity] = useState(2)
   const [gameMode, setGameMode] = useState('aaa_role_mode')
@@ -26,9 +32,28 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   const [enableDeputy, setEnableDeputy] = useState(false)
   const [enableFreeAssign, setEnableFreeAssign] = useState(false)
   const [enableObserverViewCard, setEnableObserverViewCard] = useState(false)
+  const [catalog, setCatalog] = useState<CatalogVm | null>(null)
+  const [catalogError, setCatalogError] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    const vm = new CatalogVm()
+    void vm.boot()
+      .then(() => { if (alive) setCatalog(vm); else vm.close() })
+      .catch((err) => { if (alive) setCatalogError(err instanceof Error ? err.message : String(err)) })
+    return () => { alive = false; vm.close() }
+  }, [])
+
+  const disabledPayload = useMemo(() => {
+    if (!catalog) return { disabledPack: [] as string[], disabledGenerals: [] as string[] }
+    const boardgameName = gameMode === 'aaa_role_mode' ? 'lunarltk' : ''
+    return buildDisabledPayload(curScheme, (pack) => catalog.generals(pack), hiddenPacks, boardgameName)
+  }, [catalog, curScheme, gameMode, hiddenPacks])
 
   const create = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!catalog) return
+    saveSchemes()
     // The _game block is REQUIRED — generalNum drives general selection; without it
     // the server can't ask for generals and the game degenerates instantly.
     const settings = {
@@ -37,8 +62,8 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
       password,
       _game: { generalNum, generalTimeout, luckTime, enableFreeAssign, enableDeputy, enableObserverViewCard },
       _mode: {},
-      disabledPack: [] as string[],
-      disabledGenerals: [] as string[],
+      disabledPack: disabledPayload.disabledPack,
+      disabledGenerals: disabledPayload.disabledGenerals,
     }
     client?.notify('CreateRoom', [name, capacity, timeoutSec, settings])
     onClose()
@@ -72,10 +97,15 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
         <SwitchRow label="启用副将" checked={enableDeputy} onChange={setEnableDeputy} />
         <SwitchRow label="自由选将" checked={enableFreeAssign} onChange={setEnableFreeAssign} />
         <SwitchRow label="旁观可见手牌" checked={enableObserverViewCard} onChange={setEnableObserverViewCard} />
+        <div style={styles.banSummary}>
+          禁用包 {disabledPayload.disabledPack.length} · 禁用武将 {disabledPayload.disabledGenerals.length}
+          {!catalog && !catalogError && <span> · 正在读取禁将数据</span>}
+          {catalogError && <span> · 读取失败: {catalogError}</span>}
+        </div>
 
         <div style={styles.actions}>
           <button style={styles.ghost} type="button" onClick={onClose}>取消</button>
-          <button style={styles.primary} type="submit">创建</button>
+          <button style={styles.primary} type="submit" disabled={!catalog}>创建</button>
         </div>
       </form>
     </div>
@@ -132,5 +162,6 @@ const styles: Record<string, React.CSSProperties> = {
   spinInput: { width: 46, padding: '5px 4px', textAlign: 'center', borderRadius: 6, border: '1px solid #444', background: '#1b1b1f', color: '#eee' },
   spinSuffix: { width: 14, color: '#888', fontSize: 12 },
   switchRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, color: '#bbb', cursor: 'pointer' },
+  banSummary: { fontSize: 12, color: '#aaa' },
 }
 

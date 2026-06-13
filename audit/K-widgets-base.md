@@ -160,10 +160,11 @@ web：`/home/ubuntu/freekill/freekill-vps-deploy/freekill-web/`
 ### K19 Base::Config
 - 状态: 简化还原
 - 原版: Fk/Base/Config.qml:6 (QtObject 单例, 240 行) — 全量客户端配置 + loadConf/saveConf(Cpp 落盘 JSON) + favoriteServers 增删
-- web : apps/web/src/pages/LoginPage.tsx:43 (fk-uuid) / table/audio.ts:84-90 (fk-bgm-muted/volume) localStorage 分散持久化
+- web : apps/web/src/pages/LoginPage.tsx:43 (fk-uuid) / table/audio.ts:84-90 (fk-bgm-muted/volume) / apps/web/src/stores/disableSchemesStore.ts (fk-disable-schemes) localStorage 分散持久化
 - 原版行为: ~80 项配置（窗口几何、lobbyBg/roomBg/bgmFile、language、各 hideUseless/autoTarget/doubleClickUse 等游戏偏好、favoriteServers、disableSchemes 禁将方案、enabledResourcePacks/UIPackages/Skins、screenName/password、serverMotd/features 等）；loadConf 从 Cpp.loadConf 读 JSON 带默认值，saveConf 回写。
-- web 行为: web 仅持久化极少数项到 localStorage（uuid、bgm 静音/音量）；服务端设置（motd/hiddenPacks/features/enabledPacks）由 serverManifestStore 接管（K27）；绝大多数游戏偏好（hideUseless/autoTarget/doubleClickUse/禁将方案/资源包/收藏服务器等）无对应——因 web 尚无设置页与偏好系统。
-- 差异: 仅持久化 uuid/bgm；缺 ~95% 配置项与统一 loadConf/saveConf；无收藏服务器/禁将方案/偏好开关。
+- web 行为: web 仅持久化少数项到 localStorage（uuid、bgm 静音/音量、disableSchemes/currentDisableIdx）；服务端设置（motd/hiddenPacks/features/enabledPacks）由 serverManifestStore 接管（K27）；绝大多数游戏偏好（hideUseless/autoTarget/doubleClickUse/资源包/收藏服务器等）无对应——因 web 尚无设置页与完整偏好系统。
+- 差异: 仅持久化 uuid/bgm/禁将方案；缺 ~90% 配置项与统一 loadConf/saveConf；无收藏服务器/完整偏好开关。
+- 修复: 已修复并验证 (2026-06-13: 新增 disableSchemesStore 以 localStorage 持久化原版 disableSchemes/curScheme 核心结构并供 BanGeneralSetting/CreateRoom 使用；仍缺 Config 统一设置页和大量本地客户端配置项，因此维持简化还原计数)
 
 ### K20 Base::CppUtil
 - 状态: 简化还原

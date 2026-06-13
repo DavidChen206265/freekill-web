@@ -437,13 +437,16 @@ function routeEnvelope(env: Envelope): void {
       // and consumers keep current behavior. enabledPacks becomes the single source
       // of truth for art/audio pack resolution (replaces hardcoded ART_PKGS).
       if (Array.isArray(data)) {
+        const hiddenPacks = Array.isArray(data[1]) ? data[1].filter((p): p is string => typeof p === 'string') : []
         const manifest = parseManifest(data[3])
         if (manifest) {
-          useServerManifestStore.setState(manifest)
+          useServerManifestStore.setState({ ...manifest, hiddenPacks })
           if (manifest.enabledPacks.length > 0) {
             setArtPacks(manifest.enabledPacks)
             setAudioPacks(manifest.enabledPacks)
           }
+        } else {
+          useServerManifestStore.setState({ hiddenPacks })
         }
       }
       break

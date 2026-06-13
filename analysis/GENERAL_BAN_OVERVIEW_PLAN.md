@@ -124,9 +124,13 @@ interface DisableScheme {
 
 1. 已完成:建立本计划并更新近期路线。
 2. 已完成并验证:切片 A catalog VM / 数据桥。
-3. 下一步:实现切片 B `disableSchemes` store + 转换单测。
-4. 实现切片 C/D/E,每片修一项验一项。
+3. 已完成并验证:切片 B `disableSchemes` store + 转换单测。
+4. 已完成并验证:切片 C 大厅入口 + `GeneralsOverview`。
+5. 已完成并验证:切片 D `BanGeneralSetting`。
+6. 已完成并验证:切片 E `CreateRoomDialog` 禁将方案接入。
+7. 下一步:按 audit 优先级回补 GeneralDetailPage J6-J17、GeneralFilter、卡牌一览/武将池/战绩统计等后续页面族。
 
 ## 进展记录
 
 - 2026-06-13:切片 A 完成。新增 `apps/web/src/vm/catalogBridge.ts`、`apps/web/src/vm/catalogVm.ts` 和 `apps/web/test/catalogVm.test.ts`,用真实 freekill-core VM 验证包列表、搜索、翻译、武将详情和 face 元数据可读。验证通过:`pnpm --filter @freekill-web/web test -- catalogVm`、`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build`、`pnpm --filter @freekill-web/web test`。
+- 2026-06-13:切片 B-E 完成。新增 `disableSchemesStore`、`BanGeneralSetting`、`GeneralsOverviewPage` 与 `disableSchemes.test`,大厅新增「武将一览」入口,CreateRoomDialog 按原版 `CreateRoom.qml` 语义推导 `disabledGenerals`/`disabledPack`,并接入 serverHiddenPacks。验证通过:`pnpm --filter @freekill-web/web test -- disableSchemes catalogVm serverManifestStore`、`pnpm --filter @freekill-web/web test`(37 文件/194 测试)、`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build`、WSL `freekill-web-asio` 构建、gateway WS 探测、真实 asio/gateway E2E 登录→大厅→CreateRoom→EnterRoom。

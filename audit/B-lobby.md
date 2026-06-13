@@ -243,11 +243,13 @@
 ## 禁将设置 BanGeneralSetting.qml
 
 ### B30 BanGeneralSetting::禁将方案管理
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: BanGeneralSetting.qml 全文 (ban 方案 ComboBox + New/Clear/Export/Import/Rename + 禁将/禁包/白名单三 GridView)
-- web : 无
+- web : apps/web/src/components/BanGeneralSetting.tsx + apps/web/src/stores/disableSchemesStore.ts + apps/web/src/components/CreateRoomDialog.tsx
 - 原版行为: 多套禁用方案(disableSchemes)切换/新建/清空/剪贴板导入导出/重命名；展示禁将、禁包、白名单将三列。
-- web 行为: 完全无禁将系统；disabledGenerals 恒空。
+- web 行为: 大厅新增禁将设置面板；localStorage 持久化 disableSchemes/currentDisableIdx，支持方案切换/新建/清空/导入/导出/重命名，展示禁用武将/禁用包/白名单三列摘要；CreateRoom 在 lunarltk 模式下按原版 CreateRoom.qml 语义把 banPkg/normalPkg/banCardPkg 转换为 disabledGenerals/disabledPack，非 lunarltk 发空 disabled arrays。
+- 差异: UI 布局和剪贴板入口为 React 简化实现；卡牌包设置(B29)仍无独立页面，因此 banCardPkg 只能通过导入方案进入。
+- 修复: 已修复并验证 (2026-06-13: disableSchemes.test 覆盖方案结构、导入校验、禁包/禁将切换、CreateRoom disabled payload 转换；pnpm web test/typecheck/build、WSL web-asio 构建、gateway+asio E2E 建房均通过)
 
 ---
 
@@ -383,14 +385,14 @@
 | 状态 | 数量 | 序号 |
 |------|------|------|
 | 完全还原 | 8 | B5, B14, B15, B20, B22, B23, B40, B41 |
-| 简化还原 | 12 | B1, B2, B7, B9, B12, B18, B19, B24, B25, B27, B32, B36 |
+| 简化还原 | 13 | B1, B2, B7, B9, B12, B18, B19, B24, B25, B27, B30, B32, B36 |
 | 还原错误 | 0 | （B40, B41 已修复并验证 2026-06-12，升级为完全还原） |
-| 未还原 | 24 | B3, B4, B6, B8, B10, B11, B13, B16, B17, B21, B26, B28, B29, B30, B31, B33, B34, B35, B37, B38, B39, B42, B43, B44 |
+| 未还原 | 23 | B3, B4, B6, B8, B10, B11, B13, B16, B17, B21, B26, B28, B29, B31, B33, B34, B35, B37, B38, B39, B42, B43, B44 |
 
-合计 44 条（完全 8 / 简化 12 / 错误 0 / 未还原 24；B40、B41 于 2026-06-12 修复并验证由还原错误升级）。
+合计 44 条（完全 8 / 简化 13 / 错误 0 / 未还原 23；B40、B41 于 2026-06-12 修复并验证由还原错误升级；B30 于 2026-06-13 补为简化还原）。
 
 ### 未还原序号索引
-B3, B4, B6, B8, B10, B11, B13, B16, B17, B21, B26, B28, B29, B30, B31, B33, B34, B35, B37, B38, B39, B42, B43, B44
+B3, B4, B6, B8, B10, B11, B13, B16, B17, B21, B26, B28, B29, B31, B33, B34, B35, B37, B38, B39, B42, B43, B44
 
 ### 还原错误序号索引
 （无；B40 密码内联框、B41 过期房禁用 均已于 2026-06-12 修复并验证，升级为完全还原）

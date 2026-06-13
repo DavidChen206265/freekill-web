@@ -3,11 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-13 19:03:21　·　跟踪文件数: 2439
+最后更新: 2026-06-13 19:24:45　·　跟踪文件数: 2449
 
 ## 自上次重建以来的改动
 
-- 修改 3: freekill-web/analysis/GENERAL_BAN_OVERVIEW_PLAN.md, freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md
+- 新增 10: freekill-web/.tmp/asio-9527.err.log, freekill-web/.tmp/asio-9527.log, freekill-web/.tmp/gateway-9529.err.log, freekill-web/.tmp/gateway-9529.log, freekill-web/.tmp/vite-5174.err.log, freekill-web/.tmp/vite-5174.log, freekill-web/apps/web/src/components/BanGeneralSetting.tsx, freekill-web/apps/web/src/components/GeneralsOverviewPage.tsx, freekill-web/apps/web/src/stores/disableSchemesStore.ts, freekill-web/apps/web/test/disableSchemes.test.ts
+- 修改 12: freekill-web/analysis/GENERAL_BAN_OVERVIEW_PLAN.md, freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md, freekill-web/apps/web/src/components/CreateRoomDialog.tsx, freekill-web/apps/web/src/pages/LobbyPage.tsx, freekill-web/apps/web/src/stores/index.ts, freekill-web/apps/web/src/stores/serverManifestStore.ts, freekill-web/apps/web/test/serverManifestStore.test.ts, freekill-web/audit/B-lobby.md, freekill-web/audit/J-overview-detail.md, freekill-web/audit/K-widgets-base.md, freekill-web/audit/SUMMARY.md
 
 ## 上游参考仓库(只读,不跟踪改动)
 

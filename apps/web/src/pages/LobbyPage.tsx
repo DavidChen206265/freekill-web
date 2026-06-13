@@ -7,6 +7,7 @@ import { useGameStore } from '../stores/gameStore.js'
 import { RoomList } from '../components/RoomList.js'
 import { ChatBox } from '../components/ChatBox.js'
 import { CreateRoomDialog } from '../components/CreateRoomDialog.js'
+import { GeneralsOverviewPage } from '../components/GeneralsOverviewPage.js'
 import { VmDebugPanel } from '../components/VmDebugPanel.js'
 import { RoomScene } from '../table/RoomScene.js'
 import { WaitingRoom } from '../table/WaitingRoom.js'
@@ -27,6 +28,7 @@ export function LobbyPage() {
   const booted = useVmStore((s) => s.booted)
   const capacity = useGameStore((s) => s.capacity)
   const [showCreate, setShowCreate] = useState(false)
+  const [showGenerals, setShowGenerals] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
   const [bgmMuted, setBgmMuted] = useState(isBgmMuted())
 
@@ -66,6 +68,7 @@ export function LobbyPage() {
         <span style={styles.meta}>在线 {online} / 总 {total}</span>
         <div style={{ flex: 1 }} />
         <button style={styles.btn} onClick={() => client?.notify('RefreshRoomList', '')}>刷新</button>
+        <button style={styles.btn} onClick={() => setShowGenerals(true)}>武将一览</button>
         <button style={styles.btn} onClick={() => setShowCreate(true)}>建房</button>
         <button style={styles.ghost} onClick={disconnect}>退出</button>
       </header>
@@ -76,6 +79,7 @@ export function LobbyPage() {
       </div>
 
       {showCreate && <CreateRoomDialog onClose={() => setShowCreate(false)} />}
+      {showGenerals && <GeneralsOverviewPage onClose={() => setShowGenerals(false)} />}
     </div>
   )
 }
