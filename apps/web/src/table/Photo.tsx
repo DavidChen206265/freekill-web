@@ -17,7 +17,7 @@ import { useRoomChatStore } from '../stores/roomChatStore.js'
 import { useLimitSkillStore, limitSkillRender } from '../stores/limitSkillStore.js'
 import { PhotoEffects } from './PhotoEffects.js'
 import { useRef, useState, useEffect } from 'react'
-import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon, limitSkillBg } from './skin.js'
+import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, chainPic, markPicCandidates, kingdomIcon, limitSkillBg, isImageManifestLoaded, loadImageManifest } from './skin.js'
 import { ChatText } from './ChatText.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
@@ -261,9 +261,17 @@ function Portrait({ name, ext, bg, dual }: { name: string; ext?: string; bg: str
   // is drawn at the Photo root, like PhotoBase.qml generalName). In dual mode both halves
   // prefer the purpose-drawn dual/ split portrait then fall back to the full portrait
   // (PhotoBase.qml:76-78,112-113 getGeneralExtraPic("dual/") ?? getGeneralPicture).
-  const candidates = dual ? generalDualPicCandidates(name, ext) : generalPicCandidates(name, ext)
+  const [manifestLoaded, setManifestLoaded] = useState(isImageManifestLoaded())
+  const candidates = manifestLoaded ? (dual ? generalDualPicCandidates(name, ext) : generalPicCandidates(name, ext)) : []
   const [idx, setIdx] = useState(0)
   const src = candidates[idx]
+  useEffect(() => {
+    if (manifestLoaded) return
+    let alive = true
+    void loadImageManifest().then(() => { if (alive) setManifestLoaded(true) })
+    return () => { alive = false }
+  }, [manifestLoaded])
+  useEffect(() => { setIdx(0) }, [name, ext, dual, manifestLoaded])
   return (
     <div style={{ ...styles.portrait, background: bg }}>
       {src && <img src={src} alt="" style={styles.portraitImg} draggable={false} onError={() => setIdx((i) => i + 1)} />}

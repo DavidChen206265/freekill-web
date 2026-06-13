@@ -6,8 +6,8 @@
 //   name     (PhotoBase generalName: x:3 y:28, vertical, LiSu, black outline)
 // Missing portrait falls back to a kingdom-tinted block + name (we never invent art).
 
-import { useState } from 'react'
-import { generalPicCandidates, generalCardBorder, kingdomIcon } from './skin.js'
+import { useEffect, useState } from 'react'
+import { generalPicCandidates, generalCardBorder, kingdomIcon, isImageManifestLoaded, loadImageManifest } from './skin.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { useLongPress } from './useLongPress.js'
 import { tr } from '../i18n/zh.js'
@@ -28,14 +28,23 @@ export function GeneralCard({ name, selected, disabled, onClick, onViewDetail, w
 }) {
   const info = useCardFaceStore((s) => s.generals[name])
   const kingdom = info?.kingdom
+  const [manifestLoaded, setManifestLoaded] = useState(isImageManifestLoaded())
   // Portrait candidates: own extension first, then every enabled art pack. Walk them
   // on <img> error (idx++) so a general whose art lives only in an extension pack (or
   // whose VM extension was stale/wrong) still resolves before falling back to the block.
-  const candidates = generalPicCandidates(name, info?.extension)
+  const candidates = manifestLoaded ? generalPicCandidates(name, info?.extension) : []
   const [picIdx, setPicIdx] = useState(0)
   const portrait = candidates[picIdx]
   const bg = (kingdom && KINGDOM_COLOR[kingdom]) || '#2a2a30'
   const scale = width / 93
+
+  useEffect(() => {
+    if (manifestLoaded) return
+    let alive = true
+    void loadImageManifest().then(() => { if (alive) setManifestLoaded(true) })
+    return () => { alive = false }
+  }, [manifestLoaded])
+  useEffect(() => { setPicIdx(0) }, [name, info?.extension, manifestLoaded])
 
   // Long-press opens the skill detail (mirrors BasicItem.qml long-press → rightClicked).
   const lp = useLongPress(() => onViewDetail?.(name))

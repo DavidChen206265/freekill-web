@@ -27,23 +27,29 @@ export function setArtPacks(packs: string[]): void {
 // audio 404 storm). null until loaded; while loading, candidate lists are returned
 // unfiltered and the <img> onError fallback still resolves them.
 let imageManifest: Set<string> | null = null
+let imageManifestPromise: Promise<Set<string>> | null = null
 export function loadImageManifest(): Promise<Set<string>> {
   if (imageManifest) return Promise.resolve(imageManifest)
-  return fetch(`${FK}/images.json`)
+  if (imageManifestPromise) return imageManifestPromise
+  imageManifestPromise = fetch(`${FK}/images.json`)
     .then((r) => (r.ok ? r.json() : []))
     .then((arr: string[]) => { imageManifest = new Set(arr); return imageManifest! })
     .catch(() => { imageManifest = new Set(); return imageManifest! })
+  return imageManifestPromise
 }
 // Kick off the load at module init so candidate lists are pruned by first render.
 void loadImageManifest()
+export function isImageManifestLoaded(): boolean {
+  return imageManifest !== null
+}
 // Keep only candidates that exist per the manifest. Before the manifest loads (or if
 // it's empty/unavailable) return the list unchanged so the <img> onError chain still
 // works — only the console-noise reduction is deferred, never correctness.
-function pruneToExisting(urls: string[]): string[] {
+function pruneToExisting(urls: string[], fallbackWhenEmpty = true): string[] {
   const m = imageManifest
   if (!m || m.size === 0) return urls
   const filtered = urls.filter((u) => !u.startsWith(`${FK}/packages/`) || m.has(u.slice(FK.length + 1)))
-  return filtered.length > 0 ? filtered : urls
+  return filtered.length > 0 || !fallbackWhenEmpty ? filtered : urls
 }
 
 function pkgPath(ext: string | undefined, sub: string, name: string, suffix: string): string {
@@ -77,7 +83,7 @@ export function generalPicCandidates(name: string, ext?: string): string[] {
     const u = `${FK}/packages/${p}/image/generals/${name}.jpg`
     if (!urls.includes(u)) urls.push(u)
   }
-  return pruneToExisting(urls)
+  return pruneToExisting(urls, false)
 }
 
 /** Dual-general portrait candidates: when a player has a deputy, both halves prefer the
@@ -95,7 +101,7 @@ export function generalDualPicCandidates(name: string, ext?: string): string[] {
     if (!dual.includes(u)) dual.push(u)
   }
   // dual/ paths first (pruned to existing), then the normal-portrait fallback chain.
-  return [...pruneToExisting(dual), ...generalPicCandidates(name, ext)]
+  return [...pruneToExisting(dual, false), ...generalPicCandidates(name, ext)]
 }
 
 /** Chat emoji image: built-in /fk/image/emoji/<n>.png (RoomPage.qml addToChat
