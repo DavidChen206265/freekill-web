@@ -84,6 +84,11 @@ export function RequestPopup() {
   if (active.kind === 'poxi') return <PoxiBox key={epoch} active={active} resolve={resolve} />
   if (active.kind === 'cardsAndChoice') return <CardsAndChoiceBox key={epoch} active={active} resolve={resolve} />
   if (active.kind === 'moveBoard') return <MoveBoardBox key={epoch} active={active} resolve={resolve} />
+  if (active.kind === 'chooseGeneralSkills') return <ChooseGeneralSkillsBox key={epoch} active={active} resolve={resolve} />
+  if (active.kind === 'chooseSkillFromGeneral') return <ChooseSkillFromGeneralBox key={epoch} active={active} resolve={resolve} />
+  if (active.kind === 'chooseGeneralsAndChoice') return <ChooseGeneralsAndChoiceBox key={epoch} active={active} resolve={resolve} />
+  if (active.kind === 'chooseCardNames') return <ChooseCardNamesBox key={epoch} active={active} resolve={resolve} />
+  if (active.kind === 'chooseCardList') return <ChooseCardListBox key={epoch} active={active} resolve={resolve} />
   if (active.kind === 'unsupported') return (
     // CustomDialog/MiniGame fallback: extension QML can't run in the web port, so
     // we don't stall the timer — show the notice and cancel (reply __cancel) so the
@@ -103,10 +108,12 @@ export function RequestPopup() {
     const enabledSet = active.values ? (active.options ?? []) : all
     return (
       <Modal prompt={active.prompt}>
-        <div style={vchoicesGrid(all.length)}>
+        <div style={active.detailed ? styles.detailChoices : vchoicesGrid(all.length)}>
           {all.map((opt, i) => {
             const on = enabledSet.includes(opt)
-            return <button key={i} style={{ ...styles.choice, ...(on ? {} : styles.disabled) }} disabled={!on} onClick={() => resolve(opt)}>{tr(opt)}</button>
+            return active.detailed
+              ? <DetailedChoice key={i} value={opt} enabled={on} onClick={() => resolve(opt)} />
+              : <button key={i} style={{ ...styles.choice, ...(on ? {} : styles.disabled) }} disabled={!on} onClick={() => resolve(opt)}>{tr(opt)}</button>
           })}
         </div>
       </Modal>
@@ -121,11 +128,13 @@ export function RequestPopup() {
     const ok = pickedStr.length >= min && pickedStr.length <= max
     return (
       <Modal prompt={`${active.prompt}(${min}~${max})`}>
-        <div style={vchoicesGrid(all.length)}>
+        <div style={active.detailed ? styles.detailChoices : vchoicesGrid(all.length)}>
           {all.map((opt, i) => {
             const picked = pickedStr.includes(opt)
             const on = enabledSet.includes(opt) && (pickedStr.length < max || picked)
-            return <button key={i} style={{ ...styles.choice, ...(picked ? styles.picked : {}), ...(on ? {} : styles.disabled) }} disabled={!on} onClick={() => toggleStr(opt)}>{tr(opt)}</button>
+            return active.detailed
+              ? <DetailedChoice key={i} value={opt} enabled={on} picked={picked} onClick={() => toggleStr(opt)} />
+              : <button key={i} style={{ ...styles.choice, ...(picked ? styles.picked : {}), ...(on ? {} : styles.disabled) }} disabled={!on} onClick={() => toggleStr(opt)}>{tr(opt)}</button>
           })}
         </div>
         <div style={styles.row}>
@@ -188,6 +197,18 @@ export function RequestPopup() {
         </div>
       )}
     </Modal>
+  )
+}
+
+function DetailedChoice({ value, enabled, picked, onClick }: { value: string; enabled: boolean; picked?: boolean; onClick: () => void }) {
+  const detailKey = `:${value}`
+  const detail = hasTranslation(detailKey) ? tr(detailKey) : tr(value)
+  return (
+    <div style={{ ...styles.detailChoice, ...(enabled ? {} : styles.disabledDetail) }}>
+      <PromptText prompt={detail} style={styles.detailText} />
+      <button style={{ ...styles.choice, ...(picked ? styles.picked : {}), ...(enabled ? {} : styles.disabled) }}
+        disabled={!enabled} onClick={onClick}>{tr(value)}</button>
+    </div>
   )
 }
 
@@ -353,6 +374,179 @@ function readDisabledGeneralSettings(vm: ReturnType<typeof useVmStore.getState>[
 // title = poxiPrompt. Reply = the selected cid array (RoomLogic.js:1099
 // replyToServer(ids)). This replaces the old min0..maxAll downgrade that could
 // permit illegal selections.
+function ChooseGeneralSkillsBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const [picked, setPicked] = useState<string[]>([])
+  useEffect(() => { setPicked([]) }, [active])
+  const generals = active.cgsGenerals ?? []
+  const skills = active.cgsSkills ?? []
+  const min = active.min ?? 1
+  const max = active.max ?? 1
+  const ok = picked.length >= min && picked.length <= max
+  const toggle = (skill: string) => setPicked((cur) =>
+    cur.includes(skill) ? cur.filter((s) => s !== skill) : cur.length >= max ? [...cur.slice(1), skill] : [...cur, skill])
+  return (
+    <Modal prompt={`${active.prompt}(${min}~${max})`}>
+      <div style={styles.generalSkillGrid}>
+        {generals.map((g, i) => (
+          <div key={g} style={styles.generalSkillCol}>
+            <GeneralCard name={g} width={72} height={100} onViewDetail={(name) => useDetailStore.getState().openGeneral(name)} />
+            {(skills[i] ?? []).map((skill) => {
+              const on = picked.includes(skill)
+              return <button key={skill} style={{ ...styles.choice, ...(on ? styles.picked : {}) }} onClick={() => toggle(skill)}>{tr(skill)}</button>
+            })}
+          </div>
+        ))}
+      </div>
+      <div style={styles.row}>
+        <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
+        {active.cancelable && <button style={styles.ghost} onClick={() => resolve([])}>取消</button>}
+      </div>
+    </Modal>
+  )
+}
+
+function ChooseSkillFromGeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const [general, setGeneral] = useState<string>('')
+  const [skill, setSkill] = useState<string>('')
+  useEffect(() => { setGeneral(''); setSkill('') }, [active])
+  const generals = active.sfgGenerals ?? []
+  const skills = active.sfgSkills ?? []
+  const shown = skills[generals.indexOf(general)] ?? []
+  return (
+    <Modal prompt={active.prompt}>
+      <div style={styles.generals}>
+        {generals.map((g) => (
+          <GeneralCard key={g} name={g} width={72} height={100} selected={general === g}
+            onClick={() => { setGeneral(g); setSkill('') }}
+            onViewDetail={(name) => useDetailStore.getState().openGeneral(name)} />
+        ))}
+      </div>
+      <div style={styles.choices}>
+        {shown.map((s) => <button key={s} style={{ ...styles.choice, ...(skill === s ? styles.picked : {}) }} onClick={() => setSkill(s)}>{tr(s)}</button>)}
+      </div>
+      <div style={styles.row}>
+        <button style={{ ...styles.ok, ...(general && skill ? {} : styles.disabled) }} disabled={!general || !skill}
+          onClick={() => resolve([general, skill])}>确定</button>
+        <button style={styles.ghost} onClick={() => resolve('')}>取消</button>
+      </div>
+    </Modal>
+  )
+}
+
+function ChooseGeneralsAndChoiceBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const [picked, setPicked] = useState<string[]>([])
+  useEffect(() => { setPicked([]) }, [active])
+  const generals = active.gcGenerals ?? []
+  const disabled = active.gcDisabled ?? []
+  const min = active.min ?? 1
+  const max = active.max ?? 1
+  const ok = picked.length >= min && picked.length <= max
+  const toggle = (g: string) => {
+    if (disabled.includes(g)) return
+    setPicked((cur) => cur.includes(g) ? cur.filter((x) => x !== g) : cur.length >= max ? [...cur.slice(1), g] : [...cur, g])
+  }
+  return (
+    <Modal prompt={active.prompt}>
+      <div style={styles.generals}>
+        {generals.map((g) => (
+          <GeneralCard key={g} name={g} width={72} height={100} selected={picked.includes(g)} disabled={disabled.includes(g)}
+            onClick={() => toggle(g)}
+            onViewDetail={(name) => useDetailStore.getState().openGeneral(name)} />
+        ))}
+      </div>
+      <div style={styles.row}>
+        {(active.gcOkOptions ?? []).map((opt) => (
+          <button key={opt} style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok}
+            onClick={() => resolve({ cards: picked, choice: opt })}>{tr(opt)}</button>
+        ))}
+        {(active.gcCancelOptions ?? []).map((opt) => (
+          <button key={opt} style={styles.ghost} onClick={() => resolve({ cards: [], choice: opt })}>{tr(opt)}</button>
+        ))}
+      </div>
+    </Modal>
+  )
+}
+
+function ChooseCardNamesBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const [picked, setPicked] = useState<string[]>([])
+  useEffect(() => { setPicked([]) }, [active])
+  const names = active.cnNames ?? []
+  const allNames = active.cnAllNames?.length ? active.cnAllNames : [names]
+  const min = active.min ?? 0
+  const max = active.max ?? 1
+  const repeatable = !!active.cnRepeatable
+  const ok = picked.length >= min && picked.length <= max
+  const countOf = (name: string) => picked.filter((x) => x === name).length
+  const choose = (name: string) => {
+    if (!names.includes(name)) return
+    setPicked((cur) => {
+      if (repeatable) return cur.length < max ? [...cur, name] : cur
+      return cur.includes(name) ? cur.filter((x) => x !== name) : cur.length >= max ? [...cur.slice(1), name] : [...cur, name]
+    })
+  }
+  return (
+    <Modal prompt={active.prompt}>
+      <div style={styles.cardNameMatrix}>
+        {allNames.map((row, ri) => (
+          <div key={ri} style={styles.cardNameRow}>
+            {row.map((name) => {
+              const enabled = names.includes(name) && (repeatable || picked.includes(name) || picked.length < max)
+              const n = countOf(name)
+              return (
+                <button key={`${ri}-${name}`} style={{ ...styles.choice, ...(n > 0 ? styles.picked : {}), ...(enabled ? {} : styles.disabled) }}
+                  disabled={!enabled} onClick={() => choose(name)}>
+                  {tr(name)}{repeatable && n > 0 ? ` x${n}` : ''}
+                </button>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+      <div style={styles.row}>
+        <button style={styles.ghost} disabled={picked.length === 0} onClick={() => setPicked([])}>清空</button>
+        <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
+        {active.cancelable && <button style={styles.ghost} onClick={() => resolve('')}>取消</button>}
+      </div>
+    </Modal>
+  )
+}
+
+function ChooseCardListBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
+  const [picked, setPicked] = useState<string[]>([])
+  useEffect(() => { setPicked([]) }, [active])
+  const names = active.clNames ?? []
+  const cards = active.clCards ?? []
+  const min = active.min ?? 0
+  const max = active.max ?? 1
+  const ok = picked.length >= min && picked.length <= max
+  const toggle = (name: string, count: number) => {
+    if (!count && !active.clAllowEmpty) return
+    setPicked((cur) => cur.includes(name) ? cur.filter((x) => x !== name) : cur.length >= max ? [...cur.slice(1), name] : [...cur, name])
+  }
+  return (
+    <Modal prompt={active.prompt}>
+      <div style={styles.cardListGrid}>
+        {names.map((name, i) => {
+          const list = cards[i] ?? []
+          const selected = picked.includes(name)
+          return (
+            <button key={name} style={{ ...styles.cardListItem, ...(selected ? styles.picked : {}) }}
+              disabled={list.length === 0 && !active.clAllowEmpty} onClick={() => toggle(name, list.length)}>
+              <div style={styles.cards}>{list.slice(0, 5).map((cid) => <CardFaceView key={cid} cid={cid} faceUp width={42} height={60} />)}</div>
+              <div style={styles.groupName}>{tr(name)} ({list.length})</div>
+            </button>
+          )
+        })}
+      </div>
+      <div style={styles.row}>
+        <button style={styles.ghost} disabled={picked.length === 0} onClick={() => setPicked([])}>清空</button>
+        <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
+        {active.cancelable && <button style={styles.ghost} onClick={() => resolve('')}>取消</button>}
+      </div>
+    </Modal>
+  )
+}
+
 function PoxiBox({ active, resolve }: { active: PopupRequest; resolve: (v: unknown) => void }) {
   const vm = useVmStore((s) => s.vm)
   const [picked, setPicked] = useState<number[]>([])
@@ -734,6 +928,16 @@ const styles: Record<string, React.CSSProperties> = {
   picked: { border: '2px solid #f1c40f', outline: '2px solid #f1c40f' },
   choices: { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
   choice: { padding: '10px 24px', borderRadius: 6, border: '2px solid transparent', background: '#0e639c', color: '#fff', fontSize: 15, cursor: 'pointer' },
+  detailChoices: { display: 'flex', gap: 20, overflowX: 'auto', maxWidth: 700, paddingBottom: 4 },
+  detailChoice: { width: 200, minWidth: 200, height: 290, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'space-between' },
+  detailText: { flex: 1, overflowY: 'auto', color: '#eee', fontSize: 14, lineHeight: 1.45, textAlign: 'left', wordBreak: 'break-word' },
+  disabledDetail: { opacity: 0.65 },
+  generalSkillGrid: { display: 'flex', gap: 18, maxWidth: 680, overflowX: 'auto', alignItems: 'flex-start', paddingBottom: 4 },
+  generalSkillCol: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', minWidth: 96 },
+  cardNameMatrix: { display: 'flex', gap: 16, maxWidth: 680, overflowX: 'auto', paddingBottom: 4 },
+  cardNameRow: { display: 'grid', gap: 8, alignContent: 'start' },
+  cardListGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 10, maxWidth: 620, width: '100%' },
+  cardListItem: { minHeight: 128, border: '1px solid #555', borderRadius: 6, background: 'rgba(255,255,255,.08)', color: '#eee', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', justifyContent: 'center', padding: 8, cursor: 'pointer' },
   group: { width: '100%' },
   groupName: { fontSize: 13, color: '#aaa', marginBottom: 4 },
   areaHeader: { fontSize: 13, color: '#eee', marginBottom: 4, padding: '4px 12px', borderRadius: 4, border: '1px dashed #4ec9b0', background: 'transparent', cursor: 'pointer' },

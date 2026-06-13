@@ -18,7 +18,7 @@
 | `D-photo.md` | 玩家位 Photo 全栈 | 67 | LimitSkillArea、行动者高亮、HandcardViewer |
 | `E-cards.md` | 手牌/卡牌/牌桌牌堆 | 38 | 拖拽/双击出牌、选将牌属性 |
 | `F-skills.md` | 技能区/技能交互控件 | 19 | 限定/觉醒/转换技、prelight、locked/times |
-| `G-request-boxes.md` | 请求弹窗（21 个 Box） | 23 | detailed 描述丢失、CardNamesBox 降级（0 缺失/0 错误） |
+| `G-request-boxes.md` | 请求弹窗（21 个 Box） | 23 | CardNamesBox 降级、包专用 QML/MiniGame 显式 unsupported（0 缺失/0 错误） |
 | `H-animation.md` | 动画/特效/聊天动画 | 27 | 大招动画、送礼动画、状态光环 |
 | `I-chat-log-timer.md` | 聊天/弹幕/日志/倒计时 | 18 | 弹幕组件、旁观聊天、头像气泡 |
 | `J-overview-detail.md` | 总览/详情/筛选/战绩页 | 26 | 整个页面族零实现（23 未还原） |

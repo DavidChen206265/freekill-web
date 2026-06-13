@@ -18,7 +18,7 @@ function takerNameFor(pid: number): string {
   return p.general ? tr(p.general) : (p.name || `P${pid}`)
 }
 
-export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice' | 'moveBoard' | 'chooseSkill' | 'unsupported'
+export type PopupKind = 'general' | 'choice' | 'choices' | 'cards' | 'ag' | 'arrange' | 'poxi' | 'cardsAndChoice' | 'moveBoard' | 'chooseSkill' | 'chooseGeneralSkills' | 'chooseSkillFromGeneral' | 'chooseGeneralsAndChoice' | 'chooseCardNames' | 'chooseCardList' | 'unsupported'
 
 export interface CardGroup { name: string; cards: { cid: number; known: boolean }[] }
 export interface ArrangeArea { name: string; capacity: number; limit: number }
@@ -38,6 +38,7 @@ export interface PopupRequest {
   // choice/choices: display options + the raw values to reply with (parallel arrays)
   options?: string[]
   values?: string[]
+  detailed?: boolean
   min?: number
   max?: number
   cancelable?: boolean
@@ -95,6 +96,20 @@ export interface PopupRequest {
   // cancel). csGenerals (optional, parallel) shows each skill's source general avatar.
   csSkills?: string[]
   csGenerals?: string[]
+  cgsGenerals?: string[]
+  cgsSkills?: string[][]
+  sfgGenerals?: string[]
+  sfgSkills?: string[][]
+  gcGenerals?: string[]
+  gcOkOptions?: string[]
+  gcCancelOptions?: string[]
+  gcDisabled?: string[]
+  cnNames?: string[]
+  cnAllNames?: string[][]
+  cnRepeatable?: boolean
+  clNames?: string[]
+  clCards?: number[][]
+  clAllowEmpty?: boolean
 }
 
 interface PopupState {
@@ -195,14 +210,14 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       case 'AskForChoice': {
         // [choices(display)[], all_choices(values)[], skill, prompt, detailed]
         if (!arr) return false
-        set({ active: { kind: 'choice', prompt: String(arr[3] || arr[2] || '请选择'), options: arr[0] as string[], values: arr[1] as string[] } })
+        set({ active: { kind: 'choice', prompt: String(arr[3] || arr[2] || '请选择'), options: arr[0] as string[], values: arr[1] as string[], detailed: !!arr[4] } })
         return true
       }
       case 'AskForChoices': {
         // [choices[], all_choices[], [min,max], cancelable, skill, prompt, detailed]
         if (!arr) return false
         const range = (arr[2] as number[]) ?? [1, 1]
-        set({ active: { kind: 'choices', prompt: String(arr[5] || arr[4] || '请选择'), options: arr[0] as string[], values: arr[1] as string[], min: range[0] ?? 1, max: range[1] ?? 1, cancelable: !!arr[3] } })
+        set({ active: { kind: 'choices', prompt: String(arr[5] || arr[4] || '请选择'), options: arr[0] as string[], values: arr[1] as string[], min: range[0] ?? 1, max: range[1] ?? 1, cancelable: !!arr[3], detailed: !!arr[6] } })
         return true
       }
       case 'AskForCardChosen': {
@@ -400,9 +415,9 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         if (command === 'CustomDialog') {
           const obj2 = (data ?? {}) as { path?: string; data?: unknown }
           const path = String(obj2.path ?? '')
+          const d = (obj2.data as unknown[]) ?? []
           if (path.endsWith('ChooseSkillBox.qml')) {
             // loadData([skills, min, max, prompt, generals]) (ChooseSkillBox.qml:124).
-            const d = (obj2.data as unknown[]) ?? []
             const skills = (d[0] as string[]) ?? []
             const min = Number(d[1] ?? 0) || 0
             const max = Number(d[2] ?? skills.length) || skills.length
@@ -417,9 +432,71 @@ export const usePopupStore = create<PopupState>((set, get) => ({
             } })
             return true
           }
+          if (path.endsWith('ChooseGeneralSkillsBox.qml')) {
+            set({ active: {
+              kind: 'chooseGeneralSkills',
+              prompt: String(d[4] || '请选择武将技能'),
+              cgsGenerals: (d[0] as string[]) ?? [],
+              cgsSkills: (d[1] as string[][]) ?? [],
+              min: Number(d[2] ?? 1) || 1,
+              max: Number(d[3] ?? 1) || 1,
+              cancelable: !!d[5],
+            } })
+            return true
+          }
+          if (path.endsWith('ChooseSkillFromGeneralBox.qml')) {
+            set({ active: {
+              kind: 'chooseSkillFromGeneral',
+              prompt: String(d[2] || '请选择技能'),
+              sfgGenerals: (d[0] as string[]) ?? [],
+              sfgSkills: (d[1] as string[][]) ?? [],
+              cancelable: true,
+            } })
+            return true
+          }
+          if (path.endsWith('ChooseGeneralsAndChoiceBox.qml')) {
+            set({ active: {
+              kind: 'chooseGeneralsAndChoice',
+              prompt: String(d[2] || '请选择武将与选项'),
+              gcGenerals: (d[0] as string[]) ?? [],
+              gcOkOptions: (d[1] as string[]) ?? [],
+              gcCancelOptions: (d[3] as string[]) ?? [],
+              min: Number(d[4] ?? 1) || 1,
+              max: Number(d[5] ?? 1) || 1,
+              gcDisabled: (d[6] as string[]) ?? [],
+            } })
+            return true
+          }
+          if (path.endsWith('ChooseCardNamesBox.qml')) {
+            set({ active: {
+              kind: 'chooseCardNames',
+              prompt: String(d[3] || '请选择牌名'),
+              cnNames: (d[0] as string[]) ?? [],
+              min: Number(d[1] ?? 0) || 0,
+              max: Number(d[2] ?? 1) || 1,
+              cnAllNames: (d[4] as string[][]) ?? [],
+              cancelable: !!d[5],
+              cnRepeatable: !!d[6],
+            } })
+            return true
+          }
+          if (path.endsWith('ChooseCardListBox.qml')) {
+            set({ active: {
+              kind: 'chooseCardList',
+              prompt: String(d[4] || '请选择牌组'),
+              clNames: (d[0] as string[]) ?? [],
+              clCards: (d[1] as number[][]) ?? [],
+              min: Number(d[2] ?? 0) || 0,
+              max: Number(d[3] ?? 1) || 1,
+              clAllowEmpty: !!d[5],
+              cancelable: !!d[6],
+            } })
+            return true
+          }
         }
         // Unsupported extension QML / MiniGame: minimal popup whose only action
         // cancels (replies __cancel) so the operation timer doesn't stall.
+        console.error('[popup] unsupported special UI', { command, data })
         set({ active: { kind: 'unsupported', prompt: `本功能(扩展 ${command})暂不支持,已跳过`, cancelable: true } })
         return true
       }

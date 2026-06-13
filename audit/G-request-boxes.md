@@ -19,12 +19,13 @@
 - 差异: 文字本地化用 `tr()` 而非 `Util.processPrompt()`；对纯选项 key 等价，对含 `:` 参数的提示型选项会缺插值，属轻微。
 
 ### G2 DetailedChoiceBox::带描述单选框（AskForChoice detailed）
-- 状态: 简化还原
+- 状态: 完全还原
 - 原版: `DetailedChoiceBox.qml:19-71`（横向 ListView，每项 200×290：上方 MetroButton 标题 pixelSize24 + 下方 Flickable 滚动的富文本描述 `Lua.tr(":"+modelData)`，描述缺失时回退 `Lua.tr(modelData)`）
-- web : `RequestPopup.tsx:72-88`（与 G1 共用 choice 分支）
+- web : `RequestPopup.tsx`（choice 分支 + `DetailedChoice`）
 - 原版行为: 每个选项是一张带标题与**详细描述正文**的卡片，描述支持富文本与滚动；视觉为大卡横向排列。
-- web 行为: 与非 detailed 完全相同——只渲染按钮，无描述正文卡片；popupStore `AskForChoice:194-199` 丢弃了 `data[4] detailed` 标志，未做分流。
-- 差异: 简化——缺失每选项的描述正文/富文本/卡片式大版面；玩家看不到选项释义。
+- web 行为: popupStore 保留 `data[4] detailed` 标志；detailed 时渲染 200×290 横向卡片、滚动描述区和标题按钮；描述优先 `tr(":"+value)`，缺失时回退 `tr(value)`，并经 `PromptText` 支持富文本。
+- 差异: 视觉样式为 web 简化皮肤，但描述正文、滚动、禁用态和 reply 值均等价。
+- 修复: 已修复并验证（2026-06-13；补 detailed 分流/描述卡片/翻译预注册，`pnpm --filter @freekill-web/web test/typecheck/build` 通过）
 
 ### G3 CheckBox::多选框（AskForChoices 非 detailed）
 - 状态: 完全还原
@@ -35,12 +36,13 @@
 - 差异: 取消回 `__cancel` 而非空数组 `[]`；二者服务端均按取消处理，等价。标题多了 `(min~max)` 提示文本（增强，非缺陷）。
 
 ### G4 DetailedCheckBox::带描述多选框（AskForChoices detailed）
-- 状态: 简化还原
+- 状态: 完全还原
 - 原版: `DetailedCheckBox.qml:22-108`（横向 ListView 每项 200×290：MetroToggleButton 标题 pixelSize24 `triggered=result含index` + Flickable 富文本描述 `Lua.tr(":"+modelData)`；底部 OK(enabled≥min)/Cancel(visible=cancelable)）
-- web : `RequestPopup.tsx:90-111`（与 G3 共用 choices 分支）
+- web : `RequestPopup.tsx`（choices 分支 + `DetailedChoice`）
 - 原版行为: 每选项带描述正文卡片的多选；min..max；OK/Cancel。
-- web 行为: 与非 detailed 多选相同，无描述正文卡片；popupStore `AskForChoices:200-206` 丢弃 `data[6] detailed`，未分流。
-- 差异: 简化——缺每选项描述正文/卡片式版面，仅纯按钮。
+- web 行为: popupStore 保留 `data[6] detailed` 标志；detailed 时每项渲染描述卡片，选中态/禁用态、min..max、OK/Cancel 与非 detailed 多选同一套约束；描述优先 `tr(":"+value)` 并回退 `tr(value)`。
+- 差异: 视觉样式为 web 简化皮肤，但描述正文、滚动、选择约束和 reply 值均等价。
+- 修复: 已修复并验证（2026-06-13；补 detailed 多选分流/描述卡片/翻译预注册，`pnpm --filter @freekill-web/web test/typecheck/build` 通过）
 
 ### G5 ChooseGeneralBox::选将框（AskForGeneral）
 - 状态: 简化还原
@@ -87,8 +89,9 @@
 - 原版: `ArrangeCardsBox.qml`（较 GuanxingBox 增 `pattern`(`cardFitPattern` 限制可选)、`poxi_type`(`poxiFilter/Feasible`)、`size`(单行宽槽)、`onSelectedChanged updateCardSelected` 点击在区间移动；reply 经 `ClientInstance.replyToServer` 直接送、cancel 回等长空数组）
 - web : `RequestPopup.tsx:396-485`（ArrangeBox 共用）+ popupStore `AskForArrangeCards:319-336`
 - 原版行为: 拖拽+点击排列；pattern 限制哪些牌可进 pattern 门区（不匹配不可拖）；poxi_type 用破析规则约束；size 宽槽视觉；cancel 回等长空。
-- web 行为: 共用 ArrangeBox；popupStore 解析 capacities/limits/names/is_free/pattern；`arrangePattern` 经 `vm.cardFitPattern` 把不匹配牌加入 locked 不可拖（RequestPopup.tsx:416-425）——还原 pattern 门控。**缺**：`poxi_type` 排列变体（ArrangeCardsBox 支持 poxiFilter/Feasible 驱动的排列，web ArrangeBox 不接 poxiType）；`size` 宽槽视觉；点击式区间移动（仅拖拽）。cancel 回 `__cancel` 而非等长空数组。
-- 差异: 简化——未还原 poxi_type 驱动的排列约束（若某扩展用此变体会缺校验）；缺 size 宽槽视觉；cancel 回值形式不同（服务端按 cancel 处理，通常等价）。pattern 门控已还原。
+- web 行为: 共用 ArrangeBox；popupStore 解析 capacities/limits/names/is_free/pattern/poxi_type；`arrangePattern` 经 `vm.cardFitPattern` 把不匹配牌加入 locked 不可拖；`arrangePoxiType` 经 VM `poxiFilter/poxiFeasible` 驱动可拖牌与 OK enabled（如 shzl 神吕蒙“涉猎”）。**缺**：`size` 宽槽视觉；点击式区间移动（仅拖拽）。cancel 回 `__cancel` 而非等长空数组。
+- 差异: 简化——缺 size 宽槽视觉与点击式区间移动；cancel 回值形式不同（服务端按 cancel 处理，通常等价）。pattern 与 poxi_type 门控已还原。
+- 修复: 已修复并验证（2026-06-13；补 poxi_type 排列约束，`pnpm --filter @freekill-web/web test/typecheck/build` 通过）
 
 ### G11 AskForExchange::交换牌（AskForExchange）
 - 状态: 完全还原（视觉简化，同 G9）
@@ -127,8 +130,8 @@
 - 原版: `utility/qml/ChooseSkillBox.qml`（经 CustomDialog 加载；loadData([skills,min,max,prompt,generals])；多选 min..max 技能；OK 回选中技能名数组）；RoomLogic.js:1478-1495 CustomDialog 加载扩展 QML。
 - web : `RequestPopup.tsx:113-133`（chooseSkill）+ popupStore `CustomDialog:391-423`
 - 原版行为: 加载任意扩展 QML；ChooseSkillBox 多选技能回数组。
-- web 行为: popupStore 按 `path.endsWith('ChooseSkillBox.qml')` 分流，解析 [skills,min,max,prompt,generals]；多选 min..max；OK `resolve(pickedStr)` 回技能名数组；cancelable=min===0。其余扩展 QML/MiniGame → `unsupported` 兜底（回 `__cancel` 不卡计时）。
-- 差异: 仅限 ChooseSkillBox 这一个可移植共享盒被还原；其余任意扩展 CustomDialog（含 `csGenerals` 头像虽有字段但未在 UI 渲染）走 unsupported 兜底——属架构性限制（web 无法跑任意 QML），见 G20。
+- web 行为: popupStore 按 `path.endsWith('ChooseSkillBox.qml')` 分流，解析 [skills,min,max,prompt,generals]；多选 min..max；OK `resolve(pickedStr)` 回技能名数组；cancelable=min===0。其余可移植 utility QML 见 G20；包专用 QML/MiniGame → `unsupported` 兜底（显式 console.error，回 `__cancel` 不卡计时）。
+- 差异: ChooseSkillBox reply 语义已还原；`csGenerals` 仅用于翻译/face 预取，未单独渲染来源头像，属轻微视觉差异。
 
 ### G16 CardNamesBox::选牌名（SkillCardName interaction → CardNamesBox）
 - 状态: 简化还原
@@ -167,8 +170,9 @@
 - 原版: RoomLogic.js:1478-1495 `popupBox.source = AppPath+path; item.loadData/updateData`（加载任意扩展 QML 文件并交互）
 - web : popupStore `CustomDialog/MiniGame:391-423` → `unsupported` 兜底；RequestPopup.tsx:61-70
 - 原版行为: 运行任意扩展 QML 自定义弹窗/小游戏，完整交互。
-- web 行为: 除 ChooseSkillBox(G15) 外，一律 `unsupported` 兜底弹窗：提示"本功能暂不支持已跳过" + 跳过按钮回 `__cancel`（不卡操作计时器）。`MiniGame` 同。
-- 差异: 简化（不可避免）——web 无法运行任意 QML；仅安全跳过。属可移植性边界，非"错误"。
+- web 行为: 已有限支持 utility 共享 QML：`ChooseGeneralSkillsBox`、`ChooseSkillFromGeneralBox`、`ChooseGeneralsAndChoiceBox`、`ChooseCardNamesBox`、`ChooseCardListBox`，按对应 `loadData` 解析并回原版 reply 形状；打开时预注册可见技能/武将/选项/牌组翻译并预取武将 face/牌 face。包专用 QML 与 `MiniGame` 仍走 `unsupported` 兜底：显式 `console.error('[popup] unsupported special UI', {command,data})`，提示并回 `__cancel`（不卡操作计时器）。
+- 差异: 简化（架构边界）——web 不能执行任意 QML/小游戏；共享 utility 弹窗按白名单移植，包专用复杂 QML/MiniGame 仍安全跳过。
+- 修复: 已修复并验证（2026-06-13；补 5 个 utility CustomDialog 白名单、翻译/face 预取、unsupported 显式报错，`pnpm --filter @freekill-web/web test/typecheck/build` 通过）
 
 ### G21 active_skill::主动技请求呈现（AskForUseActiveSkill）
 - 状态: 完全还原
@@ -200,8 +204,8 @@
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 14 | G1, G3, G6, G7, G8, G9, G11, G12, G13, G14, G15, G21, G22, G23 |
-| 简化还原 | 9 | G2, G4, G5, G10, G16, G17, G18, G19, G20 |
+| 完全还原 | 16 | G1, G2, G3, G4, G6, G7, G8, G9, G11, G12, G13, G14, G15, G21, G22, G23 |
+| 简化还原 | 7 | G5, G10, G16, G17, G18, G19, G20 |
 | 还原错误 | 0 | — |
 | 未还原 | 0 | — |
 
@@ -210,6 +214,6 @@
 - 还原错误: 无
 
 ## 关键缺口（简化还原中影响较大者）
-1. **G2/G4 Detailed(Choice/Check)Box 描述正文丢失**：popupStore 丢弃 `detailed` 标志（AskForChoice:194 / AskForChoices:200），带描述的选项框退化为纯按钮，玩家看不到选项释义（如选择技能效果的详细说明）。
-2. **G16 CardNamesBox 卡牌图网格降级为文字循环按钮**：cardname interaction 并入 combo，缺卡牌图弹窗与可点集灰罩区分，且循环按钮可能轮到禁用项。
-3. **G10 ArrangeCardsBox 缺 poxi_type 排列变体**：pattern 门控已还原，但 poxi_type 驱动的排列约束（poxiFilter/Feasible）未接入 ArrangeBox，若扩展用此变体将缺合法性校验。
+1. **G16 CardNamesBox 卡牌图网格降级为文字循环按钮**：cardname interaction 并入 combo，缺卡牌图弹窗与可点集灰罩区分，且循环按钮可能轮到禁用项。
+2. **G20 包专用 QML/MiniGame 仍无法执行**：utility 共享 QML 已按白名单移植，但包专用复杂 QML 和 MiniGame 仍只能显式报错并安全跳过。
+3. **G10 ArrangeCardsBox 剩余视觉/交互简化**：poxi_type 排列约束已接入，仍缺 size 宽槽视觉与点击式区间移动。

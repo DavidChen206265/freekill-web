@@ -283,20 +283,41 @@ function collectPopupTranslationKeys(active: PopupRequest): string[] {
     if (typeof value === 'string' && value) keys.add(value)
   }
   const addAll = (values?: string[]) => values?.forEach(add)
+  const addMatrix = (values?: string[][]) => values?.forEach((row) => row.forEach(add))
   const addGeneralOrPair = (value: unknown) => {
     if (typeof value !== 'string') return
     value.split('/').forEach(add)
   }
+  const addDetailed = (values?: string[]) => values?.forEach((value) => {
+    add(value)
+    add(`:${value}`)
+  })
 
   addAll(active.generals)
-  addAll(active.options)
-  addAll(active.values)
+  if (active.detailed) {
+    addDetailed(active.options)
+    addDetailed(active.values)
+  } else {
+    addAll(active.options)
+    addAll(active.values)
+  }
   active.groups?.forEach((g) => add(g.name))
   active.areas?.forEach((a) => add(a.name))
   addAll(active.ccOkOptions)
   addAll(active.ccCancelOptions)
   addAll(active.csSkills)
   addAll(active.csGenerals)
+  addAll(active.cgsGenerals)
+  addMatrix(active.cgsSkills)
+  addAll(active.sfgGenerals)
+  addMatrix(active.sfgSkills)
+  addAll(active.gcGenerals)
+  addAll(active.gcOkOptions)
+  addAll(active.gcCancelOptions)
+  addAll(active.gcDisabled)
+  addAll(active.cnNames)
+  addMatrix(active.cnAllNames)
+  addAll(active.clNames)
   active.mbSideNames?.forEach(addGeneralOrPair)
   return [...keys].filter((k) => !hasTranslation(k))
 }
@@ -578,7 +599,14 @@ export const useVmStore = create<VmState>((set, get) => ({
             // — they aren't players yet, so feed()'s readGenerals won't cover them.
             // GeneralCardItem.qml needs kingdom for the faction frame/icon (GEN1/2).
             const cachedGen = useCardFaceStore.getState().generals
-            const needGen = (active.generals ?? []).filter((n) => !cachedGen[n])
+            const popupGenerals = [
+              ...(active.generals ?? []),
+              ...(active.cgsGenerals ?? []),
+              ...(active.sfgGenerals ?? []),
+              ...(active.gcGenerals ?? []),
+              ...(active.csGenerals ?? []),
+            ].filter(Boolean)
+            const needGen = [...new Set(popupGenerals)].filter((n) => !cachedGen[n])
             if (needGen.length > 0) useCardFaceStore.getState().mergeGenerals(get().vm!.readGenerals(needGen))
             // Fetch faces for popup cards (AG / card-pick / arrange) — these cids
             // aren't in cardStore areas, so feed()'s face fetch won't cover them.
@@ -587,6 +615,7 @@ export const useVmStore = create<VmState>((set, get) => ({
               ...(active.arrangeCards ?? []),
               ...(active.ccCards ?? []),
               ...(active.mbCards ?? []),
+              ...((active.clCards ?? []).flat()),
               ...((active.groups ?? []).flatMap((g) => g.cards.map((c) => c.cid))),
             ]
             const cached = useCardFaceStore.getState().faces

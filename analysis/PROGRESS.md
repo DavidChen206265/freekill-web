@@ -6,7 +6,7 @@
 
 **已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:N1-1 还原错误 10 条已清零,N1-2 限定/觉醒/转换技与 banner/mark 区已完成并部署,N1-3 投降/托管/房主踢人入口已完成并验证,N2 低成本状态视觉(playing 高亮/faceturned 翻面/saveme 垂死贴图)已完成并验证,N1-4 出牌交互/手牌信息核心已完成并验证;用户已拍板的 **禁将系统 + 大厅武将一览页面** 短期主线已完成切片 A-E 并验证,计划与结果见 `GENERAL_BAN_OVERVIEW_PLAN.md`。下一步建议回补 GeneralDetailPage J6-J17 / GeneralFilter / 卡牌一览与武将池等后续页面族。
 
-基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;当前完全还原率 180/459≈39%,总体计数为 未135 / 简144 / 错0 / 完180。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
+基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;当前完全还原率 182/459≈40%,总体计数为 未135 / 简142 / 错0 / 完182。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
 
 服务端改动进独立 fork `freekill-web-asio`(GitHub `DavidChen206265/freekill-web-asio`,项目内目录 `freekill-web-asio/`,自带 git;`freekill-asio/` 留作只读 diff 基线);Docker 构建源已切到 fork。fork HEAD 见 PROJECT_STATE.md。push 须经用户允许(见 CLAUDE.md「Git 工作流」)。长期/短期计划以 `freekill_web_implementation_plan.md` + `WEB_ONLY_ROADMAP.md` 为准。
 
@@ -25,6 +25,7 @@
 - **N3 Web 账户与个性化**:`globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
 - **N4 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
 - **N5 观感打磨**:大招动画、送礼动画(5 种精灵)、状态光环、弹幕、美化包/字体、Cheat 查看面板、设置控件族。
+- **移动端 Stage 适配专项(分析完成,待单独切片修复)**:当前 `Stage.tsx` 固定逻辑舞台 1200×540,用 `min(window.innerWidth/1200, window.innerHeight/540)` 缩放并由 `overflow:hidden` 居中裁剪；手机横屏时 `innerHeight` 容易受地址栏/状态栏/visualViewport 稳定时机/safe-area 影响,导致 scale 计算与真实可视区不一致,绿色边框/舞台被裁或无法撑满。后续建议独立切片处理 `visualViewport`/`100dvh`/safe-area/旋转 resize 稳定化与 transform 后尺寸校准。本次只分析,未改布局。
 - **N6 创意工坊与 AI 提升**:公共服只跑审核包;AI 是研究级长线(SmartAI stub、无 aiLevel、无 self-play)——MVP 限定 取消 stub + ~10 策略 + 最小 headless 评测。
 
 ## 决策记录
@@ -45,6 +46,10 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **特殊技能 UI 全面自查与 utility CustomDialog 白名单修复(本次)**。按用户要求对 `askToCustomDialog`、`MiniGame`、`poxi_type`、`detailed`、`filter_skel/default_choice/cancel_choices` 等特殊技能 UI 链路重新扫描,并对照 `RoomLogic.js`、`room.lua`、`utility.lua` 与 `ChooseSkillBox/ChooseGeneralSkillsBox/ChooseSkillFromGeneralBox/ChooseGeneralsAndChoiceBox/ChooseCardNamesBox/ChooseCardListBox/DetailedChoiceBox/DetailedCheckBox.qml`。修复:G2/G4 detailed Choice/Choices 保留 detailed 标志并渲染 200×290 描述卡片,描述优先 `":" + option` 翻译并由 `PromptText` 支持富文本/滚动;新增 utility 共享 CustomDialog 白名单(`ChooseGeneralSkillsBox`、`ChooseSkillFromGeneralBox`、`ChooseGeneralsAndChoiceBox`、`ChooseCardNamesBox`、`ChooseCardListBox`),按 QML `loadData`/reply 形状解析和回复;popup 打开时扩展翻译预注册与武将/卡牌 face 预取;包专用 QML/MiniGame 仍不执行,但现在显式 `console.error('[popup] unsupported special UI',{command,data})` 并安全回 `__cancel` 防止计时器卡住。audit 更新:G2/G4 简→完全,G20 描述更新,总计改为 未135 / 简142 / 错0 / 完182。验证:`pnpm --filter @freekill-web/web test`(39 files/208 tests)、`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过。
+
+- 2026-06-13 **移动端横屏 fixed-stage 与高 popup 适配分析(本次,未修复布局)**。结论:手机横屏开始游戏后 fixed-stage 显示异常的核心风险在 `Stage.tsx` 使用固定 1200×540 舞台 + `window.innerWidth/innerHeight` 计算 scale + 外层 `overflow:hidden` 居中裁剪,而移动浏览器横屏时真实可视高度应以 `visualViewport.height`/动态 viewport 为准,地址栏/状态栏/PWA 模式/safe-area 与旋转 resize 稳定时机都可能让 scale 过大或过小,造成绿色边框或舞台主体被裁、无法在保持比例的情况下铺满。PWA manifest 已请求 `display: fullscreen` 与 `orientation: landscape`,但浏览器页无法强制横屏/完全隐藏状态栏,iOS 支持尤其有限。高 popup 适配复查:`CreateRoomDialog` 有 `maxHeight:'88vh', overflowY:'auto'`;`RequestPopup` 经 `Portal` 逃出 transformed Stage,`modal` 有 `maxHeight:'85vh', overflowY:'auto'`;`FreeAssignOverlay` 面板固定 `min(80vh,600px)` 且内部 grid `flex:1; minHeight:0; overflowY:auto`;`GameOverModal`/`GeneralDetailModal` 也有 Portal + maxHeight/overflow。结论是高 popup 基本具备滚动,剩余风险是 `vh` 在移动浏览器动态地址栏下不如 `dvh/visualViewport` 精确。
 
 - 2026-06-13 **技能 UI 翻译兜底与 shzl 神吕蒙涉猎/攻心修复(本次)**。按用户反馈自查技能 popup 链路后确认:神吕蒙“涉猎”实际走 `AskForArrangeCards` 且携带 `poxi_type="shelie"`,Web 端此前只按普通 arrange 处理,`is_free=false` 会锁住第一行原始牌,未接入 `PoxiFilter/PoxiFeasible`;“攻心”走 `AskForCardsAndChoice`,其 choices/cancel choices 未纳入 popup 打开后的动态翻译注册,容易显示 `gongxin_discard`/`gongxin_put`/`Cancel` 等原始字段。修复:全局 `tr()` 对疑似翻译 key 的缺失做去重 `console.error('[i18n] missing translation',{key})`,且不再缓存 VM 原样返回的 identity 翻译;popup 翻译预注册扩展到 groups/areas/choices/cancel choices/ChooseSkill/MoveBoard 等所有当前 popup 可见 key;`ArrangeBox` 保存并执行 `arrangePoxiType`,用 VM `poxiFilter/poxiFeasible` 控制拖拽和确定按钮。验证:`pnpm --filter @freekill-web/web test`(38 files/204 tests)、`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过。
 

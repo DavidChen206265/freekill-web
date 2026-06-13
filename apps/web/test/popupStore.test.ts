@@ -273,6 +273,7 @@ describe('popupStore', () => {
   it('CustomDialog / MiniGame → unsupported popup that cancels (no timer stall)', () => {
     const sent: unknown[] = []
     usePopupStore.getState().setReplySender((d) => sent.push(d))
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     for (const cmd of ['CustomDialog', 'MiniGame']) {
       usePopupStore.getState().clear()
       sent.length = 0
@@ -284,6 +285,7 @@ describe('popupStore', () => {
       expect(sent).toEqual(['__cancel'])
       expect(usePopupStore.getState().active).toBeNull()
     }
+    expect(err).toHaveBeenCalledTimes(2)
   })
 
   it('CustomDialog ChooseSkillBox → chooseSkill popup, replies selected skill array (M5-b)', () => {
