@@ -190,6 +190,22 @@ describe('popupStore', () => {
     expect(a.isFree).toBe(false) // ArrangeBox will lock area-0 cards [1,2]
   })
 
+  it('AskForArrangeCards preserves poxi_type for shzl shelie-style arrange rules', () => {
+    usePopupStore.getState().handle('AskForArrangeCards', {
+      cards: [[1, 2, 3, 4, 5], []],
+      capacities: [5, 4],
+      limits: [0, 3],
+      names: ['shelie', 'toObtain'],
+      is_free: false,
+      prompt: '#shelie-choose',
+      poxi_type: 'shelie',
+    })
+    const a = usePopupStore.getState().active!
+    expect(a.kind).toBe('arrange')
+    expect(a.arrangePoxiType).toBe('shelie')
+    expect(a.areas?.map((x) => x.name)).toEqual(['shelie', 'toObtain'])
+  })
+
   it('EmptyRequest is handled (no popup)', () => {
     expect(usePopupStore.getState().handle('EmptyRequest', null)).toBe(true)
   })

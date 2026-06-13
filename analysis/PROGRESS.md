@@ -46,6 +46,8 @@
 
 ## 变更日志
 
+- 2026-06-13 **技能 UI 翻译兜底与 shzl 神吕蒙涉猎/攻心修复(本次)**。按用户反馈自查技能 popup 链路后确认:神吕蒙“涉猎”实际走 `AskForArrangeCards` 且携带 `poxi_type="shelie"`,Web 端此前只按普通 arrange 处理,`is_free=false` 会锁住第一行原始牌,未接入 `PoxiFilter/PoxiFeasible`;“攻心”走 `AskForCardsAndChoice`,其 choices/cancel choices 未纳入 popup 打开后的动态翻译注册,容易显示 `gongxin_discard`/`gongxin_put`/`Cancel` 等原始字段。修复:全局 `tr()` 对疑似翻译 key 的缺失做去重 `console.error('[i18n] missing translation',{key})`,且不再缓存 VM 原样返回的 identity 翻译;popup 翻译预注册扩展到 groups/areas/choices/cancel choices/ChooseSkill/MoveBoard 等所有当前 popup 可见 key;`ArrangeBox` 保存并执行 `arrangePoxiType`,用 VM `poxiFilter/poxiFeasible` 控制拖拽和确定按钮。验证:`pnpm --filter @freekill-web/web test`(38 files/204 tests)、`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过。
+
 - 2026-06-13 **局内当前回合 photo 动画层级小修(本次)**。按用户反馈调整 `Photo.tsx` 层级:当前回合 `playing` 绿色包边动画层从 `zIndex:3` 提高到 `zIndex:6`,高于 name/seat 黑色遮罩 bar 的 `zIndex:5`,使遮罩不再压住当前回合提示；不改变 name/seat 布局、photo 点击语义或其它状态贴图。验证:`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过。
 
 - 2026-06-13 **局内 photo 延时锦囊与数字字号小修(本次)**。按用户反馈继续微调 photo 周边局内 UI:`Photo.tsx` 的 judge/delayed-trick 行左偏移从 2px 改为 17px，使 photo 下方延时锦囊 icon 同样整体右移 15px；`MiscStatus.tsx` 的抽牌堆剩余牌数从原 28px 按 2/3 缩为 19px；`handcardInfo.ts` 的 photo 左下角手牌数动态字号从 24/20px 按 2/3 缩为 16/13px，并同步更新 `handcardInfo.test.ts` 期望。验证:`pnpm --filter @freekill-web/web test -- handcardInfo`、`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过。

@@ -63,6 +63,7 @@ export interface PopupRequest {
   isFree?: boolean
   arrangeCancelable?: boolean
   arrangePattern?: string
+  arrangePoxiType?: string
   // poxi (AskForPoxi → PoxiBox.qml): real selection rules live in the VM's
   // Fk.poxi_methods[poxiType] (card_filter/feasible/prompt). The component drives
   // selectability + OK through vm.poxi{Filter,Feasible,Prompt} instead of a
@@ -331,6 +332,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           arrangeCards: initialSlots.flat(), areas, initialSlots,
           isFree: obj.is_free !== false, arrangeCancelable: !!obj.cancelable,
           arrangePattern: typeof obj.pattern === 'string' ? obj.pattern : undefined,
+          arrangePoxiType: typeof obj.poxi_type === 'string' ? obj.poxi_type : undefined,
         } })
         return true
       }

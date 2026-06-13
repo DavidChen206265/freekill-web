@@ -1,8 +1,13 @@
 // cardFace + i18n unit tests — display helpers (suit/number) and translation cache.
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { suitSymbol, isRedSuit, numberStr, useCardFaceStore } from '../src/stores/cardFaceStore.js'
-import { tr, registerTranslations, hasTranslation } from '../src/i18n/zh.js'
+import { tr, registerTranslations, hasTranslation, resetMissingTranslationWarningsForTests } from '../src/i18n/zh.js'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  resetMissingTranslationWarningsForTests()
+})
 
 describe('cardFace display helpers', () => {
   it('suit symbols', () => {
@@ -45,8 +50,10 @@ describe('cardFaceStore.merge', () => {
 
 describe('i18n runtime translation cache', () => {
   it('tr falls back to key, static dict, then runtime cache', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     expect(tr('aaa_role_mode')).toBe('身份模式') // static
     expect(tr('totally_unknown_key_xyz')).toBe('totally_unknown_key_xyz') // fallback
+    expect(err).toHaveBeenCalledWith('[i18n] missing translation', { key: 'totally_unknown_key_xyz' })
     expect(hasTranslation('slash')).toBe(false)
     registerTranslations({ slash: '杀', caocao: '曹操' })
     expect(tr('slash')).toBe('杀')

@@ -14,7 +14,7 @@ import { useGameStore } from './gameStore.js'
 import { useCardStore } from './cardStore.js'
 import { useCardFaceStore } from './cardFaceStore.js'
 import { useInteractionStore } from './interactionStore.js'
-import { usePopupStore } from './popupStore.js'
+import { usePopupStore, type PopupRequest } from './popupStore.js'
 import { useLogStore } from './logStore.js'
 import { useTimerStore, TIMEOUT_SEC } from './timerStore.js'
 import { useFocusStore } from './focusStore.js'
@@ -275,6 +275,30 @@ function translateBannerKeys(vm: ClientVm | null, mark: string, data: unknown): 
     if (need.length > 0) registerTranslations(vm.translate(need))
   }
   return tr
+}
+
+function collectPopupTranslationKeys(active: PopupRequest): string[] {
+  const keys = new Set<string>()
+  const add = (value: unknown) => {
+    if (typeof value === 'string' && value) keys.add(value)
+  }
+  const addAll = (values?: string[]) => values?.forEach(add)
+  const addGeneralOrPair = (value: unknown) => {
+    if (typeof value !== 'string') return
+    value.split('/').forEach(add)
+  }
+
+  addAll(active.generals)
+  addAll(active.options)
+  addAll(active.values)
+  active.groups?.forEach((g) => add(g.name))
+  active.areas?.forEach((a) => add(a.name))
+  addAll(active.ccOkOptions)
+  addAll(active.ccCancelOptions)
+  addAll(active.csSkills)
+  addAll(active.csGenerals)
+  active.mbSideNames?.forEach(addGeneralOrPair)
+  return [...keys].filter((k) => !hasTranslation(k))
 }
 
 export const useVmStore = create<VmState>((set, get) => ({
@@ -548,7 +572,7 @@ export const useVmStore = create<VmState>((set, get) => ({
             // CountdownBar starts the 30s timer off the popup-active edge (it watches
             // popupStore.active), so no explicit start here.
             // Translate any general/option keys the popup will display.
-            const keys = [...(active.generals ?? []), ...(active.options ?? [])].filter((k) => !hasTranslation(k))
+            const keys = collectPopupTranslationKeys(active)
             if (keys.length > 0) registerTranslations(get().vm!.translate(keys))
             // Fetch general info (extension + kingdom) for AskForGeneral candidates
             // — they aren't players yet, so feed()'s readGenerals won't cover them.

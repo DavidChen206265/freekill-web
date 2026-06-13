@@ -1,9 +1,9 @@
 // processPrompt tests — 1:1 with RoomLogic.js processPrompt(): translate the key,
 // substitute %src/%dest/%arg with player names / translated args.
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { processPrompt } from '../src/table/processPrompt.js'
-import { registerTranslations, tr } from '../src/i18n/zh.js'
+import { registerTranslations, resetMissingTranslationWarningsForTests, tr } from '../src/i18n/zh.js'
 import { useGameStore } from '../src/stores/gameStore.js'
 
 beforeEach(() => {
@@ -27,6 +27,11 @@ beforeEach(() => {
   })
 })
 
+afterEach(() => {
+  vi.restoreAllMocks()
+  resetMissingTranslationWarningsForTests()
+})
+
 describe('processPrompt', () => {
   it('translates a bare key (no colon)', () => {
     expect(processPrompt('#slash_skill')).toBe('选择攻击范围内的一名角色，对其造成1点伤害')
@@ -48,7 +53,9 @@ describe('processPrompt', () => {
   })
 
   it('passes through an unknown key unchanged (tr falls back to the key)', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     expect(processPrompt('#nope_unknown')).toBe('#nope_unknown')
+    expect(err).toHaveBeenCalledWith('[i18n] missing translation', { key: '#nope_unknown' })
   })
 
   it('empty prompt → empty string', () => {

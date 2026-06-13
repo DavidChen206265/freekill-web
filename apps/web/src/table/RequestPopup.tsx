@@ -551,20 +551,29 @@ function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
   const caps = areas.map((a) => a.capacity)
   const lims = areas.map((a) => a.limit)
   const vm = useVmStore((s) => s.vm)
+  const poxiType = active.arrangePoxiType ?? ''
   // When !isFree, area-0's original cards are locked (can't be dragged): QML keeps
   // org_cards[0] in their original relative order (ArrangeCardsBox.qml:206-238).
   // When a pattern is set, cards NOT matching it are locked too (GuanxingBox.qml:361
-  // selectable: cardFitPattern). Empty/"." pattern matches all.
+  // selectable: cardFitPattern). Empty/"." pattern matches all. A poxi_type request
+  // (e.g. shzl 神吕蒙“涉猎”) overrides the area-0 lock: QML delegates selectable and
+  // confirm-enabled to Ltk.poxiFilter/Ltk.poxiFeasible.
   const locked = useMemo(() => {
-    const s = new Set<number>(active.isFree === false ? (initial?.[0] ?? []) : [])
+    const s = new Set<number>(active.isFree === false && !poxiType ? (initial?.[0] ?? []) : [])
     const pat = active.arrangePattern
-    if (vm && pat && pat !== '.') {
+    if (vm && !poxiType && pat && pat !== '.') {
       const all = (initial ?? []).flat().concat(active.arrangeCards ?? [])
       const fit = vm.cardFitPattern(all, pat)
       for (const cid of all) if (fit[String(cid)] === false) s.add(cid)
     }
     return s
-  }, [active, initial, vm])
+  }, [active, initial, poxiType, vm])
+
+  const canDragCard = (cid: number): boolean => {
+    if (locked.has(cid)) return false
+    if (!poxiType) return true
+    return vm?.poxiFilter(poxiType, cid, [cid], st.slots, initial ?? []) ?? false
+  }
 
   const drop = (cid: number, ai: number, idx: number) => setSt((prev) => arrangeDrop(prev, caps, cid, ai, idx))
 
@@ -588,10 +597,11 @@ function ArrangeBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
   }
 
   const valid = arrangeValid(st, caps, lims)
+    && (!poxiType || (vm?.poxiFeasible(poxiType, [], st.slots, initial ?? []) ?? false))
   const confirm = () => resolve(st.slots.map((a) => [...a]))
 
   const cardBtn = (cid: number) => {
-    const isLocked = locked.has(cid)
+    const isLocked = !canDragCard(cid)
     return (
       <div key={cid} data-cid={cid} style={{ ...styles.agCard, ...(drag?.cid === cid ? styles.dragging : {}), ...(isLocked ? styles.lockedCard : {}), touchAction: 'none' }}
         onPointerDown={isLocked ? undefined : (e) => { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); setDrag({ cid, x: e.clientX, y: e.clientY }) }}

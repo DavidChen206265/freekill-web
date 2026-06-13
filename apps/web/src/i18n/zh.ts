@@ -26,11 +26,29 @@ const ZH: Record<string, string> = {
 
 // Runtime cache filled from the VM's Fk:translate (cards/generals/skills/...).
 const runtime: Record<string, string> = {}
+const missingWarned = new Set<string>()
+
+function looksLikeTranslationKey(key: string): boolean {
+  const s = key.trim()
+  if (!s) return false
+  // Already-readable literal text should not be reported as a missing key.
+  if (/[\u3400-\u9fff]/.test(s)) return false
+  if (/^-?\d+(\.\d+)?$/.test(s)) return false
+  // FreeKill translation keys are mostly ASCII identifiers, prompt keys, marks,
+  // or client UI tokens. Rich text / sentences are treated as literals.
+  return /^[#$@]?[A-Za-z_][A-Za-z0-9_#$@&:.+-]*$/.test(s) || /^\$[A-Za-z][A-Za-z0-9_#$@&:.+-]*$/.test(s)
+}
+
+function reportMissingTranslation(key: string): void {
+  if (!looksLikeTranslationKey(key) || missingWarned.has(key)) return
+  missingWarned.add(key)
+  console.error('[i18n] missing translation', { key })
+}
 
 /** Merge VM-provided translations (key -> localized text) into the runtime cache. */
 export function registerTranslations(map: Record<string, string>): void {
   for (const [k, v] of Object.entries(map)) {
-    if (typeof v === 'string' && v.length > 0) runtime[k] = v
+    if (typeof v === 'string' && v.length > 0 && v !== k) runtime[k] = v
   }
 }
 
@@ -41,5 +59,12 @@ export function hasTranslation(key: string): boolean {
 
 export function tr(key: string): string {
   if (!key) return ''
-  return runtime[key] ?? ZH[key] ?? key
+  const translated = runtime[key] ?? ZH[key]
+  if (translated !== undefined) return translated
+  reportMissingTranslation(key)
+  return key
+}
+
+export function resetMissingTranslationWarningsForTests(): void {
+  missingWarned.clear()
 }
