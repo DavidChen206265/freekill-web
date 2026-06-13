@@ -10,7 +10,11 @@ beforeEach(() => { log.clear(); setLogLevel('silent') })
 describe('unhandled-notifyUI detector', () => {
   it('does NOT flag a command handled by an explicit branch', () => {
     noteNotify('MoveCards', { merged: [] }, false)
+    noteNotify('SetBanner', ['@clock', 1], false)
+    noteNotify('UpdateMarkArea', { id: 1, change: { visible: false } }, false)
     expect(unhandledCommands()).not.toContain('MoveCards')
+    expect(unhandledCommands()).not.toContain('SetBanner')
+    expect(unhandledCommands()).not.toContain('UpdateMarkArea')
     expect(log.counts['unhandled']).toBeUndefined()
   })
 

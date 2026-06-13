@@ -68,6 +68,7 @@ export function Photo({ player, playerNum, isSelf }: {
   const lp = useLongPress(openDetail)
   const targetOutline = targetState?.selected ? '3px solid #e74c3c'
     : selectable ? '3px solid #2ecc71' : isSelf ? '2px solid #f1c40f' : 'none'
+  const markAreaVisible = player.markAreaVisible !== false
 
   const kingdomBg = (player.kingdom && KINGDOM_COLOR[player.kingdom]) || '#2a2a30'
   const dual = !!player.deputyGeneral
@@ -146,7 +147,7 @@ export function Photo({ player, playerNum, isSelf }: {
 
       {/* text mark area (Photo.qml MarkArea): `name value`, name already translated
           by the VM bridge; value "" when hidden (@@). Above the equip strip. */}
-      {(player.displayMarks?.length ?? 0) > 0 && (
+      {markAreaVisible && (player.displayMarks?.length ?? 0) > 0 && (
         <div style={styles.marks}>
           {player.displayMarks!.map((m) => (
             <span key={m.name} style={styles.mark}>{m.value ? `${m.name} ${m.value}` : m.name}</span>
@@ -156,7 +157,7 @@ export function Photo({ player, playerNum, isSelf }: {
       {/* picture mark area (Photo.qml PicMarkArea, @! marks): icon + count/value,
           hover tooltip. Icon art lives in extension packs; falls back to a text chip
           when absent (core has none). */}
-      {(player.picMarks?.length ?? 0) > 0 && (
+      {markAreaVisible && (player.picMarks?.length ?? 0) > 0 && (
         <div style={styles.picMarks}>
           {player.picMarks!.map((m) => <PicMark key={m.name} mark={m} />)}
         </div>

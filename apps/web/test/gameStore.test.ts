@@ -39,3 +39,17 @@ describe('gameStore.backToRoom', () => {
     expect(s.players[2]!.general).toBeUndefined()
   })
 })
+
+describe('gameStore.setMarkAreaVisible', () => {
+  it('preserves the visibility delta across VM player mirror syncs', () => {
+    const g = useGameStore.getState()
+    g.syncPlayers([{ id: 1, name: 'alice', avatar: 'a1', marks: [{ name: '@x', value: '1' }] }], true)
+    g.setMarkAreaVisible(1, false)
+    expect(useGameStore.getState().players[1]!.markAreaVisible).toBe(false)
+
+    g.syncPlayers([{ id: 1, name: 'alice', avatar: 'a1', marks: [{ name: '@x', value: '2' }] }], true)
+    const p = useGameStore.getState().players[1]!
+    expect(p.markAreaVisible).toBe(false)
+    expect(p.displayMarks).toEqual([{ name: '@x', value: '2' }])
+  })
+})

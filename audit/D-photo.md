@@ -457,7 +457,7 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - web : Photo.tsx LimitSkillArea + limitSkillStore + clientVm.skillData 桥 + skin.limitSkillBg
 - 原版行为: photo 右上显示限定技/觉醒技/转换技图标，已用打 X / 切背景。
 - web 行为: Photo 右上 LimitSkillArea 列,消费 UpdateLimitSkill→limitSkillStore,limitSkillRender 照搬 LimitSkillItem 规则(limit 用 X+limit-used、wake 觉醒后才显、switch 阳/阴→switch/switch-yin、quest 失败>1 打 X);skilltype 经 clientVm.skillData(GetSkillData.frequency/switchSkillName)解析。
-- 差异: 简化——技能标记本身 1:1 还原;但全局顶部 banner(SetBanner)与标记区显隐控制(UpdateMarkArea)仍 deferred(随 N1-2 余项)。
+- 差异: 简化——技能标记命令链与规则已还原；字体/缩放尺寸仍为 web 近似。N1-2 余项中的 SetBanner/UpdateMarkArea 已于 2026-06-13 补齐（见 M14/M15）。
 - 修复: 已修复并验证 (UpdateLimitSkill 出 KNOWN_DEFERRED→consume;新增 limitSkillStore+skillData 桥+LimitSkillArea 组件;render 规则 7 单测 + 真 VM 验证 skillData(jianxiong→奸雄);标准三包无此类技能[audit O],由扩展包武将触发。typecheck/build/161 测试全绿。2026-06-12,未还原→简化还原。)
 
 ### D57 RoleComboBox::身份图标显示
@@ -569,7 +569,7 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 
 ## 未还原 / 还原错误 序号索引
 
-**未还原（19）**：
+**未还原（18）**：
 - D4 deputy-split 分隔线
 - D6 副将名独立竖排
 - D10 换肤图标+Hover
@@ -587,7 +587,6 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - D44 EquipItem 出现/消失动画
 - D45 EquipArea itemHeight 自适应
 - D51 MarkArea 标记点击查看牌堆/武将堆/QmlMark
-- D56 LimitSkillArea 限定技/觉醒/转换技标记区
 - D59 SkinArea gif/mp4 动态皮肤
 
 **还原错误（0）**：
@@ -595,6 +594,6 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 
 ## 最关键 3 缺口
 
-1. **D56 LimitSkillArea 完全缺失**——限定技/觉醒技/转换技的右上角标记与"已用 X"状态在 web 中无任何呈现，vmStore 连 UpdateLimitSkill 命令都未接，对局中无法判断限定技是否可用。
-2. **D32 HandcardViewer + D24 手牌上限**——对手可见手牌速览浮窗完全未实现，且手牌数仅显示当前数无"n/maxCard"上限与 ∞ 逻辑，削弱了关键战术信息。
-3. **D12/D20/D22 行动者与状态视觉**——当前行动者无 playing 光环（无任何"轮到谁"高亮）、翻面(faceturned)与垂死求救(saveme)/投降贴图未渲染（dying/faceup 数据已同步却未消费），对局态势可读性明显下降。
+1. **D32 HandcardViewer + D24 手牌上限**——对手可见手牌速览浮窗完全未实现，且手牌数仅显示当前数无"n/maxCard"上限与 ∞ 逻辑，削弱了关键战术信息。
+2. **D12/D20/D22 行动者与状态视觉**——当前行动者无 playing 光环（无任何"轮到谁"高亮）、翻面(faceturned)与垂死求救(saveme)/投降贴图未渲染（dying/faceup 数据已同步却未消费），对局态势可读性明显下降。
+3. **D4/D6/D10 双将细节与换肤入口**——副将分隔线/副将名独立竖排/换肤图标缺失，影响双将与皮肤操作的原版观感。

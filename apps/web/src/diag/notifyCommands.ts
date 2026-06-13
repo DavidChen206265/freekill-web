@@ -36,7 +36,7 @@ export const HANDLED_EXPLICIT = new Set<string>([
   // M5-a — table misc status (miscStore → MiscStatus):
   'UpdateDrawPile', 'UpdateRoundNum',
   // N1-2 — Photo LimitSkillArea (limitSkillStore → Photo): limit/wake/switch/quest marks.
-  'UpdateLimitSkill',
+  'UpdateLimitSkill', 'SetBanner', 'UpdateMarkArea',
 ])
 
 // Commands consumed INDIRECTLY via the VM mirror: the VM applies them to its own
@@ -68,8 +68,7 @@ export const MIRROR_DRIVEN = new Set<string>([
 // status overlays). Flagged at INFO so they're visible but not mistaken for
 // 五谷-class bugs. (Animate/LogEvent/ShowToast/SetCardFootnote done in M4 slice V.)
 export const KNOWN_DEFERRED = new Set<string>([
-  'SetBanner', 'ShowVirtualCard', 'ChangeSkin',
-  'UpdateMarkArea',
+  'ShowVirtualCard', 'ChangeSkin',
   'UpdateMiniGame', 'ServerMessage',
 ])
 

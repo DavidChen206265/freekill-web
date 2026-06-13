@@ -21,6 +21,7 @@ import { useFocusStore } from './focusStore.js'
 import { useRoleGuessStore } from './roleGuessStore.js'
 import { useRoomChatStore } from './roomChatStore.js'
 import { useLimitSkillStore } from './limitSkillStore.js'
+import { useBannerStore } from './bannerStore.js'
 import { parsePresent } from './roomChatStore.js'
 import { useAnimationStore } from './animationStore.js'
 import { useMiscStore } from './miscStore.js'
@@ -260,6 +261,22 @@ function hideObserverChatter(): boolean {
   try { return localStorage.getItem('fk_hide_observer_chatter') === '1' } catch { return false }
 }
 
+function translateBannerKeys(vm: ClientVm | null, mark: string, data: unknown): (key: string) => string {
+  const keys = new Set<string>([mark])
+  const add = (value: unknown) => {
+    if (value !== undefined && value !== null) keys.add(String(value))
+  }
+  if (!mark.startsWith('@$') && !mark.startsWith('@&')) {
+    if (Array.isArray(data)) data.forEach(add)
+    else add(data)
+  }
+  if (vm) {
+    const need = [...keys].filter((k) => k && !hasTranslation(k))
+    if (need.length > 0) registerTranslations(vm.translate(need))
+  }
+  return tr
+}
+
 export const useVmStore = create<VmState>((set, get) => ({
   vm: null,
   booting: false,
@@ -476,6 +493,29 @@ export const useVmStore = create<VmState>((set, get) => ({
             const sd = get().vm?.skillData(skill)
             const skilltype = sd?.switchSkillName ? 'switch' : (sd?.frequency ?? 'limit')
             useLimitSkillStore.getState().update(pid, skill, times, skilltype, sd?.name ?? skill)
+          }
+        }
+        else if (e.command === 'SetBanner') {
+          // Global roomScene.banner MarkArea (RoomLogic.js:1299-1308). data=[mark,value].
+          const d = Array.isArray(e.data) ? e.data : []
+          const mark = String(d[0] ?? '')
+          const rawValue = d[1]
+          if (mark) {
+            if (rawValue === 0) {
+              useBannerStore.getState().removeMark(mark)
+            } else {
+              const value = mark.startsWith('@@') ? '' : rawValue
+              useBannerStore.getState().setMark(mark, value, translateBannerKeys(get().vm, mark, value))
+            }
+          }
+        }
+        else if (e.command === 'UpdateMarkArea') {
+          // Photo.qml handleMarkAreaUpdate: data.change.visible toggles BOTH text
+          // markArea and picMarkArea. Mark contents still come from the VM mirror.
+          const d = e.data as { id?: number; change?: { visible?: unknown } }
+          if (d?.change?.visible !== undefined) {
+            const id = Number(d.id)
+            if (!Number.isNaN(id)) useGameStore.getState().setMarkAreaVisible(id, !!d.change.visible)
           }
         }
         else if (e.command === 'Animate') {
@@ -725,6 +765,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
     useLimitSkillStore.getState().reset() // limit/wake/switch marks (delta); reconnect re-emits via addSkill/reconnect path
+    useBannerStore.getState().reset()
     stopBgm() // stop game BGM on leave/reconnect (StartGame replay restarts it)
     set({ vm: null, booted: false, booting: false, notifyCounts: {}, recent: [], totalFed: 0, stats: undefined, error: undefined })
   },
@@ -744,6 +785,7 @@ export const useVmStore = create<VmState>((set, get) => ({
     useCardNoteStore.getState().reset()
     useMiscStore.getState().reset()
     useLimitSkillStore.getState().reset() // clear limit/wake/switch marks for the next game
+    useBannerStore.getState().reset()
     useMiscStore.getState().clearClock() // back-to-room after GameOver → next game's clock is fresh (2b)
     useRoleGuessStore.getState().reset() // IG-3: new game → wipe local role guesses + persisted copy
     useRoomChatStore.getState().reset() // IG-5: clear room chat log for the next game

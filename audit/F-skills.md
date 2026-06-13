@@ -111,7 +111,7 @@ web：`freekill-web/`
 - web : `Photo.tsx` LimitSkillArea + `stores/limitSkillStore.ts` + `vmStore` UpdateLimitSkill case
 - 原版行为: 每个 Photo 上一列限定/觉醒/转换/任务技标记，收 `UpdateLimitSkill(id,skill,time)` 命令调 update：times==-1 移除、>-1 追加/更新。
 - web 行为: `UpdateLimitSkill` 出 KNOWN_DEFERRED,vmStore 消费→limitSkillStore.update(pid,skill,times,skilltype,label),Photo 右上 LimitSkillArea 渲染;times==-1 移除(quest 的 -1 保留=未触发)。
-- 差异: 简化——限定技区本身还原;banner(SetBanner)/标记区显隐(UpdateMarkArea)仍 deferred。
+- 差异: 简化——限定技区本身还原;字体/尺寸近似。N1-2 余项 SetBanner/UpdateMarkArea 已于 2026-06-13 补齐（见 M14/M15）。
 - 修复: 已修复并验证 (见 D56;7 单测 + 真 VM skillData 验证。2026-06-12,未还原→简化还原。)
 
 ### F15 LimitSkillItem::技能类型态（limit/wake/quest/switch + 已用图）
