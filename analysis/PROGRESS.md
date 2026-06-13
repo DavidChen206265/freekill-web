@@ -43,6 +43,8 @@
 
 ## 变更日志
 
+- 2026-06-13 **局内三项实测交互修复完成并验证(本次)**。修复 Photo 内手牌数/身份图标被 `overflow:hidden` 裁剪的问题:Photo 外层改允许出框,保留立绘 `portraitClip` 自身裁剪,使 handcard/role 可越出 photo UI 范围。托管入口补强:点击托管后立即发送 `Trust`、本地执行 `FinishRequestUI`/清空 interaction popup/timer,利用服务端 fork 已有 `player.thinking()`→`wakeUp("player_trust")` 让 AI 立刻接管当前询问;托管态通过 body Portal 显示显眼「退出托管」按钮,并用高层遮罩 + Dashboard/CardLayer/Photo/RequestPopup 守卫禁用其它玩家交互。手牌拖拽排序修复:仅拖到目标 Photo 或 OK 区时为超级拖拽自动选牌,普通重排不再触发 CardItem click 导致误选中。验证:web 35 文件/183 测试、typecheck、build 全绿。
+
 - 2026-06-13 **N1-4 出牌交互/手牌信息核心完成并验证(本次)**。补齐 E14/E15/E17 + D24/D32:CardLayer 支持自己手牌 pointer 拖拽、opacity 0.8、按释放中心 x 本地重排,并通过 VM `CanSortHandcards(Self.id)` 尊重 SortProhibited;拖到可选 Photo 释放时驱动 Photo click,拖到牌桌区且 OK 可用时确认;双击可选/已选手牌发送 `CardItem doubleClick`。VM `readPlayers` 增加 `maxCard`、`handcardPreview`、`handcardPreviewVisible`,Photo 还原 handcard.png + `n/maxCard/∞` + 24/20 字号,并显示 HandcardViewer(可见牌前 2 字/不可见 `?`/超长 `...`)。新增 `handcardInfo`/`cardDrag` 纯函数与测试,vmStore 为预览牌名注册翻译。验证:web 34 文件/181 测试、typecheck、build 全绿。audit 更新:E14/E15/E17 未→简,D32 未→简,D24 简→完全;全局计数 未141 / 简138 / 错0 / 完180。剩余简化项:ControlSetting/Config 开关与 HandcardViewer 点击 ViewPile。
 
 - 2026-06-13 **N2 低成本状态视觉完成并验证(本次)**。补齐 D12/H2 playing、D20 faceturned、D22/H19 saveme:VM `readPlayers` 增加 `playing = ClientInstance.current.id==p.id`,gameStore 同步后 Photo 复用 `EmotionSprite loop` 播原版 `/fk/image/anim/playing` 帧;`faceup=false` 时按原版位置/0.75 尺寸叠 `faceturned.png`;`dying&&!dead` 时叠 `death/saveme.png`。`EmotionSprite` 新增默认关闭的 loop 参数,不影响既有一次性 emotion/skill 动画。验证:`pnpm --filter @freekill-web/web test -- skin gameStore`(当前配置实际跑全部 32 文件/175 测试)、typecheck、build 全绿。audit 更新:D12/H2 未→完全,D20 未→简,D22/H19 既有简化项内补强;全局计数 未145 / 简135 / 错0 / 完179。下一步建议:N1-4 出牌交互/手牌信息。

@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useConnectionStore } from '../stores/index.js'
 import { useGameStore } from '../stores/gameStore.js'
 import { useVmStore } from '../stores/vmStore.js'
-import { canConfirmSurrender, playerStateLabel, surrenderPayload, type SurrenderCheck } from './roomActions.js'
+import { useInteractionStore } from '../stores/interactionStore.js'
+import { usePopupStore } from '../stores/popupStore.js'
+import { useTimerStore } from '../stores/timerStore.js'
+import { canConfirmSurrender, isTrustState, playerStateLabel, surrenderPayload, type SurrenderCheck } from './roomActions.js'
+import { Portal } from './Portal.js'
 
 export function RoomMenuOverlay() {
   const client = useConnectionStore((s) => s.client)
@@ -12,6 +16,13 @@ export function RoomMenuOverlay() {
   const observing = useGameStore((s) => s.observing)
   const [open, setOpen] = useState(false)
   const [checks, setChecks] = useState<SurrenderCheck[] | null>(null)
+  const [trustPending, setTrustPending] = useState(false)
+  const trusting = isTrustState(self?.state) || trustPending
+
+  useEffect(() => {
+    if (isTrustState(self?.state)) setTrustPending(false)
+    if (self?.state !== undefined && !isTrustState(self.state)) setTrustPending(false)
+  }, [self?.state])
 
   const openSurrender = () => {
     if (!vm || observing || self?.dead) return
@@ -29,15 +40,32 @@ export function RoomMenuOverlay() {
 
   const toggleTrust = () => {
     client?.notify('Trust', '')
+    if (!trusting) {
+      setTrustPending(true)
+      // Mirrors Room.qml trustBtn: set roomScene.state="notactive". The server-side
+      // Trust action wakes the room thread when Self is thinking, so AI answers the
+      // current request; this only clears local affordances immediately.
+      vm?.finishRequestUI()
+      useInteractionStore.getState().clear()
+      usePopupStore.getState().clear()
+      useTimerStore.getState().deactivate()
+      setChecks(null)
+    }
     setOpen(false)
   }
 
-  const trustLabel = playerStateLabel(self?.state) === '托管' ? '取消托管' : '托管'
+  const trustLabel = trusting ? '取消托管' : '托管'
 
   return (
     <>
-      <button style={styles.menuButton} onClick={() => setOpen((v) => !v)} title="对局菜单">菜单</button>
-      {open && (
+      {trusting && (
+        <Portal>
+          <div style={styles.trustShield} />
+          <button style={styles.exitTrustButton} onClick={toggleTrust}>退出托管</button>
+        </Portal>
+      )}
+      {!trusting && <button style={styles.menuButton} onClick={() => setOpen((v) => !v)} title="对局菜单">菜单</button>}
+      {open && !trusting && (
         <div style={styles.overlay}>
           <div style={styles.panel}>
             <div style={styles.header}>
@@ -81,6 +109,8 @@ export function RoomMenuOverlay() {
 
 const styles: Record<string, React.CSSProperties> = {
   menuButton: { position: 'absolute', right: 10, top: 48, zIndex: 90, padding: '6px 12px', border: '1px solid #5a4530', borderRadius: 6, background: 'rgba(40,26,16,.9)', color: '#f4e0b8', cursor: 'pointer' },
+  trustShield: { position: 'fixed', inset: 0, zIndex: 340, background: 'rgba(0,0,0,.28)', pointerEvents: 'auto' },
+  exitTrustButton: { position: 'fixed', left: '50%', top: 24, transform: 'translateX(-50%)', zIndex: 350, padding: '12px 34px', border: '2px solid #f1c40f', borderRadius: 8, background: '#8f1f1f', color: '#fff7d6', fontSize: 22, fontWeight: 800, cursor: 'pointer', boxShadow: '0 10px 28px rgba(0,0,0,.55)', letterSpacing: 0 },
   overlay: { position: 'absolute', inset: 0, zIndex: 91, background: 'rgba(0,0,0,.22)', pointerEvents: 'auto' },
   panel: { position: 'absolute', right: 10, top: 82, width: 172, padding: 10, border: '1px solid #7b5b36', borderRadius: 8, background: 'rgba(28,22,18,.96)', color: '#f5ead6', boxShadow: '0 8px 24px rgba(0,0,0,.45)', display: 'flex', flexDirection: 'column', gap: 8, fontFamily: 'system-ui' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 14 },
@@ -96,4 +126,3 @@ const styles: Record<string, React.CSSProperties> = {
   danger: { padding: '7px 12px', border: 'none', borderRadius: 6, background: '#9f3434', color: '#fff', cursor: 'pointer' },
   disabled: { opacity: 0.55, cursor: 'not-allowed' },
 }
-

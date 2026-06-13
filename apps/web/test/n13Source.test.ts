@@ -10,6 +10,9 @@ describe('N1-3 source wiring', () => {
     expect(src).toContain("client?.notify('PushRequest', surrenderPayload())")
     expect(src).toContain("client?.notify('Trust', '')")
     expect(src).toContain('checkSurrenderAvailable()')
+    expect(src).toContain('退出托管')
+    expect(src).toContain('vm?.finishRequestUI()')
+    expect(src).toContain('useInteractionStore.getState().clear()')
   })
 
   it('wires waiting-room owner kick to KickPlayer', () => {
@@ -18,4 +21,3 @@ describe('N1-3 source wiring', () => {
     expect(src).toContain('canKickPlayer(selfId, p, selfIsOwner)')
   })
 })
-

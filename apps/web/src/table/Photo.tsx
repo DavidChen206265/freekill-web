@@ -26,6 +26,7 @@ import { PhotoFocusBar } from './PhotoFocusBar.js'
 import { useLongPress } from './useLongPress.js'
 import { tr } from '../i18n/zh.js'
 import { handcardFontSize, handcardText, previewLines } from './handcardInfo.js'
+import { isTrustState } from './roomActions.js'
 
 const PHOTO_W = PHOTO_WIDTH
 const PHOTO_H = PHOTO_HEIGHT
@@ -44,6 +45,7 @@ export function Photo({ player, playerNum, isSelf }: {
   const targetState = useInteractionStore((s) => s.photos[player.id])
   const interact = useVmStore((s) => s.interact)
   const observing = useGameStore((s) => s.observing)
+  const selfTrusting = useGameStore((s) => s.selfId !== undefined ? isTrustState(s.players[s.selfId]?.state) : false)
   const switchViewpoint = useVmStore((s) => s.switchViewpoint)
   const roleGuesses = useRoleGuessStore((s) => s.guesses)
   const pickerOpen = useRoleGuessStore((s) => s.pickerOpen)
@@ -53,6 +55,7 @@ export function Photo({ player, playerNum, isSelf }: {
   const selectable = !!targetState && (targetState.enabled || targetState.selected)
   const onClick = () => {
     if (lp.consumeFired()) return // a long-press just opened detail — skip selection
+    if (selfTrusting) return
     // Observer: clicking a photo switches the viewing perspective to that player
     // (RoomPage.qml:512 observer changeSelf). Observers get no target requests.
     if (observing) { void switchViewpoint(player.id); return }
@@ -63,7 +66,7 @@ export function Photo({ player, playerNum, isSelf }: {
   // BasicItem.qml fires this on BOTH right-click and long-press (onLongPressed →
   // rightClicked) — so long-press is FreeKill's own touch/browser equivalent that
   // never conflicts with left-click target selection. We support both here.
-  const openDetail = () => { if (player.id !== 0 && player.id !== -1) useDetailStore.getState().open(player.id) }
+  const openDetail = () => { if (!selfTrusting && player.id !== 0 && player.id !== -1) useDetailStore.getState().open(player.id) }
   const onContextMenu = (e: React.MouseEvent) => { e.preventDefault(); openDetail() }
   // Long-press (500ms with no significant move) = detail, mirroring onLongPressed.
   const lp = useLongPress(openDetail)
@@ -123,7 +126,7 @@ export function Photo({ player, playerNum, isSelf }: {
           <img
             src={rolePic(display)} alt="" draggable={false} onError={hideImg}
             style={{ ...styles.role, ...(guessable ? styles.roleGuessable : {}) }}
-            onClick={guessable ? (e) => { e.stopPropagation(); useRoleGuessStore.getState().openPicker(player.id) } : undefined}
+            onClick={guessable && !selfTrusting ? (e) => { e.stopPropagation(); useRoleGuessStore.getState().openPicker(player.id) } : undefined}
             title={guessable ? '点击标注身份猜测' : undefined}
           />
         )
@@ -135,12 +138,13 @@ export function Photo({ player, playerNum, isSelf }: {
 
       {/* role-guess picker (RoleComboBox.qml optionPopupBox): a vertical 4-choice
           column of role icons; clicking sets the local guess. */}
-      {pickerOpen === player.id && (        <div style={styles.rolePicker} onClick={(e) => e.stopPropagation()}>
+      {pickerOpen === player.id && (
+        <div style={styles.rolePicker} onClick={(e) => e.stopPropagation()}>
           {GUESS_ROLES.map((r) => (
             <img
               key={r} src={rolePic(r)} alt={r} draggable={false} onError={hideImg}
               style={styles.rolePickerItem}
-              onClick={(e) => { e.stopPropagation(); useRoleGuessStore.getState().setGuess(player.id, r) }}
+              onClick={(e) => { e.stopPropagation(); if (!selfTrusting) useRoleGuessStore.getState().setGuess(player.id, r) }}
             />
           ))}
         </div>
@@ -352,7 +356,7 @@ const styles: Record<string, React.CSSProperties> = {
   // photos instead of jumping. InOutQuad ≈ cubic-bezier(0.455,0.03,0.515,0.955).
   // Only left/top transition; the scale transform is left immediate.
   wrap: { position: 'absolute', width: PHOTO_W, height: PHOTO_H, color: '#eee', fontFamily: 'system-ui, sans-serif', transition: 'left 600ms cubic-bezier(0.455,0.03,0.515,0.955), top 600ms cubic-bezier(0.455,0.03,0.515,0.955)' },
-  photo: { position: 'absolute', inset: 0, borderRadius: 8, overflow: 'hidden', background: '#14110c' },
+  photo: { position: 'absolute', inset: 0, borderRadius: 8, overflow: 'visible', background: '#14110c' },
   back: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
   portraitClip: { position: 'absolute', left: 4, top: 3, right: 4, bottom: 22, borderRadius: 6, overflow: 'hidden', display: 'flex' },
   portrait: { position: 'relative', height: '100%', flex: 1, overflow: 'hidden' },

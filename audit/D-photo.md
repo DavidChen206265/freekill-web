@@ -199,6 +199,7 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - web 行为: 恒显 handcard.png 背景；VM 镜像读 `p:getMaxCards()`；显示 n 或 n/maxCard，max>=900 显示 ∞，max==hp 或 hp<0 时只显示 n；字号 24/20。
 - 差异: 无。
 - 修复: 已修复并验证 (handcardInfo/gameStore/skin 单测；web test/typecheck/build 通过，2026-06-13)
+- 修复: 已修复并验证 (补强:Photo 外层 `overflow:visible`,保留立绘 `portraitClip` 裁剪,手牌数徽章可按原版 x:-5/bottom:-5 出框而不遮挡 Photo 内 UI；web 183 测试、typecheck、build 通过，2026-06-13)
 
 ### D25 Photo::右键/长按打开详情(showDetail)
 - 状态: 完全还原

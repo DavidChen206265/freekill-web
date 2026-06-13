@@ -13,9 +13,11 @@ import { useVmStore } from '../stores/vmStore.js'
 import { CountdownBar } from './CountdownBar.js'
 import { PromptText } from './PromptText.js'
 import { tr } from '../i18n/zh.js'
+import { isTrustState } from './roomActions.js'
 
 export function Dashboard() {
   const started = useGameStore((s) => s.started)
+  const selfTrusting = useGameStore((s) => s.selfId !== undefined ? isTrustState(s.players[s.selfId]?.state) : false)
   const selfSkills = useGameStore((s) => s.selfSkills)
   const active = useInteractionStore((s) => s.active)
   const prompt = useInteractionStore((s) => s.prompt)
@@ -32,7 +34,7 @@ export function Dashboard() {
     setSpecialSel(specialSkills[0] ?? null)
   }, [specialSkills.join(',')])
 
-  if (!started) return null
+  if (!started || selfTrusting) return null
 
   const clickBtn = (id: 'OK' | 'Cancel' | 'End') => () => void interact('Button', id, 'click', {})
   const clickSkill = (name: string) => () => {

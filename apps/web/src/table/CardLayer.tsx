@@ -21,6 +21,7 @@ import { CardFaceView } from './CardFaceView.js'
 import { chosenPic } from './skin.js'
 import { tr } from '../i18n/zh.js'
 import { computeHandDropIndex, dragMoved } from './cardDrag.js'
+import { isTrustState } from './roomActions.js'
 
 const GO_BACK_MS = 500
 const EASE_OUT_QUAD = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -35,6 +36,7 @@ export function CardLayer() {
   const players = useGameStore((s) => s.players)
   const seatOrder = useGameStore((s) => s.seatOrder)
   const selfId = useGameStore((s) => s.selfId)
+  const selfTrusting = useGameStore((s) => s.selfId !== undefined ? isTrustState(s.players[s.selfId]?.state) : false)
   const cardStates = useInteractionStore((s) => s.cards)
   const photoStates = useInteractionStore((s) => s.photos)
   const buttons = useInteractionStore((s) => s.buttons)
@@ -56,6 +58,10 @@ export function CardLayer() {
   const layerRef = useRef<HTMLDivElement | null>(null)
   const [drag, setDrag] = useState<{ cid: number; x: number; y: number; dx: number; dy: number; startX: number; startY: number; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
+
+  useEffect(() => {
+    if (selfTrusting) setDrag(null)
+  }, [selfTrusting])
 
   // Compute every card's resting target (area box + slot within area).
   const playerNum = seatOrder.length || 1
@@ -202,6 +208,7 @@ export function CardLayer() {
   for (const [cid, t] of targets) allCards.push({ cid, t })
 
   const onCardClick = (cid: number) => {
+    if (selfTrusting) return
     if (suppressClick.current) { suppressClick.current = false; return }
     const st = cardStates[cid]
     if (!st?.enabled && !st?.selected) return // not interactable
@@ -210,6 +217,7 @@ export function CardLayer() {
 
   const onCardDoubleClick = (cid: number, e: React.MouseEvent) => {
     e.stopPropagation()
+    if (selfTrusting) return
     const st = cardStates[cid]
     if (!st?.enabled && !st?.selected) return
     void interact('CardItem', cid, 'doubleClick', { selected: !!st.selected, doubleClickUse: true, autoTarget: false })
@@ -233,6 +241,7 @@ export function CardLayer() {
     return null
   }
   const onPointerDown = (cid: number, t: Target, e: React.PointerEvent<HTMLDivElement>) => {
+    if (selfTrusting) return
     if (!selfHandCids.has(cid)) return
     const pt = stagePoint(e.clientX, e.clientY)
     if (!pt) return
@@ -240,6 +249,7 @@ export function CardLayer() {
     setDrag({ cid, x: t.x, y: t.y, dx: pt.x - t.x, dy: pt.y - t.y, startX: pt.x, startY: pt.y, moved: false })
   }
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (selfTrusting) return
     if (!drag) return
     const pt = stagePoint(e.clientX, e.clientY)
     if (!pt) return
@@ -260,7 +270,9 @@ export function CardLayer() {
     const st = cardStates[cid]
     const pid = findPhotoAt(center.x, center.y)
     const pst = pid !== null ? photoStates[pid] : undefined
-    if (st && st.enabled && !st.selected) void interact('CardItem', cid, 'click', { selected: true, autoTarget: false })
+    const hitPhoto = pid !== null && !!pst && (pst.enabled || pst.selected)
+    const hitOk = !!buttons.OK?.enabled && center.y < TABLE_PILE.y + TABLE_PILE.h
+    if (st && st.enabled && !st.selected && (hitPhoto || hitOk)) void interact('CardItem', cid, 'click', { selected: true, autoTarget: false })
     if (pid !== null && pst && (pst.enabled || pst.selected)) {
       void interact('Photo', pid, 'click', { selected: !pst.selected, autoTarget: false })
     }
@@ -273,7 +285,7 @@ export function CardLayer() {
       })
       useCardStore.getState().reorderArea(handKey, cid, nextIdx)
     }
-    if (buttons.OK?.enabled && center.y < TABLE_PILE.y + TABLE_PILE.h) {
+    if (hitOk) {
       void interact('Button', 'OK', 'click', {})
     }
   }
@@ -284,7 +296,7 @@ export function CardLayer() {
         const st = cardStates[cid]
         const interactable = !!st && (st.enabled || st.selected)
         const isDragged = drag?.cid === cid
-        const interactive = interactable || selfHandCids.has(cid)
+        const interactive = !selfTrusting && (interactable || selfHandCids.has(cid))
         return (
           <div
             key={cid}

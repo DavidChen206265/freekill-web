@@ -107,6 +107,7 @@ PushRequest（其 payload 子命令：surrender / prelight / changeskin / update
 - web 行为: 房内菜单可发送 Trust；NetStateChanged 由 VM 应用后经 readPlayers state 快照显示托管状态。
 - 差异: 无（D23 状态图标仍属 Photo 表现层缺口）
 - 修复: 已修复并验证 (RoomMenuOverlay 加 Trust 入口；clientVm/readPlayers 暴露 player state；web 174 测试、typecheck、build 通过；live compose probe 收到 NetStateChanged，2026-06-13)
+- 修复: 已修复并验证 (补强:点击托管后立即本地 `FinishRequestUI`/清空 interaction popup/timer,并显示 body Portal「退出托管」按钮与交互遮罩；服务端 fork `Room::trust` 已在 thinking 时 `wakeUp("player_trust")` 让当前 request 进入托管 AI；web 183 测试、typecheck、build 通过，2026-06-13)
 
 ### P11 上报::PushRequest::surrender（投降）
 - 状态: 完全还原

@@ -3,11 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-13 14:48:51　·　跟踪文件数: 242
+最后更新: 2026-06-13 15:34:53　·　跟踪文件数: 243
 
 ## 自上次重建以来的改动
 
-- 修改 2: freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md
+- 新增 1: freekill-web/apps/web/test/ingameBugfixSource.test.ts
+- 修改 8: freekill-web/apps/web/src/table/CardLayer.tsx, freekill-web/apps/web/src/table/Dashboard.tsx, freekill-web/apps/web/src/table/Photo.tsx, freekill-web/apps/web/src/table/RequestPopup.tsx, freekill-web/apps/web/src/table/RoomMenuOverlay.tsx, freekill-web/apps/web/src/table/roomActions.ts, freekill-web/apps/web/test/n13Source.test.ts, freekill-web/apps/web/test/roomActions.test.ts
 
 ## 上游参考仓库(只读,不跟踪改动)
 

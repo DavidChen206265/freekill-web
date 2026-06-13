@@ -17,6 +17,10 @@ export function playerStateLabel(state: number | undefined): string {
   return state === undefined ? '' : (PLAYER_STATE_LABELS[state] ?? '')
 }
 
+export function isTrustState(state: number | undefined): boolean {
+  return state === 2
+}
+
 export function canKickPlayer(selfId: number | undefined, player: Pick<GamePlayer, 'id'> | undefined, selfIsOwner: boolean): boolean {
   return !!player && selfIsOwner && player.id !== selfId
 }
@@ -28,4 +32,3 @@ export function surrenderPayload(): string {
 export function canConfirmSurrender(checks: SurrenderCheck[]): boolean {
   return checks.length > 0 && checks.every((c) => c.passed)
 }
-

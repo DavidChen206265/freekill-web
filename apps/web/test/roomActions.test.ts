@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canConfirmSurrender, canKickPlayer, playerStateLabel, surrenderPayload } from '../src/table/roomActions.js'
+import { canConfirmSurrender, canKickPlayer, isTrustState, playerStateLabel, surrenderPayload } from '../src/table/roomActions.js'
 
 describe('N1-3 room action helpers', () => {
   it('uses the original PushRequest surrender payload', () => {
@@ -23,6 +23,7 @@ describe('N1-3 room action helpers', () => {
     expect(playerStateLabel(2)).toBe('托管')
     expect(playerStateLabel(1)).toBe('在线')
     expect(playerStateLabel(undefined)).toBe('')
+    expect(isTrustState(2)).toBe(true)
+    expect(isTrustState(1)).toBe(false)
   })
 })
-
