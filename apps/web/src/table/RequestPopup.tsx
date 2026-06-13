@@ -19,12 +19,15 @@ import { tr, registerTranslations, hasTranslation } from '../i18n/zh.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { Portal } from './Portal.js'
 import { useSelfTrusting } from './useSelfTrusting.js'
+import { useServerManifestStore } from '../stores/serverManifestStore.js'
 
 export const REQUEST_POPUP_Z = 100
 export const FREE_ASSIGN_Z = 200
 
-export interface FreeAssignGeneralOption { name: string; extension: string; kingdom: string }
-export interface FreeAssignDisabledSets { generals: Set<string>; packs: Set<string> }
+export interface FreeAssignGeneralOption { name: string; package?: string; extension: string; kingdom: string }
+export interface FreeAssignDisabledSets { generals: Set<string>; packs: Set<string>; enabledPacks?: Set<string> }
+
+const BUILTIN_GENERAL_EXTENSIONS = new Set(['standard', 'test'])
 
 export function filterFreeAssignGenerals(
   generals: FreeAssignGeneralOption[],
@@ -33,7 +36,10 @@ export function filterFreeAssignGenerals(
 ): FreeAssignGeneralOption[] {
   return generals
     .filter((g) => !kingdom || g.kingdom === kingdom)
-    .filter((g) => !disabled.generals.has(g.name) && !disabled.packs.has(g.extension))
+    .filter((g) => !disabled.enabledPacks || disabled.enabledPacks.size === 0
+      || disabled.enabledPacks.has(g.package ?? '') || disabled.enabledPacks.has(g.extension)
+      || BUILTIN_GENERAL_EXTENSIONS.has(g.extension))
+    .filter((g) => !disabled.generals.has(g.name) && !disabled.packs.has(g.package ?? g.extension))
 }
 
 // Translate a (possibly dual) general name. RoomLogic.js:1125-1131 splits a
@@ -264,6 +270,8 @@ const FA_KINGDOMS: { value: string; label: string }[] = [
 
 function FreeAssignOverlay({ respectBan, onPick, onClose }: { respectBan: boolean; onPick: (g: string) => void; onClose: () => void }) {
   const vm = useVmStore((s) => s.vm)
+  const manifestReceived = useServerManifestStore((s) => s.received)
+  const serverEnabledPacks = useServerManifestStore((s) => s.enabledPacks)
   const [word, setWord] = useState('')
   const [pack, setPack] = useState('')
   const [kingdom, setKingdom] = useState('')
@@ -272,7 +280,10 @@ function FreeAssignOverlay({ respectBan, onPick, onClose }: { respectBan: boolea
   // Search results carry {name, extension, kingdom}. Filter by kingdom client-side
   // (the VM search is by name+pack); cap render at 240.
   const raw = useMemo(() => (vm ? vm.searchGenerals(word, pack) : []), [vm, word, pack])
-  const disabled = useMemo(() => readDisabledGeneralSettings(vm, respectBan), [vm, respectBan])
+  const disabled = useMemo(() => ({
+    ...readDisabledGeneralSettings(vm, respectBan),
+    enabledPacks: manifestReceived && serverEnabledPacks.length > 0 ? new Set(serverEnabledPacks) : undefined,
+  }), [vm, respectBan, manifestReceived, serverEnabledPacks])
   const results = useMemo(
     () => filterFreeAssignGenerals(raw, kingdom, disabled).slice(0, 240),
     [raw, kingdom, disabled],

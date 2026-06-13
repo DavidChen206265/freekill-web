@@ -11,6 +11,8 @@ import { BanGeneralSetting } from './BanGeneralSetting.js'
 
 type Stat = 0 | 1 | 2
 
+const BUILTIN_MOD_NAMES = new Set(['standard', 'standard_cards', 'maneuvering', 'test'])
+
 interface ModEntry {
   name: string
   pkgs: string[]
@@ -18,6 +20,8 @@ interface ModEntry {
 
 export function GeneralsOverviewPage({ onClose }: { onClose: () => void }) {
   const hiddenPacks = useServerManifestStore((s) => s.hiddenPacks)
+  const manifestReceived = useServerManifestStore((s) => s.received)
+  const enabledPacks = useServerManifestStore((s) => s.enabledPacks)
   const curScheme = useDisableSchemesStore((s) => s.curScheme)
   const toggleBanPackage = useDisableSchemesStore((s) => s.toggleBanPackage)
   const toggleBanGeneral = useDisableSchemesStore((s) => s.toggleBanGeneral)
@@ -44,10 +48,13 @@ export function GeneralsOverviewPage({ onClose }: { onClose: () => void }) {
         setCatalog(vm)
         const allPacks = new Set(vm.generalPacks())
         const modData = vm.allMods()
-        const entries = vm.allModNames().map((name) => ({
-          name,
-          pkgs: (modData[name] ?? []).filter((p) => allPacks.has(p) && !hiddenPacks.includes(p)),
-        })).filter((m) => m.pkgs.length > 0)
+        const enabled = manifestReceived && enabledPacks.length > 0 ? new Set(enabledPacks) : null
+        const entries = vm.allModNames()
+          .filter((name) => !enabled || enabled.has(name) || BUILTIN_MOD_NAMES.has(name) || (modData[name] ?? []).some((p) => enabled.has(p)))
+          .map((name) => ({
+            name,
+            pkgs: (modData[name] ?? []).filter((p) => allPacks.has(p) && !hiddenPacks.includes(p)),
+          })).filter((m) => m.pkgs.length > 0)
         registerTranslations(vm.translate([...entries.map((m) => m.name), ...entries.flatMap((m) => m.pkgs), 'Enable', 'Prohibit']))
         setMods(entries)
         setLoading(false)
@@ -58,7 +65,7 @@ export function GeneralsOverviewPage({ onClose }: { onClose: () => void }) {
         setLoading(false)
       })
     return () => { alive = false; vm.close() }
-  }, [hiddenPacks])
+  }, [hiddenPacks, manifestReceived, enabledPacks])
 
   const packages = mods[modIndex]?.pkgs ?? []
   const currentPack = packages[pkgIndex] ?? packages[0] ?? ''
@@ -74,7 +81,10 @@ export function GeneralsOverviewPage({ onClose }: { onClose: () => void }) {
   const doSearch = () => {
     if (!catalog) return
     const text = word.trim()
-    const items = text ? catalog.searchGenerals(text) : catalog.generalListItems(catalog.generals(currentPack))
+    const items = filterServerEnabledGeneralItems(
+      text ? catalog.searchGenerals(text) : catalog.generalListItems(catalog.generals(currentPack)),
+      manifestReceived ? enabledPacks : [],
+    )
     registerGeneralItems(catalog, items)
     setGenerals(items)
     setWord('')
@@ -179,6 +189,12 @@ function registerGeneralItems(catalog: CatalogVm, items: CatalogGeneralListItem[
   const info: Record<string, { extension: string; kingdom: string }> = {}
   for (const g of items) info[g.name] = { extension: g.extension, kingdom: g.kingdom }
   useCardFaceStore.getState().mergeGenerals(info)
+}
+
+function filterServerEnabledGeneralItems(items: CatalogGeneralListItem[], enabledPacks: string[]): CatalogGeneralListItem[] {
+  if (enabledPacks.length === 0) return items
+  const enabled = new Set(enabledPacks)
+  return items.filter((g) => enabled.has(g.package) || enabled.has(g.extension) || BUILTIN_MOD_NAMES.has(g.extension))
 }
 
 function banState(g: CatalogGeneralListItem, scheme: { banPkg: Record<string, string[]>; normalPkg: Record<string, string[]> }): { disabled: boolean; label: string } {

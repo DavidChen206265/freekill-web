@@ -12,13 +12,21 @@ enable_packs() {
   local db="$DST/packages/packages.db"
   [ -f "$db" ] || return 0
   if command -v sqlite3 >/dev/null 2>&1; then
-    sqlite3 "$db" "UPDATE packages SET enabled=1 WHERE name IN ('utility','standard_ex','sp','shzl');"
+    sqlite3 "$db" "
+      INSERT INTO packages(name,url,hash,enabled) SELECT 'utility','','',1 WHERE NOT EXISTS (SELECT 1 FROM packages WHERE name='utility');
+      INSERT INTO packages(name,url,hash,enabled) SELECT 'standard_ex','','',1 WHERE NOT EXISTS (SELECT 1 FROM packages WHERE name='standard_ex');
+      INSERT INTO packages(name,url,hash,enabled) SELECT 'sp','','',1 WHERE NOT EXISTS (SELECT 1 FROM packages WHERE name='sp');
+      INSERT INTO packages(name,url,hash,enabled) SELECT 'shzl','','',1 WHERE NOT EXISTS (SELECT 1 FROM packages WHERE name='shzl');
+      UPDATE packages SET enabled=1 WHERE name IN ('utility','standard_ex','sp','shzl');
+    "
   elif command -v python3 >/dev/null 2>&1; then
     python3 - "$db" <<'PY'
 import sqlite3
 import sys
 db = sys.argv[1]
 con = sqlite3.connect(db)
+for pack in ("utility", "standard_ex", "sp", "shzl"):
+    con.execute("INSERT INTO packages(name,url,hash,enabled) SELECT ?, '', '', 1 WHERE NOT EXISTS (SELECT 1 FROM packages WHERE name = ?)", (pack, pack))
 con.execute("UPDATE packages SET enabled=1 WHERE name IN ('utility','standard_ex','sp','shzl')")
 con.commit()
 con.close()

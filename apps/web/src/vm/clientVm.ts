@@ -307,7 +307,9 @@ export class ClientVm {
         if not d then return "null" end
         return json.encode({ name = d.skill, frequency = d.frequency, switchSkillName = d.switchSkillName })
       end
-      -- General -> {extension, kingdom} for resolving portrait paths.
+      -- General -> {package, extension, kingdom}. package is the GeneralPack
+      -- name used by Engine:canUseGeneral disabled_packs; extension remains
+      -- the top-level extension directory used for portrait paths.
       function __fkReadGenerals(namesJson)
         local out = {}
         local ok, names = pcall(json.decode, namesJson)
@@ -315,7 +317,7 @@ export class ClientVm {
           for _, n in ipairs(names) do
             if type(n) == "string" and n ~= "" then
               local d = GetGeneralData(n)
-              out[n] = { extension = d.extension, kingdom = d.kingdom }
+              out[n] = { package = d.package, extension = d.extension, kingdom = d.kingdom }
             end
           end
         end
@@ -323,8 +325,8 @@ export class ClientVm {
       end
       -- FreeAssign cheat (ChooseGeneralBox.qml:175 onRightClicked → Cheat/FreeAssign.qml):
       -- when enableFreeAssign is on, the player may replace a candidate with ANY general.
-      -- Returns [{name, extension, kingdom}] so the caller can register translations +
-      -- face info (portrait/kingdom) in ONE round-trip — without this the FreeAssign
+      -- Returns [{name, package, extension, kingdom}] so the caller can register
+      -- translations + face info (portrait/kingdom) in ONE round-trip — without this the FreeAssign
       -- grid showed raw pinyin + no portrait (the names were never in the popup's
       -- active.generals that vmStore registers). word filters by translated-name
       -- substring (SearchAllGenerals, ""=all); pack ("" = all) restricts to one package.
@@ -348,8 +350,8 @@ export class ClientVm {
         local out = {}
         for _, n in ipairs(names) do
           local okd, d = pcall(GetGeneralData, n)
-          out[#out+1] = okd and d and { name = n, extension = d.extension, kingdom = d.kingdom }
-            or { name = n, extension = "", kingdom = "" }
+          out[#out+1] = okd and d and { name = n, package = d.package, extension = d.extension, kingdom = d.kingdom }
+            or { name = n, package = "", extension = "", kingdom = "" }
         end
         return json.encode(out)
       end
@@ -719,7 +721,7 @@ export class ClientVm {
     try { return JSON.parse(this.fnReadSkills()) as SkillInfo[] } catch { return [] }
   }
 
-  /** General name -> {extension, kingdom} for resolving portrait paths. */
+  /** General name -> {package, extension, kingdom}. */
   readGenerals(names: string[]): Record<string, GeneralInfo> {
     if (!this.fnReadGenerals || names.length === 0) return {}
     try { return JSON.parse(this.fnReadGenerals(JSON.stringify(names))) as Record<string, GeneralInfo> } catch { return {} }
@@ -732,12 +734,12 @@ export class ClientVm {
     try { const v = JSON.parse(this.fnSkillData(name)); return v === null ? null : v } catch { return null }
   }
 
-  /** FreeAssign cheat: generals (name + extension + kingdom for portrait/translation
-   *  registration) matching `word` (translated-name substring, ""=all) optionally
+  /** FreeAssign cheat: generals (name + package + extension + kingdom for filtering,
+   *  portrait and translation registration) matching `word` (translated-name substring, ""=all) optionally
    *  restricted to `pack` (""=all). Empty when the bridge is absent. */
-  searchGenerals(word: string, pack = ''): { name: string; extension: string; kingdom: string }[] {
+  searchGenerals(word: string, pack = ''): { name: string; package?: string; extension: string; kingdom: string }[] {
     if (!this.fnSearchGenerals) return []
-    try { return JSON.parse(this.fnSearchGenerals(word ?? '', pack ?? '')) as { name: string; extension: string; kingdom: string }[] } catch { return [] }
+    try { return JSON.parse(this.fnSearchGenerals(word ?? '', pack ?? '')) as { name: string; package?: string; extension: string; kingdom: string }[] } catch { return [] }
   }
 
   /** FreeAssign pack filter: every GeneralPack package name (GetAllGeneralPack). */
@@ -873,6 +875,7 @@ export interface GameSummaryRow {
 }
 
 export interface GeneralInfo {
+  package?: string
   extension: string
   kingdom: string
 }
