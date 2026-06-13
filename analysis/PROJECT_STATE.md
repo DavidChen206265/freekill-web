@@ -3,11 +3,12 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-13 00:00:52　·　跟踪文件数: 226
+最后更新: 2026-06-13 04:03:42　·　跟踪文件数: 227
 
 ## 自上次重建以来的改动
 
-- 修改 13: freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/src/diag/notifyCommands.ts, freekill-web/apps/web/src/stores/limitSkillStore.ts, freekill-web/apps/web/src/stores/vmStore.ts, freekill-web/apps/web/src/table/Photo.tsx, freekill-web/apps/web/src/table/RequestPopup.tsx, freekill-web/apps/web/src/table/skin.ts, freekill-web/apps/web/src/vm/clientVm.ts, freekill-web/apps/web/test/limitSkillStore.test.ts, freekill-web/audit/D-photo.md, freekill-web/audit/F-skills.md, freekill-web/audit/L-cheat-debug.md …
+- 新增 1: freekill-web/apps/web/src/table/Portal.tsx
+- 修改 5: freekill-web/analysis/PROGRESS.md, freekill-web/apps/web/src/diag/notifyCommands.ts, freekill-web/apps/web/src/table/GameOverModal.tsx, freekill-web/apps/web/src/table/GeneralDetailModal.tsx, freekill-web/apps/web/src/table/RequestPopup.tsx
 
 ## 上游参考仓库(只读,不跟踪改动)
 
