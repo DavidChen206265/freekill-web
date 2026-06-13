@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:N1-1 还原错误 10 条已清零,N1-2 限定/觉醒/转换技与 banner/mark 区已完成并部署,N1-3 投降/托管/房主踢人入口已完成并验证,N2 低成本状态视觉(playing 高亮/faceturned 翻面/saveme 垂死贴图)已完成并验证,N1-4 出牌交互/手牌信息核心已完成并验证;下一步建议进入 **N1-4 周边简化项(ControlSetting/Config、HandcardViewer 点击 ViewPile)** 或 N2 后续页面族,执行顺序见 `WEB_ONLY_ROADMAP.md`。
+**已上线运营。** M2~M4 ✅ → M5 关键底座 ✅ → W0 服务端 fork 全部完成(W0-0~W0-4)✅ → PACE 演出节奏 ✅ → FEAT-IG(IG-1~7)✅ → W1-RES 资源完整性三层防护 ✅ → **2026-06-12 完整还原审计(`audit/`,459 条)+ 工作流部署/优化**。当前进入 **审计驱动的缺口收尾**:N1-1 还原错误 10 条已清零,N1-2 限定/觉醒/转换技与 banner/mark 区已完成并部署,N1-3 投降/托管/房主踢人入口已完成并验证,N2 低成本状态视觉(playing 高亮/faceturned 翻面/saveme 垂死贴图)已完成并验证,N1-4 出牌交互/手牌信息核心已完成并验证;用户已拍板下一步优先做 **禁将系统 + 大厅武将一览页面**,短期计划见 `GENERAL_BAN_OVERVIEW_PLAN.md`。当前切片 A(Catalog VM/数据桥)已完成并验证,下一步进入切片 B(`disableSchemes` store)。
 
 基础身份局浏览器完整跑通,核心架构全实证,已部署 VPS(`docker compose`,Caddy HTTPS/WSS,https://sgs.davidchen.me)。**审计关键结论**:客户端逻辑 = wasmoon 跑原版 client.lua(非 TS 重写),只 QML→TS 渲染层被重新实现;协议透传层(P,18/25 完全)与标准三包呈现(O,11/11 完全)健壮,**缺口集中在 UI 表现层**;当前完全还原率 180/459≈39%。缺口底账 = `audit/SUMMARY.md`(取代旧 phase*.md)。命令有 delta/快照两种消费,判"未还原"前须分清(见 audit Phase 0 + memory `vm-mirror-vs-delta-audit`)。
 
@@ -20,7 +20,7 @@
 
 - **N1 对局正确性(最高优先)**:① 还原错误 10 条已完成(audit 错误 10→0);② 限定/觉醒/转换技显示 + SetBanner/UpdateMarkArea 已完成并部署;③ 投降/托管/踢人上报入口 + 最小对局菜单 overlay 已完成并 live 验证;④ 出牌交互核心已完成:手牌拖拽/重排、超级拖拽选目标/OK、双击使用、`n/maxCard/∞`、HandcardViewer 显示。剩余为设置/配置驱动与点击 ViewPile 周边简化项。
 - **N2 当前小切片**:已完成。行动者 playing 高亮、faceturned 翻面、saveme 垂死贴图已接入 VM 镜像并通过测试/typecheck/build。
-- **下一步建议**:优先补 N1-4 周边简化项(ControlSetting/Config 驱动 `enableSuperDrag`/`doubleClickUse`/`autoTarget`、HandcardViewer 点击 ViewPile),或转入 N2 后续总览/详情/战绩页族。
+- **当前短期主线(用户已拍板)**:优先实现禁将系统 + 大厅武将一览页面,计划见 `GENERAL_BAN_OVERVIEW_PLAN.md`。切片 A Catalog VM/数据桥已完成并验证;下一步切片 B: `disableSchemes` store + `CreateRoom.qml` 转换函数单测。后续顺序:大厅 `GeneralsOverview` → `BanGeneralSetting` → `CreateRoomDialog` 禁将 payload 接入 → 后续 GeneralDetailPage 补完。
 - **N2 后续**:总览/详情/战绩页族(audit J 23 条)、建房筛选/禁将子系统、个人设置族、等待房 WaitingPhoto。
 - **N3 Web 账户与个性化**:`globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
 - **N4 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
@@ -37,6 +37,7 @@
 - **通用行为准则并入工作流(2026-06-13)**:所有 AI agent 必须先明确假设/成功标准/验证方式,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标闭环;已同步写入部署根 `CLAUDE.md` 与 `AGENTS.md`。
 - **Codex 第三方技能库(2026-06-13)**:`alirezarezvani/claude-skills` 已克隆到 `~/.codex/skill-repos/claude-skills`。`~/.codex/skills` 已按 freekill-web 裁剪为 38 个顶层目录(含 `.system`),只保留工程开发/测试/调试/部署/安全/性能/skill 自维护相关技能;其余 290 个归档到 `~/.codex/skills-archive/freekill-web-20260613-0638/`。新增 `.codex/scripts/select-skill.mjs` 用于按任务描述选择候选 skill;已修复 `md-slides`/`design-system`/`skill-tester` sample 的 frontmatter 加载报错,当前安装目录 43 个递归 `SKILL.md` 均通过 PyYAML 解析。使用前必须完整读取对应 `SKILL.md`,且项目硬约束优先。
 - **本地 WSL Web-asio 测试与完成汇报规则(2026-06-13)**:涉及 gateway/asio、多客户端、登录/大厅/房间/对局交互或需要用户浏览器复测时,优先在本机 WSL 构建并运行 `freekill-web-asio` fork(9527),再启动 Windows gateway(9528) 与 Vite(5174)。每次最终回复必须逐项总结任务完成情况、使用的方法、验证结果;若需要用户手动测试,必须给出启动命令、访问地址、操作路径和预期现象。
+- **禁将系统 + 大厅武将一览短期主线(2026-06-13 用户拍板)**:本期目标是先做出可用的禁将系统和大厅武将一览页,严格照搬原版 `Config.disableSchemes`、`GeneralsOverview.qml`、`BanGeneralSetting.qml`、`CreateRoom.qml` 的数据结构和转换语义。短期计划落在 `analysis/GENERAL_BAN_OVERVIEW_PLAN.md`;GeneralDetailPage 四标签完整补完作为后续,不阻塞禁将主体。
 - 客户端逻辑层 = WASM 托管原版 Lua(见 freekill_web_implementation_plan.md §4)。
 - 自动化工作流:SessionStart 钩子自动重建 PROJECT_STATE.md 并注入上下文;每次开始任务必须读取 `WEB_ONLY_ROADMAP.md` + `PROGRESS.md` 的当前阶段/待办,需要时再读实现计划和 audit;`/sync` 命令在收尾时更新 PROGRESS.md/近期规划/实现计划/风险。事实层(脚本生成)与判断层(AI 维护)分离。
 - **R-PERF 度量法**:每场景独立子进程 + `--expose-gc`,挂载后/启动后各 GC 再读 RSS,delta 即引擎成本。三场景:base(4 包)/ selective(base+utility,sp,tenyear,ol)/ full(全量)。代码 `freekill-web-spike/src/perf_{spike,run}.mjs`,`npm run perf`,结果 `perf-result.json`。
@@ -44,6 +45,10 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **切片 A Catalog VM/数据桥完成并验证(本次)**。新增 `apps/web/src/vm/catalogBridge.ts` 和 `catalogVm.ts`:大厅阶段可 boot 独立只读 wasmoon catalog VM,桥接 `GetAllModNames`/`GetAllGeneralPack`/`GetGenerals`/`SearchAllGenerals`/`SearchGenerals`/`GetGeneralData`/`GetGeneralDetail`/`Translate`,不复用进房后的 `vmStore` 生命周期。新增 `apps/web/test/catalogVm.test.ts` 用真实 freekill-core VM 验证包列表、搜索、翻译、武将详情和 face 元数据。验证:`pnpm --filter @freekill-web/web test -- catalogVm`、`typecheck`、`build`、web 全量 `test`(36 文件/188 测试)通过。构建前发现 `apps/web/node_modules/workbox-window` 链接缺失,运行 `pnpm install --filter @freekill-web/web` 恢复本地依赖链接后 build 通过,lockfile 未变。
+
+- 2026-06-13 **建立禁将系统 + 大厅武将一览短期计划(本次)**。新增 `analysis/GENERAL_BAN_OVERVIEW_PLAN.md`,明确范围/非范围、原版源码锚点、audit 对应条目、`disableSchemes` 数据结构、A-F 切片、风险登记和验证矩阵。近期主线改为 Catalog VM/数据桥 → `disableSchemes` store → `GeneralsOverview` → `BanGeneralSetting` → `CreateRoomDialog` 禁将 payload 接入;GeneralDetailPage 全量补完列为后续。
 
 - 2026-06-13 **本地 WSL Web-asio 测试流程与完成汇报规则并入 Codex 工作流(本次)**。根 `AGENTS.md` 新增固定本地浏览器测试流程:用 `freekill-web/scripts/wsl-build-fork.sh` 同步/构建 WSL 内 `freekill-web-asio`,用 `wsl-fork-foreground.sh` 跑 9527,Windows 侧取 WSL NAT IP 后启动 gateway 9528 与 Web 5174,浏览器访问 `http://127.0.0.1:5174`。同时新增最终回复规则:按用户任务项逐项说明完成情况、使用方法、验证结果;需要用户手动测试时写清启动命令、地址、操作步骤和预期。`analysis/CODEX_WORKFLOW.md` 与 `analysis/CODEX_WORKFLOW_RESTORE.md` 已同步,本次不改变功能路线或 audit 计数。验证:运行 `node .codex/scripts/session-start.mjs`、`node .codex/scripts/select-skill.mjs ...`(无匹配 skill)与 `node .codex/scripts/sync.mjs ...`。
 

@@ -3,11 +3,11 @@
 > 由 `.claude/scripts/project-state.mjs` 在每次会话开始与文件改动后自动重建。
 > 人工维护的进度/决策记录见 `PROGRESS.md`。
 
-最后更新: 2026-06-13 18:38:01　·　跟踪文件数: 2435
+最后更新: 2026-06-13 19:03:21　·　跟踪文件数: 2439
 
 ## 自上次重建以来的改动
 
-- 修改 1: freekill-web/analysis/PROGRESS.md
+- 修改 3: freekill-web/analysis/GENERAL_BAN_OVERVIEW_PLAN.md, freekill-web/analysis/PROGRESS.md, freekill-web/analysis/WEB_ONLY_ROADMAP.md
 
 ## 上游参考仓库(只读,不跟踪改动)
 
@@ -30,6 +30,7 @@
     CODEX_WORKFLOW_RESTORE.md
     CODEX_WORKFLOW.md
     freekill_web_implementation_plan.md
+    GENERAL_BAN_OVERVIEW_PLAN.md
     PROGRESS.md
     PROJECT_STATE.md
     WEB_ONLY_ROADMAP.md

@@ -77,8 +77,9 @@ N1-4 核心已在 2026-06-13 完成;剩余是配置/设置与 ViewPile 周边简
 ## N2 · 信息完整度缺口(audit §4.2)
 
 - **行动者/状态视觉**:已完成当前小切片(2026-06-13)。playing 高亮光环、翻面 faceturned、垂死 saveme 贴图已补;剩余投降 surrender 贴图与 rest/drank/netstate/status 归后续 Photo 状态批。
-- **总览/详情/战绩页族**(audit J,23 条):武将一览、卡牌一览、武将筛选、武将池、战绩列表、统计页 web 零实现零入口。需先做大厅入口框架。
-- **建房子系统**(audit B):FilterRoom 筛选(B4/B17)、Lua 动态设置 UI(B28)、卡包多选(B29)、禁将方案(B30)。
+- **当前主线:禁将系统 + 大厅武将一览**(audit J1-J5 + B30 + K19):用户已拍板先做可用禁将系统和大厅武将一览页。短期计划见 `analysis/GENERAL_BAN_OVERVIEW_PLAN.md`;切片 A Catalog VM/数据桥已完成并验证,下一步进入切片 B `disableSchemes` store。
+- **总览/详情/战绩页族后续**(audit J,23 条):卡牌一览、武将筛选、武将池、战绩列表、统计页 web 零实现零入口;GeneralDetailPage 四标签完整补完(J6-J17)不阻塞当前禁将主体。
+- **建房子系统后续**(audit B):FilterRoom 筛选(B4/B17)、Lua 动态设置 UI(B28)、卡包多选(B29)。禁将方案(B30)并入当前主线。
 - **个人设置族**(audit B31~B39):改头像、改密码、音频/控制/UI/背景设置、资料卡。
 - **等待房 WaitingPhoto**(audit C2/C3/C4):立绘/边框/三态准备角标、战绩面板、房间配置面板。
 
@@ -115,11 +116,11 @@ N1-4 核心已在 2026-06-13 完成;剩余是配置/设置与 ViewPile 周边简
 
 ## 近期推荐顺序
 
-1. **当前建议二选一**:补 N1-4 周边简化项(ControlSetting/Config + HandcardViewer ViewPile),或直接推进等待房 WaitingPhoto → 总览/详情页框架。
-2. **随后补 N1-3 周边剩余简化项**:完整 RoomOverlay 按钮列/Esc/缩放、等待房 photoMenu/Block Chatter/机器人 minComp 踢人约束、踢房主计时器。
-3. **之后推进建房/个人设置族**:FilterRoom、Lua 动态设置、卡包多选、禁将方案、改头像/改密码/音频控制/UI 设置。
-4. **Photo 状态后续批**:投降 surrender 贴图、rest/drank/netstate/status/equipbg 等剩余 Photo 状态视觉。
-5. **N3 账户个性化(房间预设/禁将)** → N4 生产化(session token 优先)。
-6. **N5 观感打磨 / N6 工坊+AI** 按产品节奏排。
+1. **已完成:切片 A Catalog VM / 数据桥**。大厅阶段读取原版 Lua 元数据,桥接 mods/modNames/generalPacks/getGenerals/search/generalData/generalDetail/translate,并已用真 VM 探针验证。
+2. **下一步:切片 B `disableSchemes` store**。照搬 `Config.qml` 默认结构和写回语义,实现持久化、方案操作和 `CreateRoom.qml` 转换函数单测。
+3. **切片 C: 大厅入口 + `GeneralsOverview`**。实现包列表、搜索、网格、footer、禁将/禁包 `stat` 状态机,渲染前注册翻译和 face。
+4. **切片 D: `BanGeneralSetting`**。实现方案切换、新建、清空、导出、导入、重命名和三列摘要。
+5. **切片 E: `CreateRoomDialog` 禁将接入**。推导 `disabledGenerals`/`disabledPack`,本地 WSL web-asio + gateway + 浏览器验证建房生效。
+6. **随后回补**:GeneralDetailPage J6-J17、N1-4 周边简化项、N1-3 周边简化项、等待房 WaitingPhoto、个人设置族、Photo 状态后续批。
 
 > 每个切片修一项验一项,涉及共享包/网关/服务端协议时跑相关单测 + 真 asio/Web E2E;改还原项前先读对应 audit Phase 报告的原版+web 双向定位与 QML/Lua 源码(照搬纪律)。
