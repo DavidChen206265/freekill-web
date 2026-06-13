@@ -19,6 +19,9 @@ import { tr, registerTranslations, hasTranslation } from '../i18n/zh.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { Portal } from './Portal.js'
 
+export const REQUEST_POPUP_Z = 100
+export const FREE_ASSIGN_Z = 200
+
 // Translate a (possibly dual) general name. RoomLogic.js:1125-1131 splits a
 // "general/deputyGeneral" string on '/', translates EACH segment, and rejoins —
 // a single tr() of the joined string misses the dict and shows raw pinyin.
@@ -654,10 +657,10 @@ function DraggableBox({ prompt, children, top }: { prompt: string; children: Rea
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  backdrop: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: 100, pointerEvents: 'auto' },
+  backdrop: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: REQUEST_POPUP_Z, pointerEvents: 'auto' },
   // Floating popup wrapper (GraphicsBox): centered, NO backdrop, click-through so the
   // scene/Dashboard underneath stays usable; only the box captures pointer events.
-  floatWrap: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none' },
+  floatWrap: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', justifyContent: 'center', zIndex: REQUEST_POPUP_Z, pointerEvents: 'none' },
   boxHeader: { display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'stretch', cursor: 'move', touchAction: 'none', justifyContent: 'space-between' },
   collapseBtn: { background: 'transparent', border: 'none', color: '#bbb', fontSize: 14, cursor: 'pointer', padding: '0 4px', lineHeight: 1, flex: '0 0 auto' },
   modal: { background: '#26262b', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', color: '#eee', pointerEvents: 'auto' },
@@ -667,7 +670,7 @@ const styles: Record<string, React.CSSProperties> = {
   faBtn: { padding: '10px 20px', border: '1px solid #d4af37', borderRadius: 6, background: 'transparent', color: '#d4af37', fontSize: 15, cursor: 'pointer' },
   faPicked: { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', color: '#d4af37', fontSize: 13, justifyContent: 'center' },
   faChip: { padding: '2px 8px', border: '1px solid #d4af37', borderRadius: 4, background: 'rgba(212,175,55,0.15)', color: '#f1c40f', fontSize: 13, cursor: 'pointer' },
-  faOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', display: 'grid', placeItems: 'center', zIndex: 200 },
+  faOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', display: 'grid', placeItems: 'center', zIndex: FREE_ASSIGN_Z },
   faPanel: { width: 'min(92vw, 760px)', height: 'min(80vh, 600px)', display: 'flex', flexDirection: 'column', background: '#26262b', borderRadius: 10, padding: 16, gap: 12 },
   faHead: { display: 'flex', gap: 8, alignItems: 'center', color: '#E4D5A0', fontSize: 15, flexWrap: 'wrap', flexShrink: 0 },
   faTitle: { fontWeight: 700, whiteSpace: 'nowrap' },

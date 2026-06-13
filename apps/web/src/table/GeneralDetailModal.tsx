@@ -16,6 +16,8 @@ import { suitSymbol, isRedSuit, numberStr } from '../stores/cardFaceStore.js'
 import { tr, hasTranslation, registerTranslations } from '../i18n/zh.js'
 import type { PlayerCardInfo, GeneralDetail } from '../vm/clientVm.js'
 
+export const GENERAL_DETAIL_Z = 320
+
 export function GeneralDetailModal() {
   const pid = useDetailStore((s) => s.pid)
   const generalName = useDetailStore((s) => s.generalName)
@@ -163,7 +165,7 @@ function CardLine({ c }: { c: PlayerCardInfo }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: 120, pointerEvents: 'auto' },
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'grid', placeItems: 'center', zIndex: GENERAL_DETAIL_Z, pointerEvents: 'auto' },
   modal: { background: '#26262b', borderRadius: 10, padding: 20, display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 640, maxHeight: '85vh', overflowY: 'auto', color: '#E4D5A0' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   name: { fontSize: 18, fontWeight: 700 },
