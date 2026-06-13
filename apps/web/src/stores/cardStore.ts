@@ -57,6 +57,8 @@ interface CardState {
   applyMoveCards: (visibleData: unknown) => void
   /** Clear the accumulated move buffer after CardLayer consumes it for flights. */
   clearLastMoved: () => void
+  /** Local hand sorting (HandcardArea drag reorder): no server round-trip. */
+  reorderArea: (area: AreaKey, cid: number, index: number) => void
   // Remove specific cards from the table pile (DestroyTableCard — by cid list).
   destroyTableCards: (cids: number[]) => void
   // Remove table cards whose holding_event_id >= threshold (DestroyTableCardByEvent).
@@ -164,6 +166,15 @@ export const useCardStore = create<CardState>((set, get) => ({
   // CardLayer calls this after its flight effect consumes lastMoved, so the next
   // batch starts fresh (origins aren't re-applied to already-settled cards).
   clearLastMoved: () => set((s) => (s.lastMoved.length ? { lastMoved: [] } : {})),
+
+  reorderArea: (area, cid, index) => set((s) => {
+    const ids = s.areas[area]
+    if (!ids?.includes(cid)) return {}
+    const next = ids.filter((x) => x !== cid)
+    const at = Math.max(0, Math.min(index, next.length))
+    next.splice(at, 0, cid)
+    return { areas: { ...s.areas, [area]: next }, moveSeq: s.moveSeq + 1 }
+  }),
 
   destroyTableCards: (cids) => {
     // DestroyTableCard (RoomLogic.js:548-556): does NOT remove the card — only clears

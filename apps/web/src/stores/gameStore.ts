@@ -42,6 +42,9 @@ export interface GamePlayer {
   equipCids?: number[]
   judgeCids?: number[]
   handcardNum?: number
+  maxCard?: number
+  handcardPreview?: { visible: boolean; name: string }[]
+  handcardPreviewVisible?: boolean
   /** Text marks (Photo MarkArea): name is ALREADY translated; value is the localized
    *  suffix ("" when hidden via @@). Rendered as `name value`. */
   displayMarks?: { name: string; value: string }[]
@@ -107,6 +110,9 @@ export interface VmPlayerLike {
   equipCids?: number[]
   judgeCids?: number[]
   handcardNum?: number
+  maxCard?: number
+  handcardPreview?: { visible: boolean; name: string }[]
+  handcardPreviewVisible?: boolean
   marks?: { name: string; value: string }[]
   picMarks?: { name: string; value: string; extra: string }[]
   markAreaVisible?: boolean
@@ -236,6 +242,9 @@ export const useGameStore = create<GameState>((set, get) => ({
           equipCids: vp.equipCids ?? prev.equipCids,
           judgeCids: vp.judgeCids ?? prev.judgeCids,
           handcardNum: vp.handcardNum ?? prev.handcardNum,
+          maxCard: vp.maxCard ?? prev.maxCard,
+          handcardPreview: vp.handcardPreview ?? prev.handcardPreview,
+          handcardPreviewVisible: vp.handcardPreviewVisible ?? prev.handcardPreviewVisible,
           displayMarks: vp.marks ?? prev.displayMarks,
           picMarks: vp.picMarks ?? prev.picMarks,
           markAreaVisible: vp.markAreaVisible ?? prev.markAreaVisible,

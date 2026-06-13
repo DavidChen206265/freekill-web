@@ -136,4 +136,15 @@ describe('cardStore.applyMoveCards', () => {
     cs.clearLastMoved()
     expect(useCardStore.getState().lastMoved).toEqual([])
   })
+
+  it('reorders a local hand area without changing card ownership', () => {
+    const cs = useCardStore.getState()
+    cs.applyMoveCards({ merged: [{ ids: [1, 2, 3], from: 0, to: 1, fromArea: CardArea.DrawPile, toArea: CardArea.PlayerHand }], '1': true, '2': true, '3': true })
+    cs.clearLastMoved()
+
+    cs.reorderArea('hand:1', 3, 0)
+    const s = useCardStore.getState()
+    expect(s.areas['hand:1']).toEqual([3, 1, 2])
+    expect(s.lastMoved).toEqual([]) // local sorting is not a server MoveCards flight
+  })
 })

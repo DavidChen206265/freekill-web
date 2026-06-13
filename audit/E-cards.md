@@ -117,20 +117,22 @@
 - 差异: "隐藏无用牌"设置项及其下沉视觉缺失
 
 ### E14 HandcardArea::手牌拖拽 (draggable / DragHandler)
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: BasicItem.qml:61-76 (DragHandler) + HandcardArea.qml:89-188 (updateCardDragging/dragMovement/updateCardReleased)
-- web : 无（CardLayer 卡牌仅 onClick）
+- web : CardLayer.tsx (pointer drag + opacity 0.8 + reorderArea) + cardStore.ts (reorderArea) + clientVm.ts (CanSortHandcards bridge)
 - 原版行为: 拖动手牌；拖动时 opacity 0.8；释放按 x 位置重排(movepos)；可拖动排序(sortable/canSortHandcards)
-- web 行为: CardLayer.tsx:188-192 仅 onClick 选牌，无拖拽/拖动排序
-- 差异: 手牌拖拽移动、拖动重排序完全缺失
+- web 行为: 自己手牌可 pointer 拖动；拖动时 opacity 0.8；释放按中心 x 位置本地重排；重排前查询 VM `CanSortHandcards(Self.id)`，SortProhibited 时不排序。
+- 差异: 核心拖拽/重排已恢复；但 Web 仍无完整 ControlSetting/Config 设置页，拖拽开关与 QML 配置持久化未还原。
+- 修复: 已修复并验证 (新增 cardDrag/cardStore 单测；`pnpm --filter @freekill-web/web test -- cardStore gameStore skin handcardInfo cardDrag`、typecheck、build 通过，2026-06-13)
 
 ### E15 HandcardArea::超级拖拽 (Config.enableSuperDrag dragMovement)
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: HandcardArea.qml:94-135 (dragMovement) + 142-157 (拖拽使用/选目标)
-- web : 无
+- web : CardLayer.tsx (drag hit-test Photo + OK confirm)
 - 原版行为: 拖拽手牌到目标 photo 上自动选中目标；拖出 dashboard 区域且 okButton.enabled 时直接确认出牌
-- web 行为: 无
-- 差异: 拖拽出牌/拖拽选目标完全缺失（依赖 E14 拖拽基础设施）
+- web 行为: 拖动可用手牌到可选 Photo 上释放会驱动 `UpdateRequestUI("Photo",pid,"click")`；释放到牌桌区域且 OK 可用时驱动 OK。
+- 差异: 核心拖拽选目标/确认已恢复；但 Web 仍无 `Config.enableSuperDrag` 设置入口，且选目标在释放时触发，未逐帧模拟 QML `dragMovement` 进入/离开切换。
+- 修复: 已修复并验证 (新增 cardDrag 纯函数测试；web test/typecheck/build 通过，2026-06-13)
 
 ### E16 CardItem::选中态切换 (selectCard / cardSelected)
 - 状态: 完全还原
@@ -141,12 +143,13 @@
 - 差异: web click payload 未带 autoTarget（Config.autoTarget），自动选目标配置缺失；选中本身等价
 
 ### E17 CardItem::双击使用 (doubleClickCard)
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: HandcardArea.qml:199-203 (doubleClickCard, Config.doubleClickUse) + Dashboard.qml:63-65
-- web : 无 (CardLayer 仅 onClick)
+- web : CardLayer.tsx (onDoubleClick → UpdateRequestUI CardItem doubleClick)
 - 原版行为: 双击牌且 doubleClickUse 开启→cardDoubleClicked→updateRequestUI("CardItem",cid,"doubleClick",{...doubleClickUse,autoTarget})，快速出牌
-- web 行为: 无双击处理
-- 差异: 双击快速使用缺失
+- web 行为: 可选/已选手牌双击时发送 `UpdateRequestUI("CardItem",cid,"doubleClick",{selected,doubleClickUse:true,autoTarget:false})`。
+- 差异: 双击快速使用已恢复；但 Web 仍无 `Config.doubleClickUse`/`Config.autoTarget` 设置入口，当前按启用双击、禁用 autoTarget 的固定值执行。
+- 修复: 已修复并验证 (web test/typecheck/build 通过，2026-06-13)
 
 ### E18 CardItem::右键查看牌详情 (rightClicked→CardDetail)
 - 状态: 未还原
@@ -336,17 +339,15 @@
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 17 | E1,E2,E5,E6,E9,E10,E11,E12,E16,E19,E22,E23,E25,E27,E29,E34,E37 |
-| 简化还原 | 6 | E4,E7,E20,E26,E30,E38 |
+| 完全还原 | 18 | E1,E2,E5,E6,E9,E10,E11,E12,E16,E19,E22,E23,E25,E27,E28,E29,E34,E37 |
+| 简化还原 | 9 | E4,E7,E14,E15,E17,E20,E26,E30,E38 |
 | 还原错误 | 0 | （E9 复核为误判，已升级为完全还原 2026-06-12） |
-| 未还原 | 15 | E3,E8,E13,E14,E15,E17,E18,E21,E24,E31,E32,E33,E35,E36 |
+| 未还原 | 11 | E3,E8,E13,E18,E21,E24,E31,E32,E33,E35,E36 |
 
-（总计 38 条；未还原索引列 14 个视觉子系统，E14/E15 拖拽为同一缺失基础设施的两条。）
+（总计 38 条；E14/E15/E17 已由未还原推进到简化还原，剩余未还原索引列 11 个视觉子系统。）
 
 ### 未还原索引
-E3(无色色块) E8(禁用原因文字) E13(无用牌下沉) E14(手牌拖拽) E15(超级拖拽) E17(双击使用) E18(卡牌右键详情) E21(牌桌随机旋转) E24(hover发光/置顶) E31(选将体力勾玉) E32(护盾) E33(珠联璧合) E35(扩展包标签) E36(收藏星标)
+E3(无色色块) E8(禁用原因文字) E13(无用牌下沉) E18(卡牌右键详情) E21(牌桌随机旋转) E24(hover发光/置顶) E31(选将体力勾玉) E32(护盾) E33(珠联璧合) E35(扩展包标签) E36(收藏星标)
 
 ### 还原错误索引
 （无；E9 经源码复核确认是误判——原版同样 selectable=enabled 同一 VM 信号，web 等价，已升级为完全还原 2026-06-12）
-
-

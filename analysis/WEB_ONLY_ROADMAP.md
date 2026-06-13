@@ -66,11 +66,13 @@
 3. **房主踢人 KickPlayer**:已完成。等待房房主可见「踢出」按钮,非房主/自己隐藏,发送 `KickPlayer`。
 4. **N2 低成本状态视觉**:已完成(2026-06-13)。playing 高亮、faceturned 翻面、saveme 垂死三项纯渲染缺口已补。
 
-暂不插队:手牌拖拽/超级拖拽/双击(N1-4)涉及 CardLayer 交互面较大;总览/详情页族和个性化账户也不抢在 N1-3 前。
+N1-4 核心已在 2026-06-13 完成;剩余是配置/设置与 ViewPile 周边简化项,不再阻塞后续页面族推进。
 
 ### N1-4 出牌交互(audit E14/E15/E17 + D32/D24)
-- 手牌拖拽出牌、超级拖拽、双击使用(现仅点击选中)。
-- 对手手牌速览 HandcardViewer 浮窗、手牌数显示 `n/maxCard` 与 ∞。
+状态:核心已完成并验证(2026-06-13)。E14/E15/E17 已从未还原升级为简化还原;D24 已完全还原;D32 已升级为简化还原。
+
+- 已完成:手牌拖拽/重排、SortProhibited 门控、拖到目标/OK、双击使用、手牌数 `n/maxCard/∞`、HandcardViewer 显示。
+- 剩余简化项:完整 ControlSetting/Config 驱动 `enableSuperDrag`/`doubleClickUse`/`autoTarget`;HandcardViewer 点击打开 ViewPile(依赖 Cheat/ViewPile 页族)。
 
 ## N2 · 信息完整度缺口(audit §4.2)
 
@@ -113,9 +115,9 @@
 
 ## 近期推荐顺序
 
-1. **当前建议做 N1-4 出牌交互/手牌信息**:手牌拖拽、超级拖拽、双击使用、手牌速览/上限显示;这是更大的 CardLayer 交互面,需单独切片。
+1. **当前建议二选一**:补 N1-4 周边简化项(ControlSetting/Config + HandcardViewer ViewPile),或直接推进等待房 WaitingPhoto → 总览/详情页框架。
 2. **随后补 N1-3 周边剩余简化项**:完整 RoomOverlay 按钮列/Esc/缩放、等待房 photoMenu/Block Chatter/机器人 minComp 踢人约束、踢房主计时器。
-3. **之后推进等待房 WaitingPhoto → 总览/详情页框架 → 建房/个人设置族**。
+3. **之后推进建房/个人设置族**:FilterRoom、Lua 动态设置、卡包多选、禁将方案、改头像/改密码/音频控制/UI 设置。
 4. **Photo 状态后续批**:投降 surrender 贴图、rest/drank/netstate/status/equipbg 等剩余 Photo 状态视觉。
 5. **N3 账户个性化(房间预设/禁将)** → N4 生产化(session token 优先)。
 6. **N5 观感打磨 / N6 工坊+AI** 按产品节奏排。

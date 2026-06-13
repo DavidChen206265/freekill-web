@@ -192,12 +192,13 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - web 行为: 无。
 
 ### D24 Photo::手牌数(handcard 贴图 + maxCard 文本)
-- 状态: 简化还原
+- 状态: 完全还原
 - 原版: Photo.qml:250-279 (Image "handcard" 背景贴图 + Text: n 或 "n/maxCard"，maxCard 满则只显示 n，>=900 显示 "∞"，字号 24/20 切换)
-- web : Photo.tsx:172-174,324 (仅 handcardNum 数字，黑底圆角 chip，无 maxCard)
+- web : clientVm.ts (readPlayers exposes maxCard) + Photo.tsx/handcardInfo.ts (handcard.png + n/maxCard/∞ + 24/20 字号)
 - 原版行为: handcard 背景贴图 + 当前手牌/手牌上限文本（上限=hp 时省略上限，∞ 处理）。
-- web 行为: 仅数字，rgba 黑底 chip，无 handcard 贴图，无 "n/maxCard" 上限显示。
-- 差异: 缺 handcard 背景贴图；缺手牌上限（maxCard）显示与 ∞ 逻辑（VM 未暴露 maxCard）；handcardNum=0 时不显示（原版恒显）。
+- web 行为: 恒显 handcard.png 背景；VM 镜像读 `p:getMaxCards()`；显示 n 或 n/maxCard，max>=900 显示 ∞，max==hp 或 hp<0 时只显示 n；字号 24/20。
+- 差异: 无。
+- 修复: 已修复并验证 (handcardInfo/gameStore/skin 单测；web test/typecheck/build 通过，2026-06-13)
 
 ### D25 Photo::右键/长按打开详情(showDetail)
 - 状态: 完全还原
@@ -254,12 +255,13 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 - 差异: 调试性质，非正常对局可见，影响极小。
 
 ### D32 Photo::对手手牌速览(HandcardViewer)
-- 状态: 未还原
+- 状态: 简化还原
 - 原版: Photo.qml:493-508 + Photo/HandcardViewer.qml (photo 左侧浮窗, 列出对手可见手牌名/?/..., visible 仅当 buddy 或 hasVisibleCard)
-- web : 无
+- web : clientVm.ts (handcardPreview/handcardPreviewVisible) + gameStore.ts + Photo.tsx/handcardInfo.ts (HandcardViewer)
 - 原版行为: 非自己且可见其手牌(队友/明置)时，photo 左侧显示手牌名称速览框，可点开 ViewPile。
-- web 行为: 无（仅 handcardNum 数字）。
-- 差异: 整个手牌速览浮窗未实现。
+- web 行为: 非自己且 `IsMyBuddy` 或 `HasVisibleCard` 为真时，photo 左侧显示 44px 速览框；可见牌显示翻译后前 2 字，不可见牌显示 `?`，超过 4 行显示 `...`。
+- 差异: 速览显示已恢复；点击打开 ViewPile 仍未接入，因为完整 Cheat/ViewPile 页族仍在 L/J 后续批次。
+- 修复: 已修复并验证 (handcardInfo/gameStore 单测；web test/typecheck/build 通过，2026-06-13)
 
 ---
 
@@ -556,18 +558,18 @@ web：`apps/web/src/table/Photo.tsx` 及 HpBar/EquipArea/JudgeArea/MiscStatus/Ph
 
 | 状态 | 数量 | 序号 |
 |------|------|------|
-| 完全还原 | 31 | D1,D2,D3,D9,D11,D12,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67 |
-| 简化还原 | 20 | D5,D7,D8,D13,D14,D15,D20,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53,D56 |
+| 完全还原 | 32 | D1,D2,D3,D9,D11,D12,D24,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67 |
+| 简化还原 | 20 | D5,D7,D8,D13,D14,D15,D20,D21,D22,D26,D28,D29,D32,D36,D41,D43,D49,D51,D52,D56 |
 | 还原错误 | 0 | （D11 已修复并验证 2026-06-12，升级为完全还原） |
-| 未还原 | 16 | D4,D6,D10,D16,D17,D18,D19,D23,D30,D31,D32,D37,D44,D45,D51,D59 |
+| 未还原 | 15 | D4,D6,D10,D16,D17,D18,D19,D23,D30,D31,D37,D44,D45,D53,D59 |
 
 （注：计数含 D1–D67 共 67 项。）
 
 实际四态计数（按各条目"状态"字段）：
-- 完全还原：31（D1,D2,D3,D9,D11,D12,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67；D12 于 2026-06-13 未还原→完全）
-- 简化还原：20（D5,D7,D8,D13,D14,D15,D20,D21,D22,D24,D26,D28,D29,D36,D41,D43,D49,D52,D53,D56；D20 于 2026-06-13 未还原→简化,D56 于 2026-06-12 未还原→简化）
+- 完全还原：32（D1,D2,D3,D9,D11,D12,D24,D25,D27,D33,D34,D35,D38,D39,D40,D42,D46,D47,D48,D50,D54,D55,D57,D58,D60,D61,D62,D63,D64,D65,D66,D67；D12 于 2026-06-13 未还原→完全,D24 于 2026-06-13 简化→完全）
+- 简化还原：20（D5,D7,D8,D13,D14,D15,D20,D21,D22,D26,D28,D29,D32,D36,D41,D43,D49,D51,D52,D56；D20/D32 于 2026-06-13 未还原→简化,D56 于 2026-06-12 未还原→简化）
 - 还原错误：0（D11 已修复并验证 2026-06-12）
-- 未还原：16（D4,D6,D10,D16,D17,D18,D19,D23,D30,D31,D32,D37,D44,D45,D51,D59）
+- 未还原：15（D4,D6,D10,D16,D17,D18,D19,D23,D30,D31,D37,D44,D45,D53,D59）
 - 合计：67
 
 ## 未还原 / 还原错误 序号索引

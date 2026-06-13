@@ -706,6 +706,9 @@ export const useVmStore = create<VmState>((set, get) => ({
       for (const p of Object.values(useGameStore.getState().players)) {
         if (p.general && !hasTranslation(p.general)) keys.add(p.general)
         if (p.deputyGeneral && !hasTranslation(p.deputyGeneral)) keys.add(p.deputyGeneral)
+        for (const c of p.handcardPreview ?? []) {
+          if (c.name && !hasTranslation(c.name)) keys.add(c.name)
+        }
       }
       // selfSkills carry their localized display name already (GetSkillData.skill =
       // Fk:getSkillName), so no extra translation pass is needed for them.

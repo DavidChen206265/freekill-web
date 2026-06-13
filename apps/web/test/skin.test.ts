@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import {
   generalPic, generalAvatar, cardPic, cardPicCandidates, equipIcon, equipIconCandidates, delayedTrickPic,
   photoBack, rolePic, magatama, shieldPic, deathPic, generalCardBorder, kingdomIcon,
-  chosenPic, delayedTrickSealedPic, setArtPacks, generalDualPicCandidates, saveMePic, faceTurnedPic,
+  chosenPic, delayedTrickSealedPic, setArtPacks, generalDualPicCandidates, saveMePic, faceTurnedPic, handcardPic,
 } from '../src/table/skin.js'
 
 describe('skin path resolution', () => {
@@ -68,6 +68,7 @@ describe('skin path resolution', () => {
     expect(saveMePic()).toBe('/fk/image/photo/death/saveme.png')
     expect(faceTurnedPic()).toBe('/fk/image/photo/faceturned.png')
     expect(faceTurnedPic(true)).toBe('/fk/image/photo/faceturned-heg.png')
+    expect(handcardPic()).toBe('/fk/image/photo/handcard.png')
   })
 
   it('general-card chrome (border + kingdom icon) under /fk/image/card/general', () => {

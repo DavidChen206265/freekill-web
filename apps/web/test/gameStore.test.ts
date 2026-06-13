@@ -60,6 +60,28 @@ describe('gameStore.syncPlayers playing mirror', () => {
   })
 })
 
+describe('gameStore.syncPlayers handcard info mirror', () => {
+  it('keeps maxCard and visible handcard preview from the VM snapshot', () => {
+    const g = useGameStore.getState()
+    g.syncPlayers([
+      {
+        id: 2,
+        name: 'bob',
+        avatar: 'a2',
+        handcardNum: 3,
+        maxCard: 5,
+        handcardPreviewVisible: true,
+        handcardPreview: [{ visible: true, name: 'slash' }, { visible: false, name: '' }, { visible: true, name: 'jink' }],
+      },
+    ], true)
+    const p = useGameStore.getState().players[2]!
+    expect(p.handcardNum).toBe(3)
+    expect(p.maxCard).toBe(5)
+    expect(p.handcardPreviewVisible).toBe(true)
+    expect(p.handcardPreview).toEqual([{ visible: true, name: 'slash' }, { visible: false, name: '' }, { visible: true, name: 'jink' }])
+  })
+})
+
 describe('gameStore.setMarkAreaVisible', () => {
   it('preserves the visibility delta across VM player mirror syncs', () => {
     const g = useGameStore.getState()

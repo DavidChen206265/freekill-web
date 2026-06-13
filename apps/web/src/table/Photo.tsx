@@ -17,7 +17,7 @@ import { useRoomChatStore } from '../stores/roomChatStore.js'
 import { useLimitSkillStore, limitSkillRender } from '../stores/limitSkillStore.js'
 import { PhotoEffects, EmotionSprite } from './PhotoEffects.js'
 import { useRef, useState, useEffect } from 'react'
-import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, saveMePic, faceTurnedPic, chainPic, markPicCandidates, kingdomIcon, limitSkillBg, isImageManifestLoaded, loadImageManifest } from './skin.js'
+import { generalPicCandidates, generalDualPicCandidates, photoBack, rolePic, deathPic, saveMePic, faceTurnedPic, chainPic, markPicCandidates, kingdomIcon, limitSkillBg, handcardPic, isImageManifestLoaded, loadImageManifest } from './skin.js'
 import { ChatText } from './ChatText.js'
 import { HpBar } from './HpBar.js'
 import { EquipArea } from './EquipArea.js'
@@ -25,6 +25,7 @@ import { JudgeArea } from './JudgeArea.js'
 import { PhotoFocusBar } from './PhotoFocusBar.js'
 import { useLongPress } from './useLongPress.js'
 import { tr } from '../i18n/zh.js'
+import { handcardFontSize, handcardText, previewLines } from './handcardInfo.js'
 
 const PHOTO_W = PHOTO_WIDTH
 const PHOTO_H = PHOTO_HEIGHT
@@ -183,9 +184,13 @@ export function Photo({ player, playerNum, isSelf }: {
       </div>
 
       {/* handcard count badge (bottom-left corner) */}
-      {player.handcardNum !== undefined && player.handcardNum > 0 && (
-        <div style={styles.handcard}>{player.handcardNum}</div>
+      {player.handcardNum !== undefined && (
+        <div style={styles.handcard}>
+          <img src={handcardPic()} alt="" style={styles.handcardBg} draggable={false} onError={hideImg} />
+          <span style={{ ...styles.handcardText, fontSize: handcardFontSize(player) }}>{handcardText(player)}</span>
+        </div>
       )}
+      <HandcardViewer player={player} />
 
       {/* death overlay */}
       {!player.dead && player.dying && (
@@ -320,6 +325,17 @@ function shownRole(player: GamePlayer): string {
   return player.roleVisible ? role : 'unknown'
 }
 
+function HandcardViewer({ player }: { player: GamePlayer }) {
+  if (!player.handcardPreviewVisible || (player.handcardPreview?.length ?? 0) === 0) return null
+  const lines = previewLines(player.handcardPreview ?? [], tr)
+  if (lines.length === 0) return null
+  return (
+    <div style={styles.handcardViewer} title="可见手牌">
+      {lines.map((line, i) => <div key={`${line}-${i}`}>{line}</div>)}
+    </div>
+  )
+}
+
 function hideImg(e: React.SyntheticEvent<HTMLImageElement>) {
   (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'
 }
@@ -381,7 +397,10 @@ const styles: Record<string, React.CSSProperties> = {
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', background: 'rgba(0,0,0,.6)', zIndex: 5 },
   name: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   seat: { fontSize: 11, color: '#d4af37', fontWeight: 700 },
-  handcard: { position: 'absolute', right: 2, bottom: 22, minWidth: 16, height: 18, padding: '0 3px', background: 'rgba(0,0,0,.7)', borderRadius: 3, color: '#fff', fontSize: 12, fontWeight: 700, display: 'grid', placeItems: 'center', zIndex: 6 },
+  handcard: { position: 'absolute', left: -5, bottom: -5, width: 40, height: 30, display: 'grid', placeItems: 'center', zIndex: 8 },
+  handcardBg: { position: 'absolute', inset: 0, width: 40, height: 30, objectFit: 'fill' },
+  handcardText: { position: 'relative', color: '#fff', fontWeight: 700, lineHeight: 1, textShadow: '0 0 2px #000, 0 1px 1px #000' },
+  handcardViewer: { position: 'absolute', right: PHOTO_W + 4, top: 22, width: 44, minHeight: 88, padding: '2px 0', background: '#CC2E2C27', border: '1px solid #A6967A', borderRadius: 6, color: '#E4D5A0', fontSize: 18, lineHeight: '22px', textAlign: 'center', fontWeight: 700, textShadow: '0 0 2px #000', zIndex: 7, pointerEvents: 'none' },
   death: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%)', width: 56, height: 56, zIndex: 7 },
   saveMe: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%)', width: 36, height: 103, zIndex: 7 },
   // detail (ⓘ) button, top-left corner — reliable web replacement for QML

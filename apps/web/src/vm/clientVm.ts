@@ -69,6 +69,7 @@ export class ClientVm {
   private fnChangeSelf: ((pid: number) => string) | null = null
   private fnParseLog: ((hex: string) => string) | null = null
   private fnCheckSurrender: (() => string) | null = null
+  private fnCanSortHandcards: ((pid: number) => string) | null = null
 
   constructor(onNotifyUI: (e: NotifyEvent) => void, onNotifyServer?: (m: ServerMessage) => void) {
     this.notifyFeed = onNotifyUI
@@ -119,6 +120,10 @@ export class ClientVm {
       -- send a reply — the SERVER owns the real timeout and picks the default answer.
       function __fkFinishRequestUI()
         pcall(FinishRequestUI)
+      end
+      function __fkCanSortHandcards(pid)
+        local ok, v = pcall(CanSortHandcards, pid)
+        return json.encode({ ok = ok and v == true })
       end
       function __fkReadPlayers()
         local out = {}
@@ -181,6 +186,29 @@ export class ClientVm {
                 end
               end
             end
+            local handcardPreview = {}
+            local hids = p.getCardIds and p:getCardIds("h") or {}
+            for _, cid in ipairs(hids) do
+              local visible = false
+              local okv, v = pcall(CardVisibility, cid)
+              if okv then visible = v and true or false end
+              if visible then
+                local okd, d = pcall(GetCardData, cid, true)
+                if okd and type(d) == "table" then
+                  handcardPreview[#handcardPreview+1] = { visible = true, name = d.name or "" }
+                else
+                  handcardPreview[#handcardPreview+1] = { visible = false, name = "" }
+                end
+              else
+                handcardPreview[#handcardPreview+1] = { visible = false, name = "" }
+              end
+            end
+            local handcardPreviewVisible = false
+            if Self ~= nil and p.id ~= Self.id then
+              local okBuddy, buddy = pcall(IsMyBuddy, Self.id, p.id)
+              local okVisible, hasVisible = pcall(HasVisibleCard, Self.id, p.id, nil)
+              handcardPreviewVisible = (okBuddy and buddy) or (okVisible and hasVisible) or false
+            end
             out[#out+1] = {
               id = p.id, name = sp and sp:getScreenName() or "", avatar = sp and sp:getAvatar() or "",
               seat = p.seat, general = p.general, deputyGeneral = p.deputyGeneral,
@@ -197,6 +225,9 @@ export class ClientVm {
               equipCids = p.getCardIds and p:getCardIds("e") or {},
               judgeCids = p.getCardIds and p:getCardIds("j") or {},
               handcardNum = p.getHandcardNum and p:getHandcardNum() or 0,
+              maxCard = p.getMaxCards and p:getMaxCards() or p.hp,
+              handcardPreview = handcardPreview,
+              handcardPreviewVisible = handcardPreviewVisible,
               marks = textMarks,
               picMarks = picMarks,
               isSelf = (Self ~= nil and p.id == Self.id),
@@ -570,6 +601,7 @@ export class ClientVm {
     this.fnChangeSelf = lua.global.get('__fkChangeSelf') as typeof this.fnChangeSelf
     this.fnParseLog = lua.global.get('__fkParseLog') as typeof this.fnParseLog
     this.fnCheckSurrender = lua.global.get('__fkCheckSurrenderAvailable') as typeof this.fnCheckSurrender
+    this.fnCanSortHandcards = lua.global.get('__fkCanSortHandcards') as typeof this.fnCanSortHandcards
 
     return {
       mountFiles: mount.files,
@@ -648,6 +680,11 @@ export class ClientVm {
   changeSelf(pid: number): boolean {
     if (!this.fnChangeSelf) return false
     try { return !!(JSON.parse(this.fnChangeSelf(pid)) as { ok: boolean }).ok } catch { return false }
+  }
+
+  canSortHandcards(pid: number): boolean {
+    if (!this.fnCanSortHandcards) return true
+    try { return !!(JSON.parse(this.fnCanSortHandcards(pid)) as { ok: boolean }).ok } catch { return true }
   }
 
   /** Prettify a raw GameLog inner-CBOR packet into the localized HTML the live path
@@ -898,6 +935,9 @@ export interface VmPlayer {
   equipCids?: number[]
   judgeCids?: number[]
   handcardNum?: number
+  maxCard?: number
+  handcardPreview?: { visible: boolean; name: string }[]
+  handcardPreviewVisible?: boolean
   marks?: { name: string; value: string }[]
   picMarks?: { name: string; value: string; extra: string }[]
   isSelf?: boolean
