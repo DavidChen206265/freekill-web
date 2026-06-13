@@ -40,6 +40,8 @@ Claude 侧不是单一提示词,而是以下组件协同:
 - 2026-06-13 安装第三方技能库 `alirezarezvani/claude-skills`:源仓库位于 `~/.codex/skill-repos/claude-skills`,有效 Codex skills 位于 `~/.codex/skills`。新增 `.codex/scripts/select-skill.mjs` 作为轻量本地候选选择器,工作流要求按任务选择最少必要 skill 并先完整读取其 `SKILL.md`。
 - 2026-06-13 修复第三方 skill frontmatter 加载问题:`md-slides` 与 `design-system` 的长 description 改为 YAML block scalar,`skill-tester` sample fixture 补 frontmatter;selector 同步支持多行 description 和中文“技能/报错/修复/YAML/frontmatter”类输入,确保此类命令能优先选中 `skill-tester`。
 - 2026-06-13 将 `~/.codex/skills` 按 freekill-web 项目裁剪为 38 个顶层目录(含 `.system`),只保留工程开发/测试/调试/部署/安全/性能/skill 自维护相关技能;其余 290 个移到 `~/.codex/skills-archive/freekill-web-20260613-0638/`,减少后续会话加载上下文。
+- 2026-06-13 追加本地 WSL Web-asio 浏览器测试流程:gateway/asio、多客户端或需要用户复测的任务,优先用 `wsl-build-fork.sh` 构建 fork、`wsl-fork-foreground.sh` 启动 9527,再在 Windows 侧启动 gateway(:9528) 与 Vite(:5174),把浏览器地址和手动测试路径写进最终回复。
+- 2026-06-13 追加完成汇报规则:每次最终回复按任务项目说明完成情况、使用的方法、实际验证结果;需要用户手动测试时必须给出启动命令、访问地址、操作路径和预期现象。
 
 ## Codex 执行清单
 
@@ -49,5 +51,7 @@ Claude 侧不是单一提示词,而是以下组件协同:
 4. 对非平凡任务运行 `node .codex/scripts/select-skill.mjs "任务描述"`,若采用 skill 则先读对应 `SKILL.md`。
 5. 先验证事实再改代码;优先移植原版机制,不凭局部猜测自创。
 6. 改完跑匹配风险的 typecheck/build/test/VM/E2E。
-7. 若改了代码、计划、风险或 audit,运行 `node .codex/scripts/sync.mjs "摘要"` 并更新判断层;若近期优先级/状态变化,同步更新 `WEB_ONLY_ROADMAP.md` 与 `PROGRESS.md`。
-8. 自验通过后本地 commit;push 和部署等待用户明确许可。
+7. 涉及 gateway/asio、多客户端、登录/大厅/房间/对局交互或需要浏览器复测时,按根 `AGENTS.md` 的“本地 WSL Web-asio 浏览器测试流程”启动本地三件套:WSL fork 9527、gateway 9528、Vite 5174。
+8. 若改了代码、计划、风险或 audit,运行 `node .codex/scripts/sync.mjs "摘要"` 并更新判断层;若近期优先级/状态变化,同步更新 `WEB_ONLY_ROADMAP.md` 与 `PROGRESS.md`。
+9. 自验通过后本地 commit;push 和部署等待用户明确许可。
+10. 最终回复按任务项目总结完成情况、使用的方法、验证结果;若还需要人工浏览器确认,明确测试方式和预期现象。

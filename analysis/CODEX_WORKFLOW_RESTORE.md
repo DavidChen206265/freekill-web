@@ -149,8 +149,10 @@
 4. 涉及 UI/逻辑还原时,先读对应 audit Phase、QML/Lua 源码和实现计划相关节。
 5. 只修改 `freekill-web/` 与 `freekill-web-asio/`;上游参考仓库只读。
 6. 修复还原缺口后必须回写对应 audit 条目和 `SUMMARY.md` 计数。
-7. 改了代码、计划、风险或 audit 后,收尾前运行 `node .codex/scripts/sync.mjs "一句话摘要"` 并手动更新判断层文件。
-8. 自验通过后本地 commit;`git push` 与部署必须先得到用户明确允许。
+7. 涉及 gateway/asio、多客户端、登录/大厅/房间/对局交互或需要用户浏览器复测时,按 `AGENTS.md` 的“本地 WSL Web-asio 浏览器测试流程”启动本地三件套:WSL 内 `freekill-web-asio` 9527、Windows gateway 9528、Vite 5174,并把浏览器测试地址和操作路径写进回复。
+8. 改了代码、计划、风险或 audit 后,收尾前运行 `node .codex/scripts/sync.mjs "一句话摘要"` 并手动更新判断层文件。
+9. 自验通过后本地 commit;`git push` 与部署必须先得到用户明确允许。
+10. 最终回复必须逐项总结用户本次每个任务项目的完成情况、使用的方法、实际验证结果;若仍需用户手动测试,给出启动命令、访问地址、操作步骤和预期现象。
 
 ## 常见问题
 

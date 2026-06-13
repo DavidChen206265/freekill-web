@@ -36,6 +36,7 @@
 - **Codex 工作流迁移包(2026-06-13)**:新增 `analysis/CODEX_WORKFLOW_RESTORE.md` 与 `analysis/CODEX_WORKFLOW_BUNDLE_MANIFEST.md`,用于把当前 Codex 工作流 1:1 迁移到另一台设备。当前本机包位于部署根 `freekill-web-codex-workflow-migration-20260613.tar.gz`,包含根规则、`.codex`/`.claude` 工作流脚本、analysis/audit 入口、裁剪后的 `~/.codex/skills` 快照和恢复校验元数据;不包含业务源码全集、上游版权资源、secrets、本机 `.claude/settings.local.json` 或部署脚本。
 - **通用行为准则并入工作流(2026-06-13)**:所有 AI agent 必须先明确假设/成功标准/验证方式,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标闭环;已同步写入部署根 `CLAUDE.md` 与 `AGENTS.md`。
 - **Codex 第三方技能库(2026-06-13)**:`alirezarezvani/claude-skills` 已克隆到 `~/.codex/skill-repos/claude-skills`。`~/.codex/skills` 已按 freekill-web 裁剪为 38 个顶层目录(含 `.system`),只保留工程开发/测试/调试/部署/安全/性能/skill 自维护相关技能;其余 290 个归档到 `~/.codex/skills-archive/freekill-web-20260613-0638/`。新增 `.codex/scripts/select-skill.mjs` 用于按任务描述选择候选 skill;已修复 `md-slides`/`design-system`/`skill-tester` sample 的 frontmatter 加载报错,当前安装目录 43 个递归 `SKILL.md` 均通过 PyYAML 解析。使用前必须完整读取对应 `SKILL.md`,且项目硬约束优先。
+- **本地 WSL Web-asio 测试与完成汇报规则(2026-06-13)**:涉及 gateway/asio、多客户端、登录/大厅/房间/对局交互或需要用户浏览器复测时,优先在本机 WSL 构建并运行 `freekill-web-asio` fork(9527),再启动 Windows gateway(9528) 与 Vite(5174)。每次最终回复必须逐项总结任务完成情况、使用的方法、验证结果;若需要用户手动测试,必须给出启动命令、访问地址、操作路径和预期现象。
 - 客户端逻辑层 = WASM 托管原版 Lua(见 freekill_web_implementation_plan.md §4)。
 - 自动化工作流:SessionStart 钩子自动重建 PROJECT_STATE.md 并注入上下文;每次开始任务必须读取 `WEB_ONLY_ROADMAP.md` + `PROGRESS.md` 的当前阶段/待办,需要时再读实现计划和 audit;`/sync` 命令在收尾时更新 PROGRESS.md/近期规划/实现计划/风险。事实层(脚本生成)与判断层(AI 维护)分离。
 - **R-PERF 度量法**:每场景独立子进程 + `--expose-gc`,挂载后/启动后各 GC 再读 RSS,delta 即引擎成本。三场景:base(4 包)/ selective(base+utility,sp,tenyear,ol)/ full(全量)。代码 `freekill-web-spike/src/perf_{spike,run}.mjs`,`npm run perf`,结果 `perf-result.json`。
@@ -43,6 +44,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **本地 WSL Web-asio 测试流程与完成汇报规则并入 Codex 工作流(本次)**。根 `AGENTS.md` 新增固定本地浏览器测试流程:用 `freekill-web/scripts/wsl-build-fork.sh` 同步/构建 WSL 内 `freekill-web-asio`,用 `wsl-fork-foreground.sh` 跑 9527,Windows 侧取 WSL NAT IP 后启动 gateway 9528 与 Web 5174,浏览器访问 `http://127.0.0.1:5174`。同时新增最终回复规则:按用户任务项逐项说明完成情况、使用方法、验证结果;需要用户手动测试时写清启动命令、地址、操作步骤和预期。`analysis/CODEX_WORKFLOW.md` 与 `analysis/CODEX_WORKFLOW_RESTORE.md` 已同步,本次不改变功能路线或 audit 计数。验证:运行 `node .codex/scripts/session-start.mjs`、`node .codex/scripts/select-skill.mjs ...`(无匹配 skill)与 `node .codex/scripts/sync.mjs ...`。
 
 - 2026-06-13 **Codex 工作流迁移包完成(本次)**。新增 `analysis/CODEX_WORKFLOW_RESTORE.md`(另一个 Codex 的还原指南)与 `analysis/CODEX_WORKFLOW_BUNDLE_MANIFEST.md`(包清单),并在部署根生成 `freekill-web-codex-workflow-migration-20260613.tar.gz`。包内包含 `AGENTS.md`/`CLAUDE.md`、`.codex/scripts/*`、`.claude/scripts/project-state.mjs`、Claude `project-sync` 参考、analysis/audit 入口、当前裁剪版 `~/.codex/skills` 快照、第三方 skills 源仓库修补 diff 与元数据;显式排除 secrets、本机 settings.local、上游版权资源、完整源码仓库和部署脚本。验证:tar 内容检查未命中 `settings.local|.env|.pem|.key|public/fk|packages-upstream|node_modules|deploy.sh`;包内 43 个 `SKILL.md` frontmatter 解析 `errors=0`。
 
