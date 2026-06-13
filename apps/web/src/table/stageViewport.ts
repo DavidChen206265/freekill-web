@@ -10,6 +10,8 @@ export interface StageViewportInput {
   visualHeight?: number
   documentWidth?: number
   documentHeight?: number
+  screenWidth?: number
+  screenHeight?: number
   isMobile: boolean
   isPwa: boolean
 }
@@ -25,8 +27,17 @@ function positive(value: number | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
+function needsMobileViewportCorrection(input: StageViewportInput): boolean {
+  if (!input.isMobile) return false
+  if (input.isPwa) return true
+  const visualLandscape = positive(input.visualWidth) && positive(input.visualHeight) && input.visualWidth > input.visualHeight
+  const windowPortrait = input.windowWidth < input.windowHeight
+  const screenLandscape = positive(input.screenWidth) && positive(input.screenHeight) && input.screenWidth > input.screenHeight
+  return visualLandscape && (windowPortrait || screenLandscape)
+}
+
 export function computeStageViewport(input: StageViewportInput): StageViewportState {
-  const mobilePwa = input.isMobile && input.isPwa
+  const mobilePwa = needsMobileViewportCorrection(input)
   const width = mobilePwa
     ? (positive(input.visualWidth) ? input.visualWidth : positive(input.documentWidth) ? input.documentWidth : input.windowWidth)
     : input.windowWidth
@@ -51,6 +62,8 @@ export function readStageViewport(): StageViewportState {
     visualHeight: vv?.height,
     documentWidth: doc.clientWidth,
     documentHeight: doc.clientHeight,
+    screenWidth: window.screen?.width,
+    screenHeight: window.screen?.height,
     isMobile: isLikelyMobileDevice(),
     isPwa: isPwaInstalled(),
   })

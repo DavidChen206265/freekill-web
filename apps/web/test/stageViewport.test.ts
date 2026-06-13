@@ -46,6 +46,8 @@ describe('stage viewport sizing', () => {
       visualHeight: 430,
       documentWidth: 932,
       documentHeight: 430,
+      screenWidth: 430,
+      screenHeight: 932,
       isMobile: true,
       isPwa: false,
     })
@@ -54,6 +56,26 @@ describe('stage viewport sizing', () => {
     expect(state.width).toBe(932)
     expect(state.height).toBe(480)
     expect(state.scale).toBeCloseTo(Math.min(932 / STAGE_W, 480 / STAGE_H))
+  })
+
+  it('uses visualViewport when an installed mobile app reports landscape visually but not display-mode', () => {
+    const state = computeStageViewport({
+      windowWidth: 430,
+      windowHeight: 932,
+      visualWidth: 932,
+      visualHeight: 430,
+      documentWidth: 430,
+      documentHeight: 932,
+      screenWidth: 932,
+      screenHeight: 430,
+      isMobile: true,
+      isPwa: false,
+    })
+
+    expect(state.mobilePwa).toBe(true)
+    expect(state.width).toBe(932)
+    expect(state.height).toBe(430)
+    expect(state.scale).toBeCloseTo(Math.min(932 / STAGE_W, 430 / STAGE_H))
   })
 
   it('falls back to document size for mobile PWA when visualViewport is unavailable', () => {
