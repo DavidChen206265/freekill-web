@@ -31,6 +31,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
   const [luckTime, setLuckTime] = useState(0)              // 0–8 (0 = luck card off)
   const [enableDeputy, setEnableDeputy] = useState(false)
   const [enableFreeAssign, setEnableFreeAssign] = useState(false)
+  const [freeAssignRespectBan, setFreeAssignRespectBan] = useState(false)
   const [enableObserverViewCard, setEnableObserverViewCard] = useState(false)
   const [catalog, setCatalog] = useState<CatalogVm | null>(null)
   const [catalogError, setCatalogError] = useState('')
@@ -60,7 +61,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
       gameMode,
       roomName: name,
       password,
-      _game: { generalNum, generalTimeout, luckTime, enableFreeAssign, enableDeputy, enableObserverViewCard },
+      _game: { generalNum, generalTimeout, luckTime, enableFreeAssign, freeAssignRespectBan, enableDeputy, enableObserverViewCard },
       _mode: {},
       disabledPack: disabledPayload.disabledPack,
       disabledGenerals: disabledPayload.disabledGenerals,
@@ -96,6 +97,7 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
 
         <SwitchRow label="启用副将" checked={enableDeputy} onChange={setEnableDeputy} />
         <SwitchRow label="自由选将" checked={enableFreeAssign} onChange={setEnableFreeAssign} />
+        <SwitchRow label="禁将限制自由选将" checked={freeAssignRespectBan} onChange={setFreeAssignRespectBan} />
         <SwitchRow label="旁观可见手牌" checked={enableObserverViewCard} onChange={setEnableObserverViewCard} />
         <div style={styles.banSummary}>
           禁用包 {disabledPayload.disabledPack.length} · 禁用武将 {disabledPayload.disabledGenerals.length}

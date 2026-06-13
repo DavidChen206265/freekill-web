@@ -23,6 +23,19 @@ import { useSelfTrusting } from './useSelfTrusting.js'
 export const REQUEST_POPUP_Z = 100
 export const FREE_ASSIGN_Z = 200
 
+export interface FreeAssignGeneralOption { name: string; extension: string; kingdom: string }
+export interface FreeAssignDisabledSets { generals: Set<string>; packs: Set<string> }
+
+export function filterFreeAssignGenerals(
+  generals: FreeAssignGeneralOption[],
+  kingdom: string,
+  disabled: FreeAssignDisabledSets,
+): FreeAssignGeneralOption[] {
+  return generals
+    .filter((g) => !kingdom || g.kingdom === kingdom)
+    .filter((g) => !disabled.generals.has(g.name) && !disabled.packs.has(g.extension))
+}
+
 // Translate a (possibly dual) general name. RoomLogic.js:1125-1131 splits a
 // "general/deputyGeneral" string on '/', translates EACH segment, and rejoins —
 // a single tr() of the joined string misses the dict and shows raw pinyin.
@@ -184,9 +197,11 @@ function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
   // the setting once and, if on, offer a "自由选将" button that opens a search-all
   // overlay; the reply stays a plain general-name array (the cheat only widens the pool).
   const [freeAssign, setFreeAssign] = useState(false)
+  const [freeAssignRespectBan, setFreeAssignRespectBan] = useState(false)
   const [faOpen, setFaOpen] = useState(false)
   useEffect(() => { setPicked([]); setFaOpen(false) }, [active])
   useEffect(() => { setFreeAssign(!!vm?.getSetting('enableFreeAssign')) }, [vm, active])
+  useEffect(() => { setFreeAssignRespectBan(!!vm?.getSetting('freeAssignRespectBan')) }, [vm, active])
 
   const generals = active.generals ?? []
   const rule = active.ruleType ?? 'askForGeneralsChosen'
@@ -235,7 +250,7 @@ function GeneralBox({ active, resolve }: { active: PopupRequest; resolve: (v: un
         {freeAssign && <button style={styles.faBtn} onClick={() => setFaOpen(true)}>自由选将</button>}
         <button style={{ ...styles.ok, ...(ok ? {} : styles.disabled) }} disabled={!ok} onClick={() => resolve(picked)}>确定</button>
       </div>
-      {faOpen && <FreeAssignOverlay onPick={freeAssignPick} onClose={() => setFaOpen(false)} />}
+      {faOpen && <FreeAssignOverlay respectBan={freeAssignRespectBan} onPick={freeAssignPick} onClose={() => setFaOpen(false)} />}
     </Modal>
   )
 }
@@ -247,7 +262,7 @@ const FA_KINGDOMS: { value: string; label: string }[] = [
   { value: 'wu', label: '吴' }, { value: 'qun', label: '群' }, { value: 'god', label: '神' }, { value: 'qin', label: '秦' },
 ]
 
-function FreeAssignOverlay({ onPick, onClose }: { onPick: (g: string) => void; onClose: () => void }) {
+function FreeAssignOverlay({ respectBan, onPick, onClose }: { respectBan: boolean; onPick: (g: string) => void; onClose: () => void }) {
   const vm = useVmStore((s) => s.vm)
   const [word, setWord] = useState('')
   const [pack, setPack] = useState('')
@@ -257,9 +272,10 @@ function FreeAssignOverlay({ onPick, onClose }: { onPick: (g: string) => void; o
   // Search results carry {name, extension, kingdom}. Filter by kingdom client-side
   // (the VM search is by name+pack); cap render at 240.
   const raw = useMemo(() => (vm ? vm.searchGenerals(word, pack) : []), [vm, word, pack])
+  const disabled = useMemo(() => readDisabledGeneralSettings(vm, respectBan), [vm, respectBan])
   const results = useMemo(
-    () => (kingdom ? raw.filter((g) => g.kingdom === kingdom) : raw).slice(0, 240),
-    [raw, kingdom],
+    () => filterFreeAssignGenerals(raw, kingdom, disabled).slice(0, 240),
+    [raw, kingdom, disabled],
   )
   // CRITICAL (#1): these names are NOT in the popup's active.generals, so vmStore never
   // registered their translations / face info → raw pinyin + no portrait. Register both
@@ -307,6 +323,17 @@ function FreeAssignOverlay({ onPick, onClose }: { onPick: (g: string) => void; o
     </div>
     </Portal>
   )
+}
+
+function readDisabledGeneralSettings(vm: ReturnType<typeof useVmStore.getState>['vm'], enabled: boolean) {
+  const empty = { generals: new Set<string>(), packs: new Set<string>() }
+  if (!enabled || !vm) return empty
+  const disabledGenerals = vm.getSetting('disabledGenerals')
+  const disabledPack = vm.getSetting('disabledPack')
+  return {
+    generals: new Set(Array.isArray(disabledGenerals) ? disabledGenerals.filter((g): g is string => typeof g === 'string') : []),
+    packs: new Set(Array.isArray(disabledPack) ? disabledPack.filter((p): p is string => typeof p === 'string') : []),
+  }
 }
 
 // PoxiBox (AskForPoxi → PoxiBox.qml): card selection whose legality comes from the
