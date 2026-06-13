@@ -36,13 +36,15 @@ Claude 侧不是单一提示词,而是以下组件协同:
 - 保留强门禁:Codex 当前 shell 权限宽,所以 push、部署、改只读参考仓库都必须显式确认。
 - 把验证基线写成按风险选择的命令集合,避免每次从历史变更日志里反查。
 - 2026-06-13 追加通用行为准则:先澄清假设与成功标准,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标后闭环。
+- 2026-06-13 安装第三方技能库 `alirezarezvani/claude-skills`:源仓库位于 `~/.codex/skill-repos/claude-skills`,有效 Codex skills 位于 `~/.codex/skills`。新增 `.codex/scripts/select-skill.mjs` 作为轻量本地候选选择器,工作流要求按任务选择最少必要 skill 并先完整读取其 `SKILL.md`。
 
 ## Codex 执行清单
 
 1. 进入 `/home/ubuntu/freekill/freekill-vps-deploy` 后运行 `node .codex/scripts/session-start.mjs`。
 2. 读取 `PROJECT_STATE.md` 与 `PROGRESS.md`。
 3. 按任务读取 `audit/SUMMARY.md`、具体 Phase、实现计划和对应 QML/Lua 源码。
-4. 先验证事实再改代码;优先移植原版机制,不凭局部猜测自创。
-5. 改完跑匹配风险的 typecheck/build/test/VM/E2E。
-6. 若改了代码、计划、风险或 audit,运行 `node .codex/scripts/sync.mjs "摘要"` 并更新判断层。
-7. 自验通过后本地 commit;push 和部署等待用户明确许可。
+4. 对非平凡任务运行 `node .codex/scripts/select-skill.mjs "任务描述"`,若采用 skill 则先读对应 `SKILL.md`。
+5. 先验证事实再改代码;优先移植原版机制,不凭局部猜测自创。
+6. 改完跑匹配风险的 typecheck/build/test/VM/E2E。
+7. 若改了代码、计划、风险或 audit,运行 `node .codex/scripts/sync.mjs "摘要"` 并更新判断层。
+8. 自验通过后本地 commit;push 和部署等待用户明确许可。
