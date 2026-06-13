@@ -18,6 +18,7 @@ import { waitBeat } from './pacing.js'
 import { useServerManifestStore, parseManifest } from './serverManifestStore.js'
 import { setArtPacks } from '../table/skin.js'
 import { setAudioPacks, stopBgm } from '../table/audio.js'
+import { makeWebUuid } from '../utils/webUuid.js'
 
 // ---- connection ----
 interface ConnectionState {
@@ -145,7 +146,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       duplicateLoginKick = false // fresh manual login — clear any prior kick state
       reconnectTries = 0
       clearReconnectTimer()
-      const uuid = creds.uuid ?? `web-${crypto.randomUUID()}`
+      const uuid = creds.uuid ?? makeWebUuid()
       lastCreds = { url, user: creds.user, password: creds.password, uuid }
       saveCreds(lastCreds)
       set({ kickedMessage: undefined })
