@@ -2,9 +2,11 @@
 // SetBanner drives this area; layout is a compact web port of MarkArea.qml.
 
 import { useBannerStore } from '../stores/bannerStore.js'
+import { useMemo } from 'react'
 
 export function BannerArea() {
-  const marks = useBannerStore((s) => Object.values(s.marks))
+  const markMap = useBannerStore((s) => s.marks)
+  const marks = useMemo(() => Object.values(markMap), [markMap])
   if (marks.length === 0) return null
 
   return (
