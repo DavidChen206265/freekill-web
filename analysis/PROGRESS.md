@@ -32,7 +32,7 @@
 - **terminal 中文输出(2026-06-11 用户要求)**:直接给用户看的回复用简体中文,已写入 `CLAUDE.md`/`AGENTS.md`「输出语言」节。
 - **Codex 工作流转换(2026-06-13)**:Claude Code 工作流已 1:1 转为 Codex 可执行入口:部署根 `AGENTS.md` 承接项目规则,`.codex/scripts/session-start.mjs` 替代 SessionStart hook,`.codex/scripts/sync.mjs` 替代 `/sync` slash command,二者复用 `.claude/scripts/project-state.mjs` 作为唯一事实快照生成器。分析与映射见 `analysis/CODEX_WORKFLOW.md`。
 - **通用行为准则并入工作流(2026-06-13)**:所有 AI agent 必须先明确假设/成功标准/验证方式,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标闭环;已同步写入部署根 `CLAUDE.md` 与 `AGENTS.md`。
-- **Codex 第三方技能库(2026-06-13)**:`alirezarezvani/claude-skills` 已克隆到 `~/.codex/skill-repos/claude-skills`,327 个有效 Codex skills 已安装到 `~/.codex/skills`。新增 `.codex/scripts/select-skill.mjs` 用于按任务描述选择候选 skill;使用前必须完整读取对应 `SKILL.md`,且项目硬约束优先。
+- **Codex 第三方技能库(2026-06-13)**:`alirezarezvani/claude-skills` 已克隆到 `~/.codex/skill-repos/claude-skills`,327 个顶层 Codex skills 已安装到 `~/.codex/skills`。新增 `.codex/scripts/select-skill.mjs` 用于按任务描述选择候选 skill;已修复 `md-slides`/`design-system`/`skill-tester` sample 的 frontmatter 加载报错,安装目录 333 个递归 `SKILL.md` 均通过 PyYAML 解析。使用前必须完整读取对应 `SKILL.md`,且项目硬约束优先。
 - 客户端逻辑层 = WASM 托管原版 Lua(见 freekill_web_implementation_plan.md §4)。
 - 自动化工作流:SessionStart 钩子自动重建 PROJECT_STATE.md 并注入上下文;`/sync` 命令在收尾时更新 PROGRESS.md/计划/风险。事实层(脚本生成)与判断层(AI 维护)分离。
 - **R-PERF 度量法**:每场景独立子进程 + `--expose-gc`,挂载后/启动后各 GC 再读 RSS,delta 即引擎成本。三场景:base(4 包)/ selective(base+utility,sp,tenyear,ol)/ full(全量)。代码 `freekill-web-spike/src/perf_{spike,run}.mjs`,`npm run perf`,结果 `perf-result.json`。
@@ -40,6 +40,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **修复 Codex skill 加载报错并优化中文任务自动选择(本次)**。修复用户报告的 3 个 invalid `SKILL.md`:安装目录 `~/.codex/skills/md-slides/SKILL.md`、`~/.codex/skills/design-system/SKILL.md` 的长 `description` 改为 YAML block scalar,`~/.codex/skills/skill-tester/assets/sample-skill/SKILL.md` 补合法 frontmatter;同步修复源克隆 `~/.codex/skill-repos/claude-skills` 中对应文件,避免后续重同步复发。优化 `.codex/scripts/select-skill.mjs`:支持 `description: >-` 多行解析,对中文“技能/报错/修复/YAML/frontmatter/调用/选择”类输入扩展英文检索词,并降低泛化 `*-skills` 路由技能权重。验证:PyYAML 解析安装目录 333 个递归 `SKILL.md` 为 `errors=0`,相关源目录 44 个为 `errors=0`;用用户这句中文命令测试时 `skill-tester` 排名第 1。
 
 - 2026-06-13 **安装 claude-skills 并接入 Codex skill 自动选择工作流(本次)**。按用户要求克隆 `https://github.com/alirezarezvani/claude-skills` 到 `~/.codex/skill-repos/claude-skills`(HEAD `4a3c05b6`),运行仓库 `scripts/sync-codex-skills.py --validate` 生成/校验 Codex symlink 索引。仓库索引 344 条包含重复 skill 名,实际唯一有效 Codex skills 为 327 个,已复制到 `~/.codex/skills`;`playwright-pro` 是插件容器无顶层 `SKILL.md`,其子技能已独立安装,容器目录已移除。新增 `.codex/scripts/select-skill.mjs` 作为本地候选选择器;`AGENTS.md`/`CLAUDE.md`/`CODEX_WORKFLOW.md` 已写入规则:非平凡任务先按描述选择最少必要 skill,采用前完整读取 `SKILL.md`,第三方 skill 不得覆盖本项目中文输出、FreeKill 源码优先、audit 回写、push/deploy 门禁等硬约束。Codex 可能需要重启后在系统可用 skill 列表中完整显示新安装 skills。
 

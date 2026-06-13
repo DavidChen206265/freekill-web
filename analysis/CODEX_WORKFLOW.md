@@ -37,6 +37,7 @@ Claude 侧不是单一提示词,而是以下组件协同:
 - 把验证基线写成按风险选择的命令集合,避免每次从历史变更日志里反查。
 - 2026-06-13 追加通用行为准则:先澄清假设与成功标准,优先最小实现,只做外科手术式改动,并把每项工作转成可验证目标后闭环。
 - 2026-06-13 安装第三方技能库 `alirezarezvani/claude-skills`:源仓库位于 `~/.codex/skill-repos/claude-skills`,有效 Codex skills 位于 `~/.codex/skills`。新增 `.codex/scripts/select-skill.mjs` 作为轻量本地候选选择器,工作流要求按任务选择最少必要 skill 并先完整读取其 `SKILL.md`。
+- 2026-06-13 修复第三方 skill frontmatter 加载问题:`md-slides` 与 `design-system` 的长 description 改为 YAML block scalar,`skill-tester` sample fixture 补 frontmatter;selector 同步支持多行 description 和中文“技能/报错/修复/YAML/frontmatter”类输入,确保此类命令能优先选中 `skill-tester`。
 
 ## Codex 执行清单
 
