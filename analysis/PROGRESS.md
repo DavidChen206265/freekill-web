@@ -46,6 +46,8 @@
 
 ## 变更日志
 
+- 2026-06-13 **局内当前回合 photo 动画层级小修(本次)**。按用户反馈调整 `Photo.tsx` 层级:当前回合 `playing` 绿色包边动画层从 `zIndex:3` 提高到 `zIndex:6`,高于 name/seat 黑色遮罩 bar 的 `zIndex:5`,使遮罩不再压住当前回合提示；不改变 name/seat 布局、photo 点击语义或其它状态贴图。验证:`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过。
+
 - 2026-06-13 **局内 photo 延时锦囊与数字字号小修(本次)**。按用户反馈继续微调 photo 周边局内 UI:`Photo.tsx` 的 judge/delayed-trick 行左偏移从 2px 改为 17px，使 photo 下方延时锦囊 icon 同样整体右移 15px；`MiscStatus.tsx` 的抽牌堆剩余牌数从原 28px 按 2/3 缩为 19px；`handcardInfo.ts` 的 photo 左下角手牌数动态字号从 24/20px 按 2/3 缩为 16/13px，并同步更新 `handcardInfo.test.ts` 期望。验证:`pnpm --filter @freekill-web/web test -- handcardInfo`、`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过。
 
 - 2026-06-13 **局内 UI 与移动端调试/PWA 小修(本次)**。按用户反馈微调 `PhotoFocusBar` 思考提示左偏移从 2px 改为 17px，使每个 photo 下方「xxx思考中...」整体右移 15px；`RoomChatPanel` 折叠/展开入口从右下角移至左下角。登录页新增轻量 `MobileConsolePanel`，在手机端可展开查看 `console.log/info/warn/error`、全局 error 与未处理 rejection，并支持复制/清空，便于移动端 debug。PWA manifest 改为 `display: fullscreen` + `orientation: landscape`，并补充 Android/iOS web app meta；需注意横屏/全屏是浏览器与已安装 PWA 的能力请求，iOS Safari 对强制横屏和完全隐藏状态栏仍不保证。验证:`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过；构建产物 `manifest.webmanifest` 已含 fullscreen/landscape。

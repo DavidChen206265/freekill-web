@@ -588,7 +588,7 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 2,
     opacity: 0.9,
   },
-  playing: { position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" },
+  playing: { position: "absolute", inset: 0, zIndex: 6, pointerEvents: "none" },
   faceTurned: {
     position: "absolute",
     left: 22,
