@@ -3,30 +3,60 @@
 // children use absolute logical coordinates inside `stage`.
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { readStageViewport, STAGE_H, STAGE_W, type StageViewportState } from './stageViewport.js'
 
-export const STAGE_W = 1200
-export const STAGE_H = 540
+export { STAGE_H, STAGE_W }
+
+const STABILIZE_MS = 120
 
 export function Stage({ children }: { children: ReactNode }) {
-  const [scale, setScale] = useState(1)
+  const [viewport, setViewport] = useState<StageViewportState>(() => {
+    if (typeof window === 'undefined') return { mobilePwa: false, width: STAGE_W, height: STAGE_H, scale: 1 }
+    return readStageViewport()
+  })
 
   useEffect(() => {
-    const recompute = () => setScale(Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H))
+    let timer: number | undefined
+    const recompute = () => {
+      setViewport(readStageViewport())
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setViewport(readStageViewport()), STABILIZE_MS)
+    }
     recompute()
     window.addEventListener('resize', recompute)
-    return () => window.removeEventListener('resize', recompute)
+    window.addEventListener('orientationchange', recompute)
+    window.visualViewport?.addEventListener('resize', recompute)
+    window.visualViewport?.addEventListener('scroll', recompute)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('resize', recompute)
+      window.removeEventListener('orientationchange', recompute)
+      window.visualViewport?.removeEventListener('resize', recompute)
+      window.visualViewport?.removeEventListener('scroll', recompute)
+    }
   }, [])
 
   return (
-    <div style={styles.viewport}>
-      <div style={{ ...styles.stage, transform: `scale(${scale})` }}>{children}</div>
+    <div style={viewport.mobilePwa ? mobileViewportStyle(viewport) : styles.viewport}>
+      <div style={{ ...styles.stage, transform: `scale(${viewport.scale})` }}>{children}</div>
     </div>
   )
+}
+
+function mobileViewportStyle(viewport: StageViewportState): React.CSSProperties {
+  return {
+    ...styles.viewport,
+    width: viewport.width,
+    height: viewport.height,
+    inset: 'auto',
+    left: 0,
+    top: 0,
+  }
 }
 
 const styles: Record<string, React.CSSProperties> = {
   // W1-1 2e: game background image (FreeKill image/gamebg.jpg) behind the table,
   // with the dark-green fallback color showing through letterbox bars / on load fail.
   viewport: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', overflow: 'hidden', background: '#0d3b1e' },
-  stage: { position: 'relative', width: STAGE_W, height: STAGE_H, transformOrigin: 'center center', backgroundColor: '#14532d', backgroundImage: 'url(/fk/image/gamebg.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: '0 0 0 2px #0a2e16' },
+  stage: { position: 'relative', width: STAGE_W, height: STAGE_H, transformOrigin: 'center center', backgroundColor: '#14532d', backgroundImage: 'url(/fk/image/gamebg.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: '0 0 0 2px #0a2e16', willChange: 'transform' },
 }

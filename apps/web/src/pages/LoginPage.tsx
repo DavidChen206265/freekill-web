@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useConnectionStore } from '../stores/index.js'
 import { unlockAudio } from '../table/audio.js'
+import { usePwaInstallPrompt } from '../pwa/installPrompt.js'
 
 type ConsoleMethod = 'log' | 'info' | 'warn' | 'error'
 type ConsoleEntry = {
@@ -123,6 +124,31 @@ function MobileConsolePanel() {
   )
 }
 
+function PwaInstallPanel() {
+  const { canInstall, install, installed, mobile, ios } = usePwaInstallPrompt()
+
+  const runInstall = () => { void install() }
+  const status = installed
+    ? '当前已在 PWA 模式运行,适合移动端横屏游戏。'
+    : ios
+      ? 'iPhone/iPad 请使用浏览器分享菜单,选择“添加到主屏幕”。'
+      : canInstall
+        ? '建议安装为 PWA 后横屏运行。'
+        : '如浏览器没有弹出安装按钮,请使用浏览器菜单添加到主屏幕。'
+
+  return (
+    <section style={mobile ? styles.pwaMobilePanel : styles.pwaPanel}>
+      {mobile && <strong style={styles.pwaWarning}>移动端只有安装 PWA 后才能获得正常游戏体验</strong>}
+      <span style={styles.pwaText}>{status}</span>
+      {canInstall && (
+        <button style={styles.installButton} type="button" onClick={runInstall}>
+          安装 PWA
+        </button>
+      )}
+    </section>
+  )
+}
+
 export function LoginPage() {
   const { connect, status, detail, kickedMessage } = useConnectionStore()
   const [url, setUrl] = useState(defaultGatewayUrl())
@@ -167,6 +193,7 @@ export function LoginPage() {
         {status === 'failed' && <p style={styles.error}>登录失败{detail ? `: ${detail}` : ''}</p>}
         {status === 'closed' && !kickedMessage && <p style={styles.error}>连接已关闭{detail ? `: ${detail}` : ''}</p>}
         <p style={styles.hint}>请创建你自己的账号:首次登录用任意用户名+密码即自动注册。请勿共用账号,否则会互相顶号下线。</p>
+        <PwaInstallPanel />
       </form>
       <MobileConsolePanel />
     </div>
@@ -174,14 +201,19 @@ export function LoginPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  wrap: { minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#1b1b1f', color: '#eee', fontFamily: 'system-ui, sans-serif' },
-  card: { display: 'flex', flexDirection: 'column', gap: 12, width: 320, padding: 28, background: '#26262b', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,.4)' },
+  wrap: { minHeight: '100dvh', display: 'grid', placeItems: 'center', background: '#1b1b1f', color: '#eee', fontFamily: 'system-ui, sans-serif', padding: 16, boxSizing: 'border-box' },
+  card: { display: 'flex', flexDirection: 'column', gap: 12, width: 'min(320px, 100%)', padding: 28, background: '#26262b', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,.4)', boxSizing: 'border-box' },
   title: { margin: '0 0 8px', fontSize: 22, textAlign: 'center' },
   label: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: '#bbb' },
   input: { padding: '8px 10px', borderRadius: 6, border: '1px solid #444', background: '#1b1b1f', color: '#eee', fontSize: 14 },
   button: { marginTop: 8, padding: '10px', borderRadius: 6, border: 'none', background: '#0e639c', color: '#fff', fontSize: 15, cursor: 'pointer' },
   error: { color: '#f48771', fontSize: 13, margin: 0 },
   hint: { color: '#777', fontSize: 12, margin: 0, textAlign: 'center' },
+  pwaPanel: { display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 6, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.09)' },
+  pwaMobilePanel: { display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 6, background: 'rgba(180,120,28,.18)', border: '1px solid rgba(232,185,80,.45)' },
+  pwaWarning: { color: '#ffd37a', fontSize: 13, lineHeight: 1.35 },
+  pwaText: { color: '#aaa', fontSize: 12, lineHeight: 1.45 },
+  installButton: { padding: '8px 10px', border: 'none', borderRadius: 6, background: '#2d7d46', color: '#fff', fontSize: 14, cursor: 'pointer' },
   consoleWrap: { position: 'fixed', right: 10, bottom: 10, zIndex: 1000, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace' },
   consoleToggle: { padding: '8px 10px', border: '1px solid rgba(255,255,255,.2)', borderRadius: 6, background: 'rgba(0,0,0,.75)', color: '#fff', fontSize: 12 },
   consolePanel: { width: 'min(92vw, 520px)', maxHeight: '55vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid rgba(255,255,255,.18)', borderRadius: 6, background: 'rgba(13,13,16,.96)', color: '#eee', boxShadow: '0 8px 28px rgba(0,0,0,.45)' },

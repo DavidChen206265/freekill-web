@@ -25,7 +25,7 @@
 - **N3 Web 账户与个性化**:`globalSaves` 做房间预设/禁将/UI 设置;房间 settings V2;好友/等级/成就。
 - **N4 生产化**:session token 替换 localStorage 明文密码、数据卷备份、管理后台、日志监控、容量压测。
 - **N5 观感打磨**:大招动画、送礼动画(5 种精灵)、状态光环、弹幕、美化包/字体、Cheat 查看面板、设置控件族。
-- **移动端 Stage 适配专项(分析完成,待单独切片修复)**:当前 `Stage.tsx` 固定逻辑舞台 1200×540,用 `min(window.innerWidth/1200, window.innerHeight/540)` 缩放并由 `overflow:hidden` 居中裁剪；手机横屏时 `innerHeight` 容易受地址栏/状态栏/visualViewport 稳定时机/safe-area 影响,导致 scale 计算与真实可视区不一致,绿色边框/舞台被裁或无法撑满。后续建议独立切片处理 `visualViewport`/`100dvh`/safe-area/旋转 resize 稳定化与 transform 后尺寸校准。本次只分析,未改布局。
+- **移动端 Stage 适配专项(PWA 基础适配已完成,待真机复测)**:登录页已加入 PWA 安装入口与移动端强提示；`Stage.tsx` 保持桌面 `innerWidth/innerHeight` 原路径不变,仅在移动端已安装 PWA display-mode 下使用 `visualViewport`/document viewport 计算 scale,并监听旋转/viewport resize 后二次采样。后续需在真实手机 PWA 横屏中复测 iOS/Android 差异,再决定是否继续细化 safe-area/dvh 与 popup 高度。
 - **N6 创意工坊与 AI 提升**:公共服只跑审核包;AI 是研究级长线(SmartAI stub、无 aiLevel、无 self-play)——MVP 限定 取消 stub + ~10 策略 + 最小 headless 评测。
 
 ## 决策记录
@@ -46,6 +46,8 @@
 - **选择性加载杠杆确认**:`ModManager:loadPackages` 用 `FileIO.ls("packages")` 自动发现含 init.lua 的目录;Web 端"只加载该局所需包"= 只向 VFS 挂载所需包目录(未挂载者不会被发现),无需改引擎,与 disabled_packs 反向白名单一致。
 
 ## 变更日志
+
+- 2026-06-13 **移动端 PWA 安装入口与 Stage 基础适配(本次)**。按用户批准的计划新增 `analysis/MOBILE_PWA_ADAPTATION_PLAN.md`。登录页新增 `usePwaInstallPrompt`:监听 `beforeinstallprompt`/`appinstalled`,判断 `display-mode: fullscreen/standalone/minimal-ui` 与 iOS `navigator.standalone`,可安装时显示「安装 PWA」按钮,无原生 prompt/iOS 时显示“添加到主屏幕”指引;移动端强提示“只有安装 PWA 后才能获得正常游戏体验”。Stage 适配抽出 `stageViewport.ts`:桌面与非 PWA 手机浏览器继续使用原 `window.innerWidth/innerHeight` 计算,仅移动 PWA 使用 `visualViewport`/document viewport,监听 `resize/orientationchange/visualViewport.resize/scroll` 并 120ms 二次采样,保持 1200×540 逻辑坐标和内部 UI 不变。验证:`pnpm --filter @freekill-web/web test -- stageViewport`、全量 `test`(40 files/212 tests)、`typecheck`、`build` 通过;构建产物含安装文案,manifest 仍为 `display=fullscreen`/`orientation=landscape`。`vite preview` HTTP 冒烟命令本机超时,已清理残留 preview 进程;真实手机 PWA 安装/横屏体验仍需用户手动复测。
 
 - 2026-06-13 **特殊技能 UI 全面自查与 utility CustomDialog 白名单修复(本次)**。按用户要求对 `askToCustomDialog`、`MiniGame`、`poxi_type`、`detailed`、`filter_skel/default_choice/cancel_choices` 等特殊技能 UI 链路重新扫描,并对照 `RoomLogic.js`、`room.lua`、`utility.lua` 与 `ChooseSkillBox/ChooseGeneralSkillsBox/ChooseSkillFromGeneralBox/ChooseGeneralsAndChoiceBox/ChooseCardNamesBox/ChooseCardListBox/DetailedChoiceBox/DetailedCheckBox.qml`。修复:G2/G4 detailed Choice/Choices 保留 detailed 标志并渲染 200×290 描述卡片,描述优先 `":" + option` 翻译并由 `PromptText` 支持富文本/滚动;新增 utility 共享 CustomDialog 白名单(`ChooseGeneralSkillsBox`、`ChooseSkillFromGeneralBox`、`ChooseGeneralsAndChoiceBox`、`ChooseCardNamesBox`、`ChooseCardListBox`),按 QML `loadData`/reply 形状解析和回复;popup 打开时扩展翻译预注册与武将/卡牌 face 预取;包专用 QML/MiniGame 仍不执行,但现在显式 `console.error('[popup] unsupported special UI',{command,data})` 并安全回 `__cancel` 防止计时器卡住。audit 更新:G2/G4 简→完全,G20 描述更新,总计改为 未135 / 简142 / 错0 / 完182。验证:`pnpm --filter @freekill-web/web test`(39 files/208 tests)、`pnpm --filter @freekill-web/web typecheck`、`pnpm --filter @freekill-web/web build` 通过。
 

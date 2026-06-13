@@ -122,6 +122,6 @@ N1-4 核心已在 2026-06-13 完成;剩余是配置/设置与 ViewPile 周边简
 4. **已完成:切片 D `BanGeneralSetting`**。已实现方案切换、新建、清空、导出、导入、重命名和三列摘要。
 5. **已完成:切片 E `CreateRoomDialog` 禁将接入**。已推导 `disabledGenerals`/`disabledPack`,并通过本地 WSL web-asio + gateway E2E 建房验证。
 6. **下一步建议**:GeneralDetailPage J6-J17 完整详情页,然后 GeneralFilter/卡牌一览/武将池/战绩统计;也可按用户优先级转向等待房 WaitingPhoto、个人设置族、N1-4/N1-3 周边简化项。
-7. **移动端 Stage 适配专项(待修复)**:已确认横屏问题应独立切片处理。核心方向是用 `visualViewport`/`100dvh`/safe-area 替代单纯 `window.innerHeight`,处理旋转后的 viewport 稳定时机,并校准 `transform: scale()` 后舞台实际占用尺寸；本次只完成分析,未改 `Stage.tsx`。
+7. **移动端 Stage 适配专项(基础 PWA 适配已完成,待真机复测)**:登录页已有 PWA 安装入口与移动端强提示;`Stage.tsx` 保持桌面路径不变,仅移动端已安装 PWA 使用 `visualViewport`/document viewport 与旋转后二次采样。后续根据 Android/iOS 真机结果再决定是否补 safe-area/dvh 与 popup 高度专项。
 
 > 每个切片修一项验一项,涉及共享包/网关/服务端协议时跑相关单测 + 真 asio/Web E2E;改还原项前先读对应 audit Phase 报告的原版+web 双向定位与 QML/Lua 源码(照搬纪律)。
