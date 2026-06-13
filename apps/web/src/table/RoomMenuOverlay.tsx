@@ -5,7 +5,8 @@ import { useVmStore } from '../stores/vmStore.js'
 import { useInteractionStore } from '../stores/interactionStore.js'
 import { usePopupStore } from '../stores/popupStore.js'
 import { useTimerStore } from '../stores/timerStore.js'
-import { canConfirmSurrender, isTrustState, playerStateLabel, surrenderPayload, type SurrenderCheck } from './roomActions.js'
+import { useTrustUiStore } from '../stores/trustUiStore.js'
+import { canConfirmSurrender, isTrustState, isSelfTrusting, playerStateLabel, surrenderPayload, type SurrenderCheck } from './roomActions.js'
 import { Portal } from './Portal.js'
 
 export function RoomMenuOverlay() {
@@ -14,15 +15,29 @@ export function RoomMenuOverlay() {
   const selfId = useGameStore((s) => s.selfId)
   const self = useGameStore((s) => (s.selfId !== undefined ? s.players[s.selfId] : undefined))
   const observing = useGameStore((s) => s.observing)
+  const winner = useGameStore((s) => s.winner)
+  const trustPending = useTrustUiStore((s) => s.pending)
+  const setTrustPending = useTrustUiStore((s) => s.setPending)
   const [open, setOpen] = useState(false)
   const [checks, setChecks] = useState<SurrenderCheck[] | null>(null)
-  const [trustPending, setTrustPending] = useState(false)
-  const trusting = isTrustState(self?.state) || trustPending
+  const trusting = isSelfTrusting(self?.state, trustPending, winner !== undefined)
 
   useEffect(() => {
-    if (isTrustState(self?.state)) setTrustPending(false)
-    if (self?.state !== undefined && !isTrustState(self.state)) setTrustPending(false)
-  }, [self?.state])
+    if (winner !== undefined) { setTrustPending(null); return }
+    if (trustPending === 'enter' && isTrustState(self?.state)) setTrustPending(null)
+    if (trustPending === 'exit' && self?.state !== undefined && !isTrustState(self.state)) setTrustPending(null)
+  }, [self?.state, setTrustPending, trustPending, winner])
+
+  useEffect(() => {
+    if (!trusting) return
+    // Trust hides the current local request UI immediately. The server-side Trust
+    // action owns the real reply and wakes the room thread if Self is thinking.
+    vm?.finishRequestUI()
+    useInteractionStore.getState().clear()
+    usePopupStore.getState().clear()
+    useTimerStore.getState().deactivate()
+    setChecks(null)
+  }, [trusting, vm])
 
   const openSurrender = () => {
     if (!vm || observing || self?.dead) return
@@ -41,15 +56,9 @@ export function RoomMenuOverlay() {
   const toggleTrust = () => {
     client?.notify('Trust', '')
     if (!trusting) {
-      setTrustPending(true)
-      // Mirrors Room.qml trustBtn: set roomScene.state="notactive". The server-side
-      // Trust action wakes the room thread when Self is thinking, so AI answers the
-      // current request; this only clears local affordances immediately.
-      vm?.finishRequestUI()
-      useInteractionStore.getState().clear()
-      usePopupStore.getState().clear()
-      useTimerStore.getState().deactivate()
-      setChecks(null)
+      setTrustPending('enter')
+    } else {
+      setTrustPending('exit')
     }
     setOpen(false)
   }

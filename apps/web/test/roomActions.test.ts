@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canConfirmSurrender, canKickPlayer, isTrustState, playerStateLabel, surrenderPayload } from '../src/table/roomActions.js'
+import { canConfirmSurrender, canKickPlayer, isSelfTrusting, isTrustState, playerStateLabel, surrenderPayload } from '../src/table/roomActions.js'
 
 describe('N1-3 room action helpers', () => {
   it('uses the original PushRequest surrender payload', () => {
@@ -25,5 +25,12 @@ describe('N1-3 room action helpers', () => {
     expect(playerStateLabel(undefined)).toBe('')
     expect(isTrustState(2)).toBe(true)
     expect(isTrustState(1)).toBe(false)
+  })
+
+  it('merges server trust state with optimistic enter/exit and game-over clearing', () => {
+    expect(isSelfTrusting(1, 'enter')).toBe(true)
+    expect(isSelfTrusting(2, null)).toBe(true)
+    expect(isSelfTrusting(2, 'exit')).toBe(false)
+    expect(isSelfTrusting(2, null, true)).toBe(false)
   })
 })

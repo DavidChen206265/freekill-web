@@ -21,7 +21,7 @@ import { CardFaceView } from './CardFaceView.js'
 import { chosenPic } from './skin.js'
 import { tr } from '../i18n/zh.js'
 import { computeHandDropIndex, dragMoved } from './cardDrag.js'
-import { isTrustState } from './roomActions.js'
+import { useSelfTrusting } from './useSelfTrusting.js'
 
 const GO_BACK_MS = 500
 const EASE_OUT_QUAD = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -36,11 +36,10 @@ export function CardLayer() {
   const players = useGameStore((s) => s.players)
   const seatOrder = useGameStore((s) => s.seatOrder)
   const selfId = useGameStore((s) => s.selfId)
-  const selfTrusting = useGameStore((s) => s.selfId !== undefined ? isTrustState(s.players[s.selfId]?.state) : false)
+  const selfTrusting = useSelfTrusting()
   const cardStates = useInteractionStore((s) => s.cards)
   const photoStates = useInteractionStore((s) => s.photos)
   const buttons = useInteractionStore((s) => s.buttons)
-  const requestActive = useInteractionStore((s) => s.active)
   const expandCards = useInteractionStore((s) => s.expandCards)
   const cardNotes = useCardNoteStore((s) => s.notes)
   const cardEmotions = useAnimationStore((s) => s.cards)
@@ -337,11 +336,10 @@ export function CardLayer() {
                 CardItem/Photo.selectable = uiUpdate.enabled (Room.qml:746,
                 dashboard.applyChange), so driving the overlay off `enabled` matches the
                 original's selectable-driven overlay — same VM signal, protocol name.
-                A self-hand card with NO state during an active request is unusable: the
-                VM omits untouched cards from UpdateRequestUI (e.g. PlayCard sends only
-                the usable slash, not the jink), whereas QML seeds every hand card as a
-                disabled scene item — so treat "no state + active + self-hand" as masked. */}
-            {(st ? (!st.enabled && !st.selected) : (requestActive && selfHandCids.has(cid))) && <div style={styles.disable} />}
+                A self-hand card with NO VM selectable state is unusable: QML creates
+                hand cards with selectable=false and only applyChange/enableCards turns
+                them on, so turn-outside/trust/cleared-request cards stay masked. */}
+            {(st ? (!st.enabled && !st.selected) : selfHandCids.has(cid)) && <div style={styles.disable} />}
           </div>
         )
       })}

@@ -13,11 +13,11 @@ import { useVmStore } from '../stores/vmStore.js'
 import { CountdownBar } from './CountdownBar.js'
 import { PromptText } from './PromptText.js'
 import { tr } from '../i18n/zh.js'
-import { isTrustState } from './roomActions.js'
+import { useSelfTrusting } from './useSelfTrusting.js'
 
 export function Dashboard() {
   const started = useGameStore((s) => s.started)
-  const selfTrusting = useGameStore((s) => s.selfId !== undefined ? isTrustState(s.players[s.selfId]?.state) : false)
+  const selfTrusting = useSelfTrusting()
   const selfSkills = useGameStore((s) => s.selfSkills)
   const active = useInteractionStore((s) => s.active)
   const prompt = useInteractionStore((s) => s.prompt)

@@ -18,4 +18,10 @@ describe('in-game interaction bugfix wiring', () => {
     expect(src).toContain('const hitOk =')
     expect(src).toContain("!st.selected && (hitPhoto || hitOk)) void interact('CardItem'")
   })
+
+  it('keeps self hand cards masked whenever the VM has not marked them selectable', () => {
+    const src = readFileSync(join(SRC, 'table/CardLayer.tsx'), 'utf8')
+    expect(src).toContain('useSelfTrusting()')
+    expect(src).toContain('(st ? (!st.enabled && !st.selected) : selfHandCids.has(cid))')
+  })
 })

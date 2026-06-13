@@ -60,6 +60,25 @@ describe('gameStore.syncPlayers playing mirror', () => {
   })
 })
 
+describe('gameStore GameOver trust cleanup', () => {
+  it('clears rendered trust state when the game ends', () => {
+    const g = useGameStore.getState()
+    g.syncPlayers([
+      { id: 1, name: 'alice', avatar: 'a1', state: 2 },
+      { id: 2, name: 'bob', avatar: 'a2', state: 1 },
+    ], true)
+    g.apply('GameOver', 'lord')
+    const s = useGameStore.getState()
+    expect(s.winner).toBe('lord')
+    expect(s.players[1]!.state).toBe(1)
+    expect(s.players[2]!.state).toBe(1)
+    g.syncPlayers([{ id: 1, name: 'alice', avatar: 'a1', state: 2 }], true)
+    expect(useGameStore.getState().players[1]!.state).toBe(1)
+    g.backToRoom(2)
+    expect(useGameStore.getState().players[1]!.state).toBe(1)
+  })
+})
+
 describe('gameStore.syncPlayers handcard info mirror', () => {
   it('keeps maxCard and visible handcard preview from the VM snapshot', () => {
     const g = useGameStore.getState()

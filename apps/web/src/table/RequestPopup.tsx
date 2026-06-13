@@ -10,7 +10,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { usePopupStore, shuffleInvisibleOutput, shuffleInvisiblePoxi, type PopupRequest } from '../stores/popupStore.js'
 import { useVmStore } from '../stores/vmStore.js'
-import { useGameStore } from '../stores/gameStore.js'
 import { arrangeDrop, arrangeValid, type ArrangeState } from './arrangeDrop.js'
 import { CardFaceView } from './CardFaceView.js'
 import { GeneralCard } from './GeneralCard.js'
@@ -19,7 +18,7 @@ import { PromptText } from './PromptText.js'
 import { tr, registerTranslations, hasTranslation } from '../i18n/zh.js'
 import { useCardFaceStore } from '../stores/cardFaceStore.js'
 import { Portal } from './Portal.js'
-import { isTrustState } from './roomActions.js'
+import { useSelfTrusting } from './useSelfTrusting.js'
 
 export const REQUEST_POPUP_Z = 100
 export const FREE_ASSIGN_Z = 200
@@ -34,7 +33,7 @@ function trGeneral(name: string): string {
 export function RequestPopup() {
   const active = usePopupStore((s) => s.active)
   const resolve = usePopupStore((s) => s.resolve)
-  const selfTrusting = useGameStore((s) => s.selfId !== undefined ? isTrustState(s.players[s.selfId]?.state) : false)
+  const selfTrusting = useSelfTrusting()
   // Selected items: general names (string[]) or card ids (number[]) depending on kind.
   const [pickedStr, setPickedStr] = useState<string[]>([])
   const [pickedNum, setPickedNum] = useState<number[]>([])

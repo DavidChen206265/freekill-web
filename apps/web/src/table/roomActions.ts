@@ -1,4 +1,5 @@
 import type { GamePlayer } from '../stores/gameStore.js'
+import type { TrustPending } from '../stores/trustUiStore.js'
 
 export interface SurrenderCheck {
   text: string
@@ -19,6 +20,13 @@ export function playerStateLabel(state: number | undefined): string {
 
 export function isTrustState(state: number | undefined): boolean {
   return state === 2
+}
+
+export function isSelfTrusting(state: number | undefined, pending: TrustPending, gameOver = false): boolean {
+  if (gameOver) return false
+  if (pending === 'enter') return true
+  if (pending === 'exit') return false
+  return isTrustState(state)
 }
 
 export function canKickPlayer(selfId: number | undefined, player: Pick<GamePlayer, 'id'> | undefined, selfIsOwner: boolean): boolean {

@@ -26,7 +26,7 @@ import { PhotoFocusBar } from './PhotoFocusBar.js'
 import { useLongPress } from './useLongPress.js'
 import { tr } from '../i18n/zh.js'
 import { handcardFontSize, handcardText, previewLines } from './handcardInfo.js'
-import { isTrustState } from './roomActions.js'
+import { useSelfTrusting } from './useSelfTrusting.js'
 
 const PHOTO_W = PHOTO_WIDTH
 const PHOTO_H = PHOTO_HEIGHT
@@ -45,7 +45,7 @@ export function Photo({ player, playerNum, isSelf }: {
   const targetState = useInteractionStore((s) => s.photos[player.id])
   const interact = useVmStore((s) => s.interact)
   const observing = useGameStore((s) => s.observing)
-  const selfTrusting = useGameStore((s) => s.selfId !== undefined ? isTrustState(s.players[s.selfId]?.state) : false)
+  const selfTrusting = useSelfTrusting()
   const switchViewpoint = useVmStore((s) => s.switchViewpoint)
   const roleGuesses = useRoleGuessStore((s) => s.guesses)
   const pickerOpen = useRoleGuessStore((s) => s.pickerOpen)

@@ -13,6 +13,8 @@ describe('N1-3 source wiring', () => {
     expect(src).toContain('退出托管')
     expect(src).toContain('vm?.finishRequestUI()')
     expect(src).toContain('useInteractionStore.getState().clear()')
+    expect(src).toContain("setTrustPending('enter')")
+    expect(src).toContain("setTrustPending('exit')")
   })
 
   it('wires waiting-room owner kick to KickPlayer', () => {

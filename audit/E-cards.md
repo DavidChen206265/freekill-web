@@ -79,6 +79,7 @@
 - web 行为: !enabled && !selected 时叠加 rgba(0,0,0,.5) opacity .7 黑遮罩——这其实对应 selectable 黑遮罩(E22)，web 把"enabled"语义映射到此
 - 差异: web 用 interactionStore 的 enabled 驱动遮罩，而原版黑遮罩由 selectable 驱动。两者在请求态下通常一致（不可选=不可用），但语义不是同一字段。归类为"还原错误"偏重于命名/驱动来源差异，视觉表现实际与 E22 一致
 - 修复: 已修复并验证 (复核源码确认这是误判,非真错误：原版 Room.qml:746 + dashboard.applyChange 把 UpdateRequestUI 的 `enabled` 直接绑给 CardItem/Photo 的 `selectable`——即 `selectable = enabled`,同一 VM ui_emu 信号,只是协议字段名。web 用 `enabled` 驱动黑遮罩与原版完全等价。已在 CardLayer.tsx:225-230 注释说明该等价关系;状态升级为完全还原。2026-06-12)
+- 修复: 已修复并验证 (补强:原版 HandcardArea 新进手牌默认 `selectable=false`,只有 applyChange/enableCards 置为可选；web CardLayer 改为自己手牌无 VM selectable state 时也显示黑遮罩,覆盖回合外、Cancel/FinishRequestUI 后和托管中等时机。web 186 测试、typecheck、build 通过，2026-06-13)
 
 ---
 
